@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="512" viewBox="81 81  350 350" role="img" aria-labelledby="title desc">
+  <title id="title">Caderact geometric logo</title>
+  <desc id="desc">An original blue faceted hexagonal cube mark with an open channel forming a subtle letter C.</desc>
+  <defs>
+    <linearGradient id="top" x1="108" y1="82" x2="402" y2="236" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6EDCFF"/>
+      <stop offset="1" stop-color="#238DFF"/>
+    </linearGradient>
+    <linearGradient id="left" x1="101" y1="176" x2="259" y2="435" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#218DFF"/>
+      <stop offset="1" stop-color="#0755D5"/>
+    </linearGradient>
+    <linearGradient id="right" x1="407" y1="176" x2="263" y2="434" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#146FEA"/>
+      <stop offset="1" stop-color="#063FAF"/>
+    </linearGradient>
+    <!-- <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#072C72" flood-opacity=".20"/>
+    </filter> -->
+  </defs>
+
+  <!-- The three facets share a hexagonal silhouette. The right-side cuts create
+       a deliberate C-shaped opening without relying on a font or traced artwork. -->
+  <g filter="url(#shadow)">
+    <path fill="url(#top)" d="M256 46 430 146 348 194 256 141 164 194 82 146Z"/>
+    <path fill="url(#left)" d="M82 146 164 194 164 300 256 353 256 466 82 366Z"/>
+    <path fill="url(#right)" d="M430 146 348 194 256 141 256 236 319 272 256 308 256 353 338 306 338 259 430 206Z"/>
+    <path fill="url(#right)" d="M430 306 338 359 256 406 256 466 430 366Z"/>
+  </g>
+
+  <!-- Crisp inner bevels add dimensional separation at icon sizes. -->
+  <path fill="#8DE7FF" fill-opacity=".46" d="M256 46 430 146 420 152 256 58 92 152 82 146Z"/>
+  <!-- <path fill="#0042AA" fill-opacity=".34" d="M256 353 338 306 338 318 268 359 268 459 256 466Z"/> -->
+</svg>

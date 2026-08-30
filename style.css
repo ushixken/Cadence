@@ -1,0 +1,75 @@
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body{
+    background-color: #0D1117;
+    font-family: sans-serif;
+}
+
+/* flexing the homepage */
+.home-page{
+    display: flex;
+}
+
+/* Sidebar Styles */
+
+.home-sidebar{
+    background-color: #090D12;
+    width: 300px;
+    min-height: 100vh;
+    border-right: 1px solid #252D38;
+}
+
+
+/* Sidebar Caderact Logo Styles */
+.home-sidebar img{
+    width: 2.5rem;
+}
+
+h1{
+    color: #F2F4F7;
+    font-size: 1.9rem;
+    font-weight: lighter;
+}
+
+.caderact-logo{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 5rem;
+    gap: 1.2rem;
+    text-decoration: none;
+}
+
+/* Sidebar List Styles*/
+
+.sidebar-list{
+    margin-top: 5rem;
+}
+.sidebar-list a{
+    text-decoration: none;
+    color: #F2F4F7;
+    font-size: 1.2rem;
+}
+
+.sidebar-list li{
+    margin: 15px 2rem;
+    padding: 1rem;
+    list-style: none;
+    padding-left: 3.5rem;
+    
+}
+
+/* Home list (ACTIVE) */
+.sidebar-list li:nth-child(1){
+    background-color: #213153;
+    border-radius: 0.7rem;
+}
+
+.sidebar-list li:nth-child(4){
+    margin-top: 400px;
+    border-bottom: 1px solid #252D38;
+}
