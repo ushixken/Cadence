@@ -8,6 +8,8 @@
     --activeButton: #17233D;
     --activeText: #3F6DF6;
     --hoverButton: #232528;
+
+    --borderRadius: 0.5rem;
 }
 
 * {
@@ -93,13 +95,13 @@ h1 {
 
 .sidebar-list a:hover{
     background-color: var(--hoverButton);
-    border-radius: 0.5rem;
+    border-radius: var(--borderRadius);
 }
 
 /* Home active state */
 .sidebar-list .nav-active {
     background-color: var(--activeButton);
-    border-radius: 0.5rem;
+    border-radius: var(--borderRadius);
     color: var(--activeText);
 }
 
@@ -141,7 +143,7 @@ h1 {
     font-size: 1rem;
     padding: 10px 20px;
     border: 2px solid var(--buttonBorder);
-    border-radius: 2rem;
+    border-radius: var(--borderRadius);
     background: none;
     cursor: pointer;
 }
@@ -180,7 +182,7 @@ h2 {
 .home-button button{
     padding: 1rem 2rem;
     font-size: 1rem;
-    border-radius: 5px;
+    border-radius: var(--borderRadius);
     cursor: pointer;
 }
 
