@@ -1,75 +1,197 @@
-*{
+:root {
+    --sideBar: #090D12;
+    --mainPage: #121c27;
+    --mainText: #F2F4F7;
+    --secondaryText: #A7AFBB;
+    --borders: #252D38;
+    --buttonBorder: #5b6c85;
+    --activeButton: #17233D;
+    --activeText: #3F6DF6;
+    --hoverButton: #232528;
+}
+
+* {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-user-drag: none;
+    user-select: none;
 }
 
-body{
-    background-color: #0D1117;
+body {
+    background-color: var(--mainPage);
     font-family: sans-serif;
 }
 
-/* flexing the homepage */
-.home-page{
+/* Homepage layout */
+.home-page {
     display: flex;
-}
-
-/* Sidebar Styles */
-
-.home-sidebar{
-    background-color: #090D12;
-    width: 300px;
     min-height: 100vh;
-    border-right: 1px solid #252D38;
 }
 
-
-/* Sidebar Caderact Logo Styles */
-.home-sidebar img{
-    width: 2.5rem;
-}
-
-h1{
-    color: #F2F4F7;
-    font-size: 1.9rem;
-    font-weight: lighter;
-}
-
-.caderact-logo{
+.home-main {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    flex: 1;
+}
+
+/* Sidebar */
+.home-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 270px;
+    min-height: 100vh;
+    background-color: var(--sideBar);
+    border-right: 1px solid var(--borders);
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-bottom: 1rem;
+}
+
+/* Caderact logo */
+.home-sidebar img {
+    width: 2rem;
+}
+
+h1 {
+    color: var(--mainText);
+    font-size: 1.5rem;
+}
+
+.caderact-logo {
+    display: flex;
     align-items: center;
-    margin-top: 5rem;
-    gap: 1.2rem;
+    padding-left: 1rem;
+    gap: 0.8rem;
     text-decoration: none;
+    margin-top: 2.5rem;
+    margin-bottom: 2.5rem;
+}
+/* Sidebar navigation */
+.home-sidebar nav {
+    display: flex;
+    flex: 1;
 }
 
-/* Sidebar List Styles*/
-
-.sidebar-list{
-    margin-top: 5rem;
+.sidebar-list {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 1rem;
 }
-.sidebar-list a{
+
+.sidebar-list a {
     text-decoration: none;
-    color: #F2F4F7;
+    color: var(--secondaryText);
     font-size: 1.2rem;
-}
-
-.sidebar-list li{
-    margin: 15px 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
     padding: 1rem;
     list-style: none;
-    padding-left: 3.5rem;
-    
 }
 
-/* Home list (ACTIVE) */
-.sidebar-list li:nth-child(1){
-    background-color: #213153;
-    border-radius: 0.7rem;
+.sidebar-list a:hover{
+    background-color: var(--hoverButton);
+    border-radius: 0.5rem;
 }
 
-.sidebar-list li:nth-child(4){
-    margin-top: 400px;
-    border-bottom: 1px solid #252D38;
+/* Home active state */
+.sidebar-list .nav-active {
+    background-color: var(--activeButton);
+    border-radius: 0.5rem;
+    color: var(--activeText);
+}
+
+/* SVG Styles */
+
+.sidebar-list a svg{
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+/* Help Separator */
+
+.sidebar-list .help-button {
+    margin-top: auto;
+    position: relative;
+}
+
+.sidebar-list .help-button::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -1rem;
+    border-top: 1px solid var(--borders);
+}
+
+/* Header content */
+.home-header{
+    display: flex;
+    height: 100px;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 30px;
+    padding: 0 3rem;
+}
+
+.home-profile{
+    color: var(--secondaryText);
+    font-size: 1rem;
+    padding: 10px 20px;
+    border: 2px solid var(--buttonBorder);
+    border-radius: 2rem;
+    background: none;
+    cursor: pointer;
+}
+
+.home-notification svg{
+    width: 2rem;
+    height: 2rem;
+    cursor: pointer;
+}
+
+/* Main content */
+h2 {
+    color: var(--mainText);
+    font-size: 3rem;
+}
+
+.home-content{
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    margin: 5rem;
+    margin-top: 2rem;
+    gap: 2rem;
+}
+
+.home-content p{
+    color: var(--secondaryText);
+    font-size: 1.3rem;
+    max-width: 26ch;
+}
+
+.home-button{
+    display: flex;
+    gap: 1.5rem;
+}
+.home-button button{
+    padding: 1rem 2rem;
+    font-size: 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.new-project{
+    background-color: var(--activeText);
+    color: var(--mainText);
+    border: none;
+}
+
+.import-file{
+    color: var(--secondaryText);
+    background: none;
+    border: 1px solid var(--buttonBorder);
 }
