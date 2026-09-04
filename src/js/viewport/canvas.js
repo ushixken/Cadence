@@ -8,11 +8,11 @@ const viewportSettings = {
   initialZoom: 5,
   wheelZoomSensitivity: 0.0015,
   dragZoomSensitivity: 0.01,
-  backgroundColor: "#121c27",
+  backgroundColor: "#182633",
   gridColor: "rgba(167, 175, 187, 0.28)",
   gridBoundaryColor: "rgba(167, 175, 187, 0.55)",
-  xAxisColor: "#e45858",
-  yAxisColor: "#4caf72",
+  xAxisColor: "#984b51",
+  yAxisColor: "#3b7658",
 }
 
 // panX and panY are the screen position of the world origin, in CSS pixels.
@@ -123,10 +123,10 @@ function drawAxes(deviceScale) {
   const right = worldToScreen(extent, 0).x
   const top = worldToScreen(0, extent).y
   const bottom = worldToScreen(0, -extent).y
-  context.lineWidth = 2 / deviceScale
+  context.lineWidth = 1 / deviceScale
 
   if (origin.y >= 0 && origin.y <= viewportHeight && right >= 0 && left <= viewportWidth) {
-    const axisY = alignToPhysicalPixel(origin.y, deviceScale, 2)
+    const axisY = alignToPhysicalPixel(origin.y, deviceScale)
     context.beginPath()
     context.strokeStyle = viewportSettings.xAxisColor
     context.moveTo(Math.max(0, left), axisY)
@@ -135,7 +135,7 @@ function drawAxes(deviceScale) {
   }
 
   if (origin.x >= 0 && origin.x <= viewportWidth && bottom >= 0 && top <= viewportHeight) {
-    const axisX = alignToPhysicalPixel(origin.x, deviceScale, 2)
+    const axisX = alignToPhysicalPixel(origin.x, deviceScale)
     context.beginPath()
     context.strokeStyle = viewportSettings.yAxisColor
     context.moveTo(axisX, Math.max(0, top))

@@ -25,6 +25,10 @@ body {
   font-family: sans-serif;
 }
 
+.editor-page {
+  display: none;
+}
+
 /* Homepage layout */
 .home-page {
   display: flex;
