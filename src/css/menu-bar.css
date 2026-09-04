@@ -35,6 +35,7 @@
 }
 
 .menu-items button,
+.top-settings,
 .notification,
 .profile {
   border: 0;
@@ -52,6 +53,15 @@
 
 .menu-items button:hover {
   background-color: #1b2b3c;
+}
+
+.top-settings {
+  padding: 2px;
+  color: var(--secondaryText);
+  background: transparent;
+  border: 0;
+  font-size: 0.9rem;
+  cursor: pointer;
 }
 
 .menu-actions {

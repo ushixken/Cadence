@@ -12,6 +12,7 @@
     <!-- JavaScript Files -->
     <script src="/src/js/home/home.js" defer></script>
     <script src="/src/js/viewport/canvas.js" defer></script>
+    <script src="/src/js/editor/footer.js" defer></script>
   </head>
   <body>
     <main>
@@ -301,6 +302,7 @@
             <li><button type="button">Edit</button></li>
             <li><button type="button">View</button></li>
             <li><button type="button">Tools</button></li>
+            <li><button type="button">Settings</button></li>
             <li><button type="button">Window</button></li>
             <li><button type="button">Help</button></li>
           </ul>
@@ -332,18 +334,136 @@
             <div class="command-placeholder">Type a command...</div>
           </div>
           <div class="footer-tools" aria-label="Viewport settings">
-            <button class="footer-tool is-active" type="button"><span aria-hidden="true">▦</span> Grid Snap</button>
-            <button class="footer-tool" type="button"><span aria-hidden="true">⌞</span> Ortho</button>
-            <button class="footer-tool" type="button"><span aria-hidden="true">⊕</span> Polar</button>
-            <button class="footer-tool" type="button">⌘ Osnap <span aria-hidden="true">⌄</span></button>
-            <button class="footer-tool" type="button"><span aria-hidden="true">⌁</span> Track</button>
-            <button class="footer-tool" type="button"><span aria-hidden="true">♧</span> Planar</button>
-            <button class="footer-tool" type="button"><span aria-hidden="true">◇</span> Gumball</button>
+            <button class="footer-tool is-active" type="button">
+              Grid Snap
+            </button>
+            <button class="footer-tool" type="button">Ortho</button>
+            <button class="footer-tool" type="button">Track</button>
+            <button class="footer-tool" type="button">Planar</button>
+            <button class="footer-tool" type="button">Gumball</button>
           </div>
           <div class="footer-actions">
-            <button class="units-control" type="button">Units: <strong>mm</strong> <span aria-hidden="true">⌄</span></button>
-            <button class="footer-icon" type="button" aria-label="Settings">⚙</button>
-            <button class="footer-icon" type="button" aria-label="Menu">☰</button>
+            <div class="footer-dropdown snap-control">
+              <button
+                class="snap-trigger"
+                type="button"
+                aria-expanded="false"
+                aria-controls="snap-menu"
+              >
+                Snap
+                <svg
+                  class="dropdown-icon"
+                  viewBox="0 0 12 12"
+                  aria-hidden="true"
+                >
+                  <path d="M2.5 4.5 6 8l3.5-3.5" />
+                </svg>
+              </button>
+              <div class="snap-menu" id="snap-menu" hidden>
+                <div class="snap-menu-title">Snap</div>
+                <div class="snap-menu-divider"></div>
+                <label class="snap-option"
+                  ><input id="snap-enabled" type="checkbox" checked />
+                  <span>Snap Enabled</span></label
+                >
+                <section class="snap-dependent">
+                  <div class="snap-section-title">Object Snaps</div>
+                  <label class="snap-option"
+                    ><input type="checkbox" checked />
+                    <span>Endpoint</span></label
+                  >
+                  <label class="snap-option"
+                    ><input type="checkbox" checked />
+                    <span>Midpoint</span></label
+                  >
+                  <label class="snap-option"
+                    ><input type="checkbox" checked />
+                    <span>Center</span></label
+                  >
+                  <label class="snap-option"
+                    ><input type="checkbox" checked />
+                    <span>Intersection</span></label
+                  >
+                  <label class="snap-option"
+                    ><input type="checkbox" checked />
+                    <span>Nearest</span></label
+                  >
+                  <label class="snap-option"
+                    ><input type="checkbox" /> <span>Perpendicular</span></label
+                  >
+                  <label class="snap-option"
+                    ><input type="checkbox" /> <span>Tangent</span></label
+                  >
+                  <label class="snap-option"
+                    ><input type="checkbox" /> <span>Quadrant</span></label
+                  >
+                  <label class="snap-option"
+                    ><input type="checkbox" /> <span>Vertex</span></label
+                  >
+                  <div class="snap-section-title">Angle</div>
+                  <label class="snap-option"
+                    ><input type="checkbox" checked />
+                    <span>Angle Snap</span></label
+                  >
+                  <label class="snap-option snap-indent"
+                    ><input type="checkbox" />
+                    <span>Increment: 45°</span></label
+                  >
+                </section>
+                <div class="snap-menu-divider"></div>
+                <button class="snap-settings" type="button">
+                  Snap Settings...
+                </button>
+              </div>
+            </div>
+            <div class="footer-dropdown units-control-wrap">
+              <button
+                class="units-control"
+                type="button"
+                aria-expanded="false"
+                aria-controls="units-menu"
+              >
+                Units: <strong data-unit-value>mm</strong>
+                <svg
+                  class="dropdown-icon"
+                  viewBox="0 0 12 12"
+                  aria-hidden="true"
+                >
+                  <path d="M2.5 4.5 6 8l3.5-3.5" />
+                </svg>
+              </button>
+              <div class="units-menu" id="units-menu" hidden>
+                <div class="unit-section-title">Metric</div>
+                <button
+                  class="unit-option is-selected"
+                  type="button"
+                  data-unit="mm"
+                >
+                  <span>Millimeters (mm)</span><span class="unit-check">✓</span>
+                </button>
+                <button class="unit-option" type="button" data-unit="cm">
+                  <span>Centimeters (cm)</span><span class="unit-check">✓</span>
+                </button>
+                <button class="unit-option" type="button" data-unit="m">
+                  <span>Meters (m)</span><span class="unit-check">✓</span>
+                </button>
+                <div class="unit-section-title">Imperial</div>
+                <button class="unit-option" type="button" data-unit="in">
+                  <span>Inches (in)</span><span class="unit-check">✓</span>
+                </button>
+                <button class="unit-option" type="button" data-unit="ft">
+                  <span>Feet (ft)</span><span class="unit-check">✓</span>
+                </button>
+                <button class="unit-option" type="button" data-unit="ft-in">
+                  <span>Feet &amp; Inches (ft-in)</span
+                  ><span class="unit-check">✓</span>
+                </button>
+                <div class="snap-menu-divider"></div>
+                <button class="snap-settings" type="button">
+                  Unit Settings...
+                </button>
+              </div>
+            </div>
           </div>
         </footer>
       </div>
