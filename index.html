@@ -326,6 +326,26 @@
         <div class="viewport">
           <canvas></canvas>
         </div>
+        <footer class="editor-footer" aria-label="Editor status bar">
+          <div class="command-area">
+            <span class="command-label">Command:</span>
+            <div class="command-placeholder">Type a command...</div>
+          </div>
+          <div class="footer-tools" aria-label="Viewport settings">
+            <button class="footer-tool is-active" type="button"><span aria-hidden="true">▦</span> Grid Snap</button>
+            <button class="footer-tool" type="button"><span aria-hidden="true">⌞</span> Ortho</button>
+            <button class="footer-tool" type="button"><span aria-hidden="true">⊕</span> Polar</button>
+            <button class="footer-tool" type="button">⌘ Osnap <span aria-hidden="true">⌄</span></button>
+            <button class="footer-tool" type="button"><span aria-hidden="true">⌁</span> Track</button>
+            <button class="footer-tool" type="button"><span aria-hidden="true">♧</span> Planar</button>
+            <button class="footer-tool" type="button"><span aria-hidden="true">◇</span> Gumball</button>
+          </div>
+          <div class="footer-actions">
+            <button class="units-control" type="button">Units: <strong>mm</strong> <span aria-hidden="true">⌄</span></button>
+            <button class="footer-icon" type="button" aria-label="Settings">⚙</button>
+            <button class="footer-icon" type="button" aria-label="Menu">☰</button>
+          </div>
+        </footer>
       </div>
     </main>
   </body>

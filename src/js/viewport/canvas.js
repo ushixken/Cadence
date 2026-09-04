@@ -221,10 +221,12 @@ function getCanvasPoint(event) {
 }
 
 canvas.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0 || !isSpacePressed) return
+  const isSpaceDrag = event.button === 0 && isSpacePressed
+  const isMiddleMouseDrag = event.button === 1
+  if (!isSpaceDrag && !isMiddleMouseDrag) return
 
   const point = getCanvasPoint(event)
-  navigationMode = event.ctrlKey ? "zoom" : "pan"
+  navigationMode = event.ctrlKey && (isSpaceDrag || isMiddleMouseDrag) ? "zoom" : "pan"
   activePointerId = event.pointerId
   previousPointerX = point.x
   previousPointerY = point.y
