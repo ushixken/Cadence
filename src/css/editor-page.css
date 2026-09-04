@@ -19,6 +19,7 @@ canvas {
   height: 100%;
   background-color: #182633;
   touch-action: none;
+  cursor: url("/assets/cursors/cad-crosshair.svg") 16 16, crosshair;
 }
 
 canvas.is-navigation-ready {
