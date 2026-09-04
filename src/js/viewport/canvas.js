@@ -13,6 +13,8 @@ const viewportSettings = {
   gridBoundaryColor: "rgba(167, 175, 187, 0.55)",
   xAxisColor: "#984b51",
   yAxisColor: "#3b7658",
+  geometryColor: "#e8edf4",
+  previewColor: "rgba(232, 237, 244, 0.65)",
 }
 
 // panX and panY are the screen position of the world origin, in CSS pixels.
@@ -32,6 +34,11 @@ let previousPointerX = 0
 let previousPointerY = 0
 let zoomAnchorX = 0
 let zoomAnchorY = 0
+const completedLines = []
+let activeCommand = null
+let pendingLineStart = null
+let previewLineEnd = null
+let lineSessionStartIndex = null
 
 function worldToScreen(worldX, worldY) {
   return {
@@ -183,6 +190,36 @@ function drawGridBoundary(deviceScale) {
   context.stroke()
 }
 
+function drawCompletedLines(deviceScale) {
+  if (completedLines.length === 0) return
+
+  context.beginPath()
+  context.strokeStyle = viewportSettings.geometryColor
+  context.lineWidth = 1 / deviceScale
+
+  completedLines.forEach((line) => {
+    const start = worldToScreen(line.start.x, line.start.y)
+    const end = worldToScreen(line.end.x, line.end.y)
+    context.moveTo(start.x, start.y)
+    context.lineTo(end.x, end.y)
+  })
+
+  context.stroke()
+}
+
+function drawLinePreview(deviceScale) {
+  if (activeCommand !== "line" || pendingLineStart === null || previewLineEnd === null) return
+
+  const start = worldToScreen(pendingLineStart.x, pendingLineStart.y)
+  const end = worldToScreen(previewLineEnd.x, previewLineEnd.y)
+  context.beginPath()
+  context.strokeStyle = viewportSettings.previewColor
+  context.lineWidth = 1 / deviceScale
+  context.moveTo(start.x, start.y)
+  context.lineTo(end.x, end.y)
+  context.stroke()
+}
+
 function renderViewport() {
   const deviceScale = window.devicePixelRatio || 1
   context.setTransform(deviceScale, 0, 0, deviceScale, 0, 0)
@@ -191,6 +228,50 @@ function renderViewport() {
   drawGridLines(deviceScale)
   drawGridBoundary(deviceScale)
   drawAxes(deviceScale)
+  drawCompletedLines(deviceScale)
+  drawLinePreview(deviceScale)
+}
+
+function updateCommandFeedback(message) {
+  document.dispatchEvent(
+    new CustomEvent("caderact:command-feedback", { detail: { message } }),
+  )
+}
+
+function startLineCommand() {
+  activeCommand = "line"
+  pendingLineStart = null
+  previewLineEnd = null
+  lineSessionStartIndex = completedLines.length
+  updateCommandFeedback("Line: Specify first point")
+}
+
+function finishActiveCommand() {
+  if (activeCommand === null) return false
+
+  activeCommand = null
+  pendingLineStart = null
+  previewLineEnd = null
+  lineSessionStartIndex = null
+  updateCommandFeedback("Type a command...")
+  renderViewport()
+  return true
+}
+
+function cancelActiveCommand() {
+  if (activeCommand === null) return false
+
+  if (activeCommand === "line" && lineSessionStartIndex !== null) {
+    completedLines.splice(lineSessionStartIndex)
+  }
+
+  return finishActiveCommand()
+}
+
+window.caderactViewport = {
+  startLineCommand,
+  finishActiveCommand,
+  cancelActiveCommand,
 }
 
 function resizeCanvas() {
@@ -237,6 +318,35 @@ canvas.addEventListener("pointerdown", (event) => {
   event.preventDefault()
 })
 
+canvas.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0 || navigationMode !== null || activeCommand !== "line") return
+
+  const canvasPoint = getCanvasPoint(event)
+  const worldPoint = screenToWorld(canvasPoint.x, canvasPoint.y)
+
+  if (pendingLineStart === null) {
+    pendingLineStart = worldPoint
+    previewLineEnd = worldPoint
+    updateCommandFeedback("Line: Specify next point")
+    renderViewport()
+    return
+  }
+
+  completedLines.push({ start: pendingLineStart, end: worldPoint })
+  pendingLineStart = worldPoint
+  previewLineEnd = worldPoint
+  updateCommandFeedback("Line: Specify next point")
+  renderViewport()
+})
+
+canvas.addEventListener("pointermove", (event) => {
+  if (activeCommand !== "line" || pendingLineStart === null || navigationMode !== null) return
+
+  const canvasPoint = getCanvasPoint(event)
+  previewLineEnd = screenToWorld(canvasPoint.x, canvasPoint.y)
+  renderViewport()
+})
+
 canvas.addEventListener("pointermove", (event) => {
   if (event.pointerId !== activePointerId || navigationMode === null) return
 
@@ -276,7 +386,13 @@ canvas.addEventListener("wheel", (event) => {
 }, { passive: false })
 
 canvas.addEventListener("pointerenter", () => canvas.classList.add("is-hovered"))
-canvas.addEventListener("pointerleave", () => canvas.classList.remove("is-hovered"))
+canvas.addEventListener("pointerleave", () => {
+  canvas.classList.remove("is-hovered")
+  if (activeCommand === "line" && previewLineEnd !== null) {
+    previewLineEnd = null
+    renderViewport()
+  }
+})
 
 window.addEventListener("keydown", (event) => {
   if (event.code !== "Space" || !canvas.classList.contains("is-hovered")) return

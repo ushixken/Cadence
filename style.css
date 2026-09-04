@@ -25,6 +25,10 @@ body {
   font-family: sans-serif;
 }
 
+body :focus-visible {
+  outline: none;
+}
+
 .editor-page {
   display: none;
 }

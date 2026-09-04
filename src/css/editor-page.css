@@ -52,18 +52,64 @@ canvas.is-navigating {
   gap: 10px;
 }
 
+.command-input-wrap {
+  position: relative;
+}
+
 .command-label {
   color: var(--mainText);
   font-weight: 600;
 }
 
-.command-placeholder {
+.command-input {
   width: min(325px, 28vw);
   padding: 9px 11px;
   color: #738398;
   background-color: #172738;
   border: 1px solid #20364a;
   border-radius: 0.35rem;
+  font: inherit;
+  outline: none;
+}
+
+.command-input:focus {
+  color: var(--mainText);
+  border-color: var(--activeText);
+}
+
+.command-input.has-active-command::placeholder {
+  color: var(--mainText);
+  opacity: 1;
+}
+
+.command-suggestions {
+  position: absolute;
+  z-index: 3;
+  bottom: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+  background-color: #132334;
+  border: 1px solid #31465d;
+  border-radius: 0.35rem;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.command-suggestion {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  color: var(--secondaryText);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.command-suggestion.is-selected {
+  color: #e2ebf8;
+  background-color: #1b426f;
 }
 
 .footer-tools {
@@ -278,7 +324,7 @@ canvas.is-navigating {
     padding: 0 8px;
   }
 
-  .command-placeholder {
+  .command-input {
     width: 150px;
   }
 

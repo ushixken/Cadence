@@ -13,6 +13,7 @@
     <script src="/src/js/home/home.js" defer></script>
     <script src="/src/js/viewport/canvas.js" defer></script>
     <script src="/src/js/editor/footer.js" defer></script>
+    <script src="/src/js/editor/commands.js" defer></script>
   </head>
   <body>
     <main>
@@ -331,7 +332,17 @@
         <footer class="editor-footer" aria-label="Editor status bar">
           <div class="command-area">
             <span class="command-label">Command:</span>
-            <div class="command-placeholder">Type a command...</div>
+            <div class="command-input-wrap">
+              <input
+                class="command-input"
+                id="command-input"
+                type="text"
+                placeholder="Type a command..."
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <div class="command-suggestions" id="command-suggestions" hidden></div>
+            </div>
           </div>
           <div class="footer-tools" aria-label="Viewport settings">
             <button class="footer-tool is-active" type="button">
