@@ -1,4 +1,22 @@
-canvas {
-  height: 100vh;
+.editor-page,
+.viewport {
   width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: var(--mainPage);
+  touch-action: none;
+}
+
+canvas.is-navigation-ready {
+  cursor: grab;
+}
+
+canvas.is-navigating {
+  cursor: grabbing;
 }
