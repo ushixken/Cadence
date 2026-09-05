@@ -230,5 +230,5 @@ scalability is not claimed.
 Explicitly not implemented here: `stateId`, `savedStateId`, dirty-state
 tracking, undo/redo history, redo branching, the final whole-session Line
 draft, collaboration/CRDT behavior, and any persistence layer. The known
-WebGPU → Canvas2D same-canvas recovery defect and its regression test are
-unchanged.
+WebGPU → Canvas2D same-canvas recovery defect and its regression test were
+unchanged at A3; A11 later fixed the canvas lifecycle.

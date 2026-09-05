@@ -9,7 +9,8 @@ There was no package.json, npm script, installed test stack, or existing test su
 - `commands/input.test.cjs`: name/alias/prefix launch, trimming/case, Enter/Space/click exactly-once dispatch, Tab completion, printable-key routing and field/modifier guards.
 - `commands/line.test.cjs`: transient Line drafts, live preview, one-transaction completion, cancellation, Step Undo, failure retention, and clean restart.
 - `viewport/navigation.test.cjs`: real coordinate functions, pan, wheel/drag zoom anchors, navigation termination, resize and DPR through the real Canvas2D renderer.
-- `rendering/boundary.test.cjs`: scene ordering, buffer isolation, renderer exception, early fallback, and known late-fallback defect.
+- `rendering/boundary.test.cjs`: scene ordering, buffer isolation, WebGPU-first creation, early fallback, context-exclusive canvas replacement, device-loss/render-exception recovery, and controlled total failure.
+- `rendering/scale.test.cjs`: 5,000-record authoritative enumeration, stable ordering, scene projection, and Canvas2D consumption baseline.
 - `rendering/read-side.test.cjs`: authoritative document projection, Undo/Redo and external publication rendering, immutable deterministic enumeration, unsupported records, and the shared backend scene contract.
 - `document/layers.test.cjs`: layer invariants and immutable reads, atomic lifecycle/property edits, deletion policy, exact history, stale/rollback behavior, branching, and A6 rendering continuity.
 - `document/persistence.test.cjs`: deterministic versioned payloads, exact round trips, fresh clean load state, pinned-save acknowledgment, corruption rejection, transient-state exclusion, and loaded-record rendering.
@@ -28,13 +29,13 @@ The harness executes production files in a fresh VM for each test. It reads exis
 - Enter used to launch a suggestion is not also consumed as Line completion.
 - Enter publishes a complete Line draft once; Escape discards the uncommitted draft without document publication.
 
-## Known defect: WebGPU recovery
+## WebGPU recovery
 
-The viewport calls the renderer factory again using the same canvas after device loss. If WebGPU was already acquired and recovery subsequently falls back, Canvas2DRenderer accepts a null 2D context and rendering throws. The factory also catches failures occurring after WebGPU context acquisition, so the risk is not limited to device-loss recovery.
+Before A11, the viewport called the renderer factory again using the same canvas after device loss. If WebGPU had already been acquired, Canvas2D context acquisition could return null. Canvas2DRenderer then failed during rendering.
 
-Two focused tests establish the path: the viewport retries with the same canvas, and the factory returns an unusable fallback under a context-exclusive canvas stub. The known-defect test **passes by demonstrating the defect**, not by proving recovery works. Replace its expectation when recovery is intentionally fixed. This is not a hardware/browser device-loss test.
+A11 replaces the locked canvas before late Canvas2D recovery, validates Canvas2D context creation immediately, rebinds viewport interactions once, and redraws current authoritative state. Tests model context exclusivity and verify positive recovery, preserved state, repeated replacement, and controlled total failure. They are not hardware/browser device-loss tests.
 
-Rendering exceptions currently propagate out of the scheduled frame. Tests show that a thrown render does not change existing model geometry; they do not claim automatic recovery or UI error containment.
+Synchronous rendering exceptions are contained and enter the same one-at-a-time recovery path. Failure to create the fallback renderer produces an inspectable failed state rather than an unhandled frame exception.
 
 ## Limits and manual follow-up
 

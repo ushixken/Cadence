@@ -12,7 +12,7 @@
       canvas.classList.remove("is-navigating")
     }
 
-    canvas.addEventListener("pointerdown", (event) => {
+    function onPointerDown(event) {
       const isSpaceDrag = event.button === 0 && isSpacePressed
       const isMiddleMouseDrag = event.button === 1
       if (!isSpaceDrag && !isMiddleMouseDrag) return
@@ -26,9 +26,9 @@
       canvas.setPointerCapture(event.pointerId)
       canvas.classList.add("is-navigating")
       event.preventDefault()
-    })
+    }
 
-    canvas.addEventListener("pointermove", (event) => {
+    function onPointerMove(event) {
       if (event.pointerId !== activePointerId || navigationMode === null) return
       const point = getCanvasPoint(event)
       if (navigationMode === "pan") {
@@ -45,13 +45,9 @@
       previousPointerY = point.y
       requestRender()
       event.preventDefault()
-    })
+    }
 
-    canvas.addEventListener("pointerup", stopNavigation)
-    canvas.addEventListener("pointercancel", stopNavigation)
-    canvas.addEventListener("lostpointercapture", stopNavigation)
-
-    canvas.addEventListener("wheel", (event) => {
+    function onWheel(event) {
       const point = getCanvasPoint(event)
       camera.zoomAtScreenPoint(
         camera.state.zoom * Math.exp(-event.deltaY * viewportSettings.wheelZoomSensitivity),
@@ -60,34 +56,62 @@
       )
       requestRender()
       event.preventDefault()
-    }, { passive: false })
+    }
 
-    canvas.addEventListener("pointerenter", () => canvas.classList.add("is-hovered"))
-    canvas.addEventListener("pointerleave", () => canvas.classList.remove("is-hovered"))
+    const onPointerEnter = () => canvas.classList.add("is-hovered")
+    const onPointerLeave = () => canvas.classList.remove("is-hovered")
 
-    window.addEventListener("keydown", (event) => {
+    function onKeyDown(event) {
       if (event.code !== "Space" || !canvas.classList.contains("is-hovered")) return
       isSpacePressed = true
       canvas.classList.add("is-navigation-ready")
       event.preventDefault()
-    })
+    }
 
-    window.addEventListener("keyup", (event) => {
+    function onKeyUp(event) {
       if (event.code !== "Space") return
       isSpacePressed = false
       canvas.classList.remove("is-navigation-ready")
       stopNavigation()
-    })
+    }
 
-    window.addEventListener("blur", () => {
+    function onBlur() {
       isSpacePressed = false
       canvas.classList.remove("is-navigation-ready")
       stopNavigation()
-    })
+    }
+
+    canvas.addEventListener("pointerdown", onPointerDown)
+    canvas.addEventListener("pointermove", onPointerMove)
+    canvas.addEventListener("pointerup", stopNavigation)
+    canvas.addEventListener("pointercancel", stopNavigation)
+    canvas.addEventListener("lostpointercapture", stopNavigation)
+    canvas.addEventListener("wheel", onWheel, { passive: false })
+    canvas.addEventListener("pointerenter", onPointerEnter)
+    canvas.addEventListener("pointerleave", onPointerLeave)
+    window.addEventListener("keydown", onKeyDown)
+    window.addEventListener("keyup", onKeyUp)
+    window.addEventListener("blur", onBlur)
+
+    function dispose() {
+      stopNavigation()
+      canvas.removeEventListener("pointerdown", onPointerDown)
+      canvas.removeEventListener("pointermove", onPointerMove)
+      canvas.removeEventListener("pointerup", stopNavigation)
+      canvas.removeEventListener("pointercancel", stopNavigation)
+      canvas.removeEventListener("lostpointercapture", stopNavigation)
+      canvas.removeEventListener("wheel", onWheel)
+      canvas.removeEventListener("pointerenter", onPointerEnter)
+      canvas.removeEventListener("pointerleave", onPointerLeave)
+      window.removeEventListener("keydown", onKeyDown)
+      window.removeEventListener("keyup", onKeyUp)
+      window.removeEventListener("blur", onBlur)
+    }
 
     return Object.freeze({
       isActive: () => navigationMode !== null,
       getMode: () => navigationMode,
+      dispose,
     })
   }
 

@@ -7,8 +7,8 @@ const vm = require('node:vm');
 class Element {
   constructor(tag = 'div') {
     this.tag = tag; this.listeners = {}; this.value = ''; this.hidden = true;
-    this.dataset = {}; this.isContentEditable = false;
-    const classes = new Set();
+    this.dataset = {}; this.attributes = {}; this.isContentEditable = false;
+    const classes = this.classes = new Set();
     this.classList = {
       add: x => classes.add(x), remove: x => classes.delete(x),
       contains: x => classes.has(x),
@@ -16,6 +16,16 @@ class Element {
     };
   }
   addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn); }
+  removeEventListener(type, fn) { this.listeners[type] = (this.listeners[type] ?? []).filter(listener => listener !== fn); }
+  setAttribute(name, value) { this.attributes[name] = String(value); }
+  getAttribute(name) { return this.attributes[name] ?? null; }
+  cloneNode() {
+    const clone = new Element(this.tag); clone.hidden = this.hidden; clone.dataset = { ...this.dataset }; clone.attributes = { ...this.attributes };
+    for (const name of this.classes) clone.classList.add(name);
+    clone.width = this.width; clone.height = this.height; clone._configure = this._configure; clone._replace = this._replace;
+    clone._configure?.(clone); return clone;
+  }
+  replaceWith(replacement) { this._replace?.(replacement); }
   dispatchEvent(event) {
     event.target ??= this;
     for (const fn of this.listeners[event.type] ?? []) fn(event);
@@ -32,22 +42,24 @@ class Element {
 async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const window = new Element(); const document = new Element();
   document.parent = window;
-  const canvas = new Element('canvas'); const input = new Element('input');
+  let canvas = new Element('canvas'); const input = new Element('input');
   const suggestions = new Element();
   for (const el of [canvas, input, suggestions]) { el.parent = document; el.owner = document; }
   let bounds = { left: 20, top: 40, width: 800, height: 600 };
-  canvas.getBoundingClientRect = () => ({ ...bounds });
-  Object.defineProperties(canvas, {
-    clientWidth: { get: () => bounds.width }, clientHeight: { get: () => bounds.height },
-  });
-  let contextType;
   const drawCalls = [];
   const context2d = Object.fromEntries(['setTransform', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'stroke'].map(name => [name, (...args) => drawCalls.push([name, ...args])]));
-  canvas.getContext = type => {
-    if (contextType && contextType !== type) return null;
-    contextType = type;
-    return type === '2d' ? context2d : { configure() {} };
-  };
+  function configureCanvas(target) {
+    target.parent = document; target.owner = document;
+    target.getBoundingClientRect = () => ({ ...bounds });
+    Object.defineProperties(target, { clientWidth: { configurable: true, get: () => bounds.width }, clientHeight: { configurable: true, get: () => bounds.height } });
+    let contextType;
+    target.getContext = type => {
+      if (contextType && contextType !== type) return null;
+      contextType = type;
+      return type === '2d' ? context2d : { configure() {} };
+    };
+  }
+  canvas._configure = configureCanvas; canvas._replace = replacement => { canvas = replacement; }; configureCanvas(canvas);
   document.querySelector = selector => ({ canvas, '#command-input': input, '#command-suggestions': suggestions })[selector];
   window.devicePixelRatio = 1;
   const frames = []; const renders = []; const sizes = [];
@@ -56,7 +68,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   let observedResize;
   const context = vm.createContext({ window, document, crypto: require('node:crypto').webcrypto, navigator: { gpu }, HTMLElement: Element,
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
-    ResizeObserver: class { constructor(fn) { observedResize = fn; } observe() {} },
+    ResizeObserver: class { constructor(fn) { this.fn = fn; } observe() { observedResize = this.fn; } disconnect() { if (observedResize === this.fn) observedResize = undefined; } },
     requestAnimationFrame: fn => frames.push(fn), console: { info() {}, warn() {} },
   });
   const run = expression => vm.runInContext(expression, context);
@@ -71,6 +83,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/document/CaderactPersistence.js');
   load('src/js/viewport/ViewportCamera.js');
   load('src/js/viewport/ViewportScene.js');
+  load('src/js/viewport/ViewportCanvas.js');
   load('src/js/viewport/ViewportNavigation.js');
   load('src/js/editor/LineDraftSession.js');
   load('src/js/viewport/Viewport.js');
@@ -81,10 +94,10 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
       defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...props };
     target.dispatchEvent(event); return event;
   };
-  return { window, document, canvas, input, suggestions, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls,
+  return { window, document, get canvas() { return canvas; }, input, suggestions, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls,
     flush() { while (frames.length) frames.shift()(); },
     read(expression) { return JSON.parse(run(`JSON.stringify(${expression})`)); },
-    resize(width, height, dpr = 1) { bounds = { ...bounds, width, height }; window.devicePixelRatio = dpr; observedResize(); },
+    resize(width, height, dpr = 1) { bounds = { ...bounds, width, height }; window.devicePixelRatio = dpr; observedResize?.(); },
     key(key, target = canvas, props = {}) { return emit(target, 'keydown', { key, code: key === ' ' ? 'Space' : key, ...props }); },
     point(x, y, type = 'pointerdown', props = {}) { return emit(canvas, type, { clientX: bounds.left + x, clientY: bounds.top + y, ...props }); },
     launch(value = 'Line', key = 'Enter') { input.value = value; emit(input, 'input'); return emit(input, 'keydown', { key, code: key === ' ' ? 'Space' : key }); },

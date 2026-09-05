@@ -114,6 +114,10 @@ The known-defect test passes by demonstrating that failure path. It is a
 regression marker, not proof that recovery works, and it does not represent a
 hardware device-loss test.
 
+A11 later fixed this defect by replacing a WebGPU-locked canvas before
+Canvas2D recovery and converting the expected-defect regression into positive
+recovery coverage.
+
 ## Architectural role
 
 A1 is the safety baseline for the staged migration:

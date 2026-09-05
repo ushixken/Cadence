@@ -2,6 +2,7 @@ class WebGPURenderer extends window.CaderactRenderer {
   constructor(canvas, adapter, device, context, format, onDeviceLost) {
     super()
     this.canvas = canvas
+    this.kind = "webgpu"
     this.adapter = adapter
     this.device = device
     this.context = context
@@ -17,7 +18,9 @@ class WebGPURenderer extends window.CaderactRenderer {
       layout: this.pipeline.getBindGroupLayout(0),
       entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }],
     })
-    device.lost.then(() => onDeviceLost())
+    device.lost.then(onDeviceLost, onDeviceLost).catch(error => {
+      console.warn("Caderact renderer recovery callback failed", error)
+    })
   }
 
   createPipeline() {
@@ -92,6 +95,13 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
     }
     pass.end()
     this.device.queue.submit([encoder.finish()])
+  }
+
+  destroy() {
+    this.vertexBuffer?.destroy()
+    this.uniformBuffer?.destroy()
+    this.context.unconfigure?.()
+    this.device.destroy?.()
   }
 }
 

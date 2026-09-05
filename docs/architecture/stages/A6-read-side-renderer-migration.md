@@ -80,6 +80,9 @@ Canvas2D fallback on that same canvas may produce a null/unusable context. The
 existing regression test continues to document that defect. Fixing it requires
 a renderer/canvas lifecycle decision rather than read-side ownership changes.
 
+A11 later made that lifecycle decision: recovery replaces the context-locked
+canvas and rebuilds the latest A6 scene on a usable Canvas2D renderer.
+
 ## Deferred work
 
 A6 itself added no layer/property transactions (A7 later supplies them), selection, snapping, new commands,

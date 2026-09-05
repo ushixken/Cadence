@@ -41,7 +41,7 @@ Validation is deterministic and returns errors without modifying its input. It c
 
 The existing 40 Stage 1 cases retain their behavior assertions. Only reads of the removed array were adapted to the new reader, projecting endpoint coordinates where tests compare the old geometry shape. Additional tests cover stable identities, cancellation, deep read-only access, ordering, coordinate precision, input alias isolation, and validation failures.
 
-No renderer, command-input, navigation, crosshair, transaction, history, or visible layer functionality was added or redesigned. The known WebGPU recovery defect and its regression remain unchanged. Tests use the existing VM/browser-stub harness; real browser visual/GPU verification is not claimed.
+No renderer, command-input, navigation, crosshair, transaction, history, or visible layer functionality was added or redesigned. The known WebGPU recovery defect and its regression remained unchanged at A2 and were fixed later by A11. Tests use the existing VM/browser-stub harness; real browser visual/GPU verification is not claimed.
 
 ## Before Stage 3
 

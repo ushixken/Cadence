@@ -1,4 +1,5 @@
-const canvas = document.querySelector("canvas")
+let canvas = document.querySelector("canvas")
+const canvasOwner = window.CaderactViewportCanvas.createOwner(canvas)
 
 const viewportSettings = {
   gridExtent: 1000, baseGridSpacing: 10, minimumGridSpacingPixels: 28,
@@ -15,6 +16,8 @@ window.caderactDocument = modelReader
 
 let viewportWidth = 0, viewportHeight = 0
 let renderer = null, isInitialized = false, isRenderScheduled = false
+let rendererStatus = "initializing", rendererError = null, recoveryPromise = null
+let navigation = null, resizeObserver = null
 let activeCommand = null, lineDraft = null
 
 function worldToScreen(x, y) {
@@ -52,17 +55,15 @@ function requestRender() {
   isRenderScheduled = true
   requestAnimationFrame(() => {
     isRenderScheduled = false
-    renderer?.render(createScene())
+    const activeRenderer = renderer
+    if (!activeRenderer) return
+    try { activeRenderer.render(createScene()) }
+    catch (error) {
+      console.warn("Caderact renderer failed; attempting recovery", error)
+      recoverRenderer(activeRenderer)
+    }
   })
 }
-
-const navigation = window.CaderactViewportNavigation.bindViewportNavigation({
-  canvas,
-  camera: viewportCamera,
-  viewportSettings,
-  getCanvasPoint,
-  requestRender,
-})
 
 function updateCommandFeedback(message) {
   document.dispatchEvent(new CustomEvent("caderact:command-feedback", { detail: { message } }))
@@ -115,7 +116,11 @@ function stepUndoActiveCommand() {
   return outcome
 }
 
-window.caderactViewport = { startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand }
+function getRendererState() {
+  return Object.freeze({ status: rendererStatus, error: rendererError, canvasReplacements: canvasOwner.replacementCount })
+}
+
+window.caderactViewport = { startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, getRendererState }
 
 function resizeCanvas() {
   const bounds = canvas.getBoundingClientRect()
@@ -134,44 +139,89 @@ function resizeCanvas() {
   requestRender()
 }
 
-// This listener remains here because it owns the Line command, not generic
-// navigation. Navigation registers first and claims its own pointer gestures.
-canvas.addEventListener("pointerdown", (event) => {
+function onLinePointerDown(event) {
   if (event.button !== 0 || navigation.isActive() || activeCommand !== "line") return
   const point = getCanvasPoint(event)
   const worldPoint = screenToWorld(point.x, point.y)
   const outcome = lineDraft.acceptPoint(worldPoint)
   if (outcome.status === "first-point") updateCommandFeedback("Line: Specify next point")
   requestRender()
-})
+}
 
-canvas.addEventListener("pointermove", (event) => {
+function onLinePointerMove(event) {
   if (activeCommand !== "line" || !lineDraft.hasFirstPoint || navigation.isActive()) return
   const point = getCanvasPoint(event)
   lineDraft.updatePointer(screenToWorld(point.x, point.y))
   requestRender()
-})
+}
 
-canvas.addEventListener("pointerleave", () => {
+function onLinePointerLeave() {
   if (activeCommand === "line" && lineDraft?.preview() !== null) {
     lineDraft.clearPointer()
     requestRender()
   }
-})
+}
 
-new ResizeObserver(resizeCanvas).observe(canvas)
+function bindCanvas(nextCanvas) {
+  navigation?.dispose()
+  resizeObserver?.disconnect()
+  canvas = nextCanvas
+  navigation = window.CaderactViewportNavigation.bindViewportNavigation({
+    canvas, camera: viewportCamera, viewportSettings, getCanvasPoint, requestRender,
+  })
+  canvas.addEventListener("pointerdown", onLinePointerDown)
+  canvas.addEventListener("pointermove", onLinePointerMove)
+  canvas.addEventListener("pointerleave", onLinePointerLeave)
+  resizeObserver = new ResizeObserver(resizeCanvas)
+  resizeObserver.observe(canvas)
+}
+
+function replaceCanvas() {
+  const replacement = canvasOwner.replace()
+  bindCanvas(replacement)
+  return replacement
+}
+
+function installRenderer(createdRenderer) {
+  renderer = createdRenderer
+  rendererStatus = "ready"
+  rendererError = null
+  createdRenderer.onDeviceLost = () => recoverRenderer(createdRenderer)
+  resizeCanvas()
+}
+
+function failRenderer(error) {
+  renderer = null
+  rendererStatus = "failed"
+  rendererError = error?.message || String(error)
+  console.warn("Caderact renderer unavailable", error)
+  return Object.freeze({ status: "failed", error: rendererError })
+}
+
+function recoverRenderer(failedRenderer) {
+  if (failedRenderer !== renderer) return Promise.resolve(Object.freeze({ status: "stale-recovery" }))
+  if (recoveryPromise) return recoveryPromise
+  renderer = null
+  rendererStatus = "recovering"
+  failedRenderer.destroy?.()
+  recoveryPromise = (async () => {
+    try {
+      const recoveryCanvas = replaceCanvas()
+      const recoveredRenderer = await window.createCaderactRenderer(recoveryCanvas, { preferCanvas2D: true })
+      installRenderer(recoveredRenderer)
+      return Object.freeze({ status: "recovered" })
+    } catch (error) {
+      return failRenderer(error)
+    } finally {
+      recoveryPromise = null
+    }
+  })()
+  return recoveryPromise
+}
+
+bindCanvas(canvas)
 window.addEventListener("resize", resizeCanvas)
 
-window.createCaderactRenderer(canvas).then((createdRenderer) => {
-  renderer = createdRenderer
-  renderer.onDeviceLost = () => {
-    window.createCaderactRenderer(canvas).then((recoveredRenderer) => {
-      renderer = recoveredRenderer
-      renderer.onDeviceLost = () => {
-        console.warn("Caderact renderer recovery was unsuccessful")
-      }
-      resizeCanvas()
-    })
-  }
-  resizeCanvas()
-})
+window.createCaderactRenderer(canvas, { replaceCanvasForFallback: replaceCanvas })
+  .then(installRenderer)
+  .catch(failRenderer)

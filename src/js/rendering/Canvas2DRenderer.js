@@ -3,6 +3,8 @@ class Canvas2DRenderer extends window.CaderactRenderer {
     super()
     this.canvas = canvas
     this.context = canvas.getContext("2d")
+    if (!this.context) throw new Error("Canvas2D canvas context unavailable")
+    this.kind = "canvas2d"
   }
 
   resize(width, height, deviceScale) {

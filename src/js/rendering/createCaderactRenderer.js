@@ -1,15 +1,17 @@
-async function createCaderactRenderer(canvas) {
-  const fallback = () => {
+async function createCaderactRenderer(canvas, { preferCanvas2D = false, replaceCanvasForFallback } = {}) {
+  const fallback = (fallbackCanvas = canvas) => {
     console.info("Caderact renderer: Canvas2D fallback")
-    return new window.CaderactCanvas2DRenderer(canvas)
+    return new window.CaderactCanvas2DRenderer(fallbackCanvas)
   }
-  if (!navigator.gpu) return fallback()
+  if (preferCanvas2D || !navigator.gpu) return fallback()
+  let acquiredWebGPUContext = false
   try {
     const adapter = await navigator.gpu.requestAdapter()
     if (!adapter) throw new Error("No WebGPU adapter available")
     const device = await adapter.requestDevice()
     const context = canvas.getContext("webgpu")
     if (!context) throw new Error("WebGPU canvas context unavailable")
+    acquiredWebGPUContext = true
     const format = navigator.gpu.getPreferredCanvasFormat()
     let renderer
     renderer = new window.CaderactWebGPURenderer(canvas, adapter, device, context, format, () => {
@@ -25,7 +27,10 @@ async function createCaderactRenderer(canvas) {
     return renderer
   } catch (error) {
     console.warn("Caderact WebGPU unavailable; using Canvas2D fallback", error)
-    return fallback()
+    const fallbackCanvas = acquiredWebGPUContext && replaceCanvasForFallback
+      ? replaceCanvasForFallback(canvas)
+      : canvas
+    return fallback(fallbackCanvas)
   }
 }
 
