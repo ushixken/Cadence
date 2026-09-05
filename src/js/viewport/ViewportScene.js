@@ -1,5 +1,5 @@
 (() => {
-  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getLines, getPreview }) {
+  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getLines, getDraftLines = () => [], getPreview }) {
     function getAdaptiveGridSpacing() {
       const required = viewportSettings.minimumGridSpacingPixels / camera.state.zoom
       const magnitude = 10 ** Math.floor(Math.log10(required))
@@ -79,6 +79,14 @@
         const a = camera.worldToScreen(line.start.x, line.start.y)
         const b = camera.worldToScreen(line.end.x, line.end.y)
         addSegment(geometry, a.x, a.y, b.x, b.y)
+      }
+
+      // Accepted Line draft segments share the active-tool overlay group with
+      // the rubber band, but remain separate from authoritative geometry.
+      for (const line of getDraftLines()) {
+        const a = camera.worldToScreen(line.start.x, line.start.y)
+        const b = camera.worldToScreen(line.end.x, line.end.y)
+        addSegment(preview, a.x, a.y, b.x, b.y)
       }
 
       const activePreview = getPreview()

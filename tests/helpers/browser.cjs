@@ -69,6 +69,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/viewport/ViewportCamera.js');
   load('src/js/viewport/ViewportScene.js');
   load('src/js/viewport/ViewportNavigation.js');
+  load('src/js/editor/LineDraftSession.js');
   load('src/js/viewport/Viewport.js');
   if (commands) load('src/js/editor/command-input.js');
   await settle();

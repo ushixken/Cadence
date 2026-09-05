@@ -91,13 +91,13 @@ Undo and Redo refuse to run with a foreground A3 transaction open, returning
 `blocked-by-active-transaction`. They do not forcibly roll back, queue, or
 interleave with that draft.
 
-## Transitional Line limitation
+## Line limitation at A4 completion
 
-Line still uses A3's per-segment transactions. Consequently each accepted
-segment currently creates a temporary independent A4 history entry, and the
-existing Escape cancellation still creates its own removal transaction. A4 does
-not change that behavior. A5 will introduce one private Line draft and one
-whole-session transaction/history entry on Enter.
+At A4 completion, Line still used A3's per-segment transactions, so each
+accepted segment created an independent history entry and Escape created a
+removal transaction. A5 subsequently replaced that transitional behavior with
+a private Line draft and one whole-session transaction/history entry on Enter;
+see `A5-line-draft-migration.md`.
 
 ## Deferred work
 

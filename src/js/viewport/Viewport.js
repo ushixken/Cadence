@@ -10,12 +10,12 @@ const viewportSettings = {
 
 const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettings.initialZoom)
 const camera = viewportCamera.state
-const { reader: modelReader, legacyLineWriter, controller: documentController } = window.CaderactDocument.createStore()
+const { reader: modelReader, recordGateway, controller: documentController } = window.CaderactDocument.createStore()
 window.caderactDocument = modelReader
 
 let viewportWidth = 0, viewportHeight = 0
 let renderer = null, isInitialized = false, isRenderScheduled = false
-let activeCommand = null, pendingLineStart = null, previewLineEnd = null, lineSessionIds = null
+let activeCommand = null, lineDraft = null
 
 function worldToScreen(x, y) {
   return viewportCamera.worldToScreen(x, y)
@@ -39,10 +39,8 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   camera: viewportCamera,
   getViewportSize: () => ({ width: viewportWidth, height: viewportHeight }),
   getLines: () => modelReader.lines(),
-  getPreview: () => {
-    if (activeCommand !== "line" || !pendingLineStart || !previewLineEnd) return null
-    return { start: pendingLineStart, end: previewLineEnd }
-  },
+  getDraftLines: () => activeCommand === "line" && lineDraft ? lineDraft.draftSegments() : [],
+  getPreview: () => activeCommand === "line" && lineDraft ? lineDraft.preview() : null,
 })
 
 function createScene() {
@@ -70,36 +68,54 @@ function updateCommandFeedback(message) {
   document.dispatchEvent(new CustomEvent("caderact:command-feedback", { detail: { message } }))
 }
 
-// Current Line session semantics intentionally remain in the viewport coordinator
-// until the future staged-draft migration. Accepted segments still publish one
-// transaction at a time through legacyLineWriter.
+function closeLineCommand() {
+  activeCommand = null
+  lineDraft = null
+  updateCommandFeedback("Type a command...")
+  requestRender()
+}
+
 function startLineCommand() {
+  lineDraft?.cancel()
   activeCommand = "line"
-  pendingLineStart = null
-  previewLineEnd = null
-  lineSessionIds = []
+  lineDraft = window.CaderactLineDraftSession.createSession({
+    createSegment: recordGateway.createLine,
+    commitSegments: recordGateway.createAll,
+  })
   updateCommandFeedback("Line: Specify first point")
   requestRender()
 }
 
 function finishActiveCommand() {
   if (activeCommand === null) return false
-  activeCommand = null
-  pendingLineStart = null
-  previewLineEnd = null
-  lineSessionIds = null
-  updateCommandFeedback("Type a command...")
-  requestRender()
+  if (activeCommand === "line") {
+    const outcome = lineDraft.finish()
+    if (outcome.status !== "committed" && outcome.status !== "no-op") {
+      updateCommandFeedback("Line: Unable to commit; draft preserved")
+      requestRender()
+      return false
+    }
+  }
+  closeLineCommand()
   return true
 }
 
 function cancelActiveCommand() {
   if (activeCommand === null) return false
-  if (activeCommand === "line" && lineSessionIds !== null) legacyLineWriter.remove(lineSessionIds)
-  return finishActiveCommand()
+  if (activeCommand === "line") lineDraft.cancel()
+  closeLineCommand()
+  return true
 }
 
-window.caderactViewport = { startLineCommand, finishActiveCommand, cancelActiveCommand }
+function stepUndoActiveCommand() {
+  if (activeCommand !== "line" || !lineDraft) return Object.freeze({ status: "no-active-line" })
+  const outcome = lineDraft.stepUndo()
+  if (outcome.status === "step-undone") updateCommandFeedback("Line: Specify next point")
+  requestRender()
+  return outcome
+}
+
+window.caderactViewport = { startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand }
 
 function resizeCanvas() {
   const bounds = canvas.getBoundingClientRect()
@@ -124,28 +140,21 @@ canvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0 || navigation.isActive() || activeCommand !== "line") return
   const point = getCanvasPoint(event)
   const worldPoint = screenToWorld(point.x, point.y)
-  if (pendingLineStart === null) {
-    pendingLineStart = worldPoint
-    previewLineEnd = worldPoint
-    updateCommandFeedback("Line: Specify next point")
-  } else {
-    lineSessionIds.push(legacyLineWriter.add(pendingLineStart, worldPoint))
-    pendingLineStart = worldPoint
-    previewLineEnd = worldPoint
-  }
+  const outcome = lineDraft.acceptPoint(worldPoint)
+  if (outcome.status === "first-point") updateCommandFeedback("Line: Specify next point")
   requestRender()
 })
 
 canvas.addEventListener("pointermove", (event) => {
-  if (activeCommand !== "line" || pendingLineStart === null || navigation.isActive()) return
+  if (activeCommand !== "line" || !lineDraft.hasFirstPoint || navigation.isActive()) return
   const point = getCanvasPoint(event)
-  previewLineEnd = screenToWorld(point.x, point.y)
+  lineDraft.updatePointer(screenToWorld(point.x, point.y))
   requestRender()
 })
 
 canvas.addEventListener("pointerleave", () => {
-  if (activeCommand === "line" && previewLineEnd !== null) {
-    previewLineEnd = null
+  if (activeCommand === "line" && lineDraft?.preview() !== null) {
+    lineDraft.clearPointer()
     requestRender()
   }
 })

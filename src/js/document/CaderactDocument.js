@@ -1,4 +1,4 @@
-// Stage 2: a data boundary, not the future transaction/history controller.
+// Caderact's validated document schema and document-specific record gateway.
 (() => {
   const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value)
   const has = (table, key) => Object.prototype.hasOwnProperty.call(table, key)
@@ -80,36 +80,29 @@
       snapshot: () => state,
       lines: () => Object.freeze(Object.values(state.geometry.objects)),
     })
-    function publishOrThrow(transaction) {
-      const outcome = transaction.publish()
-      if (outcome.status === "validation-failed") throw new Error(outcome.errors.join("; "))
-      return outcome
-    }
-    // Transitional (A3) Line integration: each accepted segment or session-cancel
-    // uses one short, immediately-published transaction through the controller.
-    // This is still not the final A5 whole-session draft architecture; the
-    // viewport continues to call add()/remove() per accepted point/session,
-    // exactly as it did in A2, but persistent writes now flow through the
-    // transaction core instead of a private ad hoc publish().
-    // Only the viewport owns this capability; consumers receive the reader.
-    const legacyLineWriter = Object.freeze({
-      add(start, end) {
-        const transaction = controller.beginTransaction()
-        const line = { id: newId(), type: "line", layerId: state.currentLayerId,
+    // Schema-aware, command-agnostic record gateway. Commands may construct
+    // immutable records before publication, while atomic creation remains
+    // controlled by one short document transaction.
+    const recordGateway = Object.freeze({
+      createLine(start, end) {
+        return freeze({ id: newId(), type: "line", layerId: state.currentLayerId,
           start: { x: start?.x, y: start?.y, featureId: newId() },
           end: { x: end?.x, y: end?.y, featureId: newId() },
-        }
-        transaction.create(line.id, line)
-        publishOrThrow(transaction)
-        return line.id
+        })
       },
-      remove(ids) {
-        const transaction = controller.beginTransaction()
-        for (const id of ids) transaction.remove(id)
-        publishOrThrow(transaction)
+      createAll(records) {
+        let transaction
+        try {
+          transaction = controller.beginTransaction()
+          for (const record of records) transaction.create(record.id, record)
+          return transaction.publish()
+        } catch (error) {
+          if (transaction?.isOpen) transaction.rollback()
+          return Object.freeze({ status: "commit-failed", message: error.message })
+        }
       },
     })
-    return Object.freeze({ reader, legacyLineWriter, controller })
+    return Object.freeze({ reader, recordGateway, controller })
   }
   window.CaderactDocument = Object.freeze({ createStore, validateDocument })
 })()

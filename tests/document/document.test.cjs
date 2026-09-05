@@ -6,6 +6,7 @@ const { browser } = require('../helpers/browser.cjs');
 async function fixture() {
   const b = await browser();
   b.launch(); b.point(400, 300); b.point(450, 250); b.point(500, 200);
+  b.key('Enter');
   return b;
 }
 test('document, default layer and current layer have stable resolving IDs', async () => {
@@ -31,7 +32,7 @@ test('independent lines and endpoints have unique IDs even at shared coordinates
     assert.equal(line.type, 'line'); assert.equal(line.layerId, snapshot.currentLayerId);
     assert.equal(snapshot.geometry.objects[line.id], line);
   }
-  b.key('Enter'); b.resize(900, 700, 2); b.point(100, 100, 'wheel', { deltaY: 10 }); b.flush();
+  b.resize(900, 700, 2); b.point(100, 100, 'wheel', { deltaY: 10 }); b.flush();
   assert.deepEqual(b.window.caderactDocument.lines(), lines);
 });
 test('collection reordering does not change identity or coordinates', async () => {
@@ -53,20 +54,21 @@ test('snapshot tables, records and coordinates are read-only; renderer buffers a
 });
 test('writer copies inputs, preserves Number precision and cancellation never recycles IDs', async () => {
   const b = await browser();
-  b.run('const p = {x: 0.123456789012345, y: -987.654321098765}; const firstId = legacyLineWriter.add(p, p); p.x=999');
+  b.run('const p = {x: 0.123456789012345, y: -987.654321098765}; const firstDraft = recordGateway.createLine(p, p); p.x=999; recordGateway.createAll([firstDraft])');
   const first = b.window.caderactDocument.lines()[0];
   assert.equal(first.start.x, 0.123456789012345); assert.equal(first.start.y, -987.654321098765);
-  b.run('legacyLineWriter.remove([firstId]); legacyLineWriter.add({x:0,y:0},{x:0,y:0})');
-  const next = b.window.caderactDocument.lines()[0];
+  b.run('const unusedDraft = recordGateway.createLine({x:1,y:1},{x:2,y:2}); const nextDraft = recordGateway.createLine({x:0,y:0},{x:0,y:0}); recordGateway.createAll([nextDraft])');
+  const next = b.window.caderactDocument.lines()[1];
   assert.notEqual(next.id, first.id); assert.notEqual(next.start.featureId, first.start.featureId);
+  assert.notEqual(next.id, b.read('unusedDraft.id'));
 });
 test('session Escape preserves earlier IDs and records exactly', async () => {
   const b = await fixture(); b.key('Enter'); const before = b.window.caderactDocument.lines();
   b.launch(); b.point(100, 100); b.point(200, 200);
-  const cancelled = b.window.caderactDocument.lines().at(-1).id;
+  const cancelled = b.read('lineDraft.draftSegments()[0].id');
   b.key('Escape'); assert.deepEqual(b.window.caderactDocument.lines(), before);
   b.launch(); b.point(100, 100); b.point(200, 200);
-  assert.notEqual(b.window.caderactDocument.lines().at(-1).id, cancelled);
+  assert.notEqual(b.read('lineDraft.draftSegments()[0].id'), cancelled);
 });
 const invalidCases = [
   ['missing document ID', d => { delete d.id; }],
@@ -94,6 +96,7 @@ for (const [name, mutate] of invalidCases) test(`validation rejects ${name} dete
 });
 test('invalid writer input leaves authoritative state unchanged', async () => {
   const b = await fixture(); const before = b.window.caderactDocument.snapshot();
-  assert.throws(() => b.run('legacyLineWriter.add({x:NaN,y:0},{x:1,y:2})'), /finite point/);
+  const outcome = b.run('recordGateway.createAll([recordGateway.createLine({x:NaN,y:0},{x:1,y:2})])');
+  assert.equal(outcome.status, 'validation-failed');
   assert.equal(b.window.caderactDocument.snapshot(), before);
 });
