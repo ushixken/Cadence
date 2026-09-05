@@ -82,11 +82,11 @@ test('viewport device loss replaces the canvas once and requests Canvas2D recove
 test('replacement preserves camera and draft while navigation binds exactly once', async () => {
   const b = await browser(); b.launch(); b.point(400, 300); b.point(450, 250); b.point(500, 200, 'pointermove');
   b.point(200, 150, 'wheel', { deltaY: -20 });
-  const before = b.read('({camera:{...camera},document:modelReader.snapshot(),history:documentController.historyInfo,draft:lineDraft.draftSegments(),preview:lineDraft.preview()})');
+  const before = b.read('({camera:{...camera},document:modelReader.snapshot(),history:documentController.historyInfo,draft:window.caderactCommandRouter.activeSession.draft.draftSegments(),preview:window.caderactCommandRouter.activeSession.draft.preview()})');
   const recovered = { render: scene => b.renders.push(scene), resize() {} };
   b.window.createCaderactRenderer = async () => recovered;
   b.fakeRenderer.onDeviceLost(); await settle();
-  const after = b.read('({camera:{...camera},document:modelReader.snapshot(),history:documentController.historyInfo,draft:lineDraft.draftSegments(),preview:lineDraft.preview()})');
+  const after = b.read('({camera:{...camera},document:modelReader.snapshot(),history:documentController.historyInfo,draft:window.caderactCommandRouter.activeSession.draft.draftSegments(),preview:window.caderactCommandRouter.activeSession.draft.preview()})');
   assert.deepEqual(after, before);
   const panBefore = b.read('camera.panX');
   b.point(100, 100, 'pointerdown', { button: 1 }); b.point(110, 100, 'pointermove', { button: 1 }); b.point(110, 100, 'pointerup', { button: 1 });
@@ -121,7 +121,7 @@ test('Canvas2D runtime failure is terminal and cannot restart recovery', async (
   const b = await browser();
   b.launch(); b.point(400, 300); b.point(450, 250); b.point(500, 200, 'pointermove');
   b.point(200, 150, 'wheel', { deltaY: -20 }); b.flush();
-  const before = b.read('({camera:{...camera},document:modelReader.snapshot(),history:documentController.historyInfo,draft:lineDraft.draftSegments(),preview:lineDraft.preview()})');
+  const before = b.read('({camera:{...camera},document:modelReader.snapshot(),history:documentController.historyInfo,draft:window.caderactCommandRouter.activeSession.draft.draftSegments(),preview:window.caderactCommandRouter.activeSession.draft.preview()})');
   let renderCalls = 0, destroyCalls = 0, factoryCalls = 0;
   const fallback = {
     kind: 'canvas2d', resize() {},
@@ -147,5 +147,5 @@ test('Canvas2D runtime failure is terminal and cannot restart recovery', async (
   assert.equal(b.flushOne(), false);
   assert.equal(factoryCalls, 1); assert.equal(renderCalls, 1); assert.equal(destroyCalls, 1);
   assert.equal(b.run('window.caderactViewport.getRendererState().canvasReplacements'), 1);
-  assert.deepEqual(b.read('({camera:{...camera},document:modelReader.snapshot(),history:documentController.historyInfo,draft:lineDraft.draftSegments(),preview:lineDraft.preview()})'), before);
+  assert.deepEqual(b.read('({camera:{...camera},document:modelReader.snapshot(),history:documentController.historyInfo,draft:window.caderactCommandRouter.activeSession.draft.draftSegments(),preview:window.caderactCommandRouter.activeSession.draft.preview()})'), before);
 });

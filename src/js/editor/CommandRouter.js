@@ -1,0 +1,73 @@
+// U1: generic ownership of command activation, active sessions, and outcomes.
+(() => {
+  const result = (status, details = {}) => Object.freeze({ status, ...details })
+
+  function createRouter({ registry, setPrompt }) {
+    if (!registry || typeof registry.resolve !== "function" || typeof registry.matches !== "function") {
+      throw new Error("Command router requires a registry")
+    }
+    let activeSession = null
+    let lastResult = result("invalid-input", { reason: "no-command" })
+
+    function publish(outcome) {
+      lastResult = outcome
+      return outcome
+    }
+    function showSessionPrompt() {
+      setPrompt(activeSession?.prompt || "Type a command...")
+    }
+    function activate(definition) {
+      if (activeSession) return publish(result("command-active", { command: activeSession.name }))
+      let session
+      session = definition.activate({ setPrompt: message => {
+        if (activeSession === session) setPrompt(message)
+      } })
+      if (!session || session.name !== definition.name || typeof session.finish !== "function" || typeof session.cancel !== "function") {
+        return publish(result("invalid-input", { reason: "invalid-command-session", command: definition.name }))
+      }
+      activeSession = session
+      showSessionPrompt()
+      return publish(result("command-started", { command: definition.name }))
+    }
+    function execute(input) {
+      if (activeSession) return publish(result("command-active", { command: activeSession.name }))
+      const entered = typeof input === "string" ? input.trim() : ""
+      if (!entered) return publish(result("invalid-input", { reason: "empty-command" }))
+      const exact = registry.resolve(entered)
+      if (exact) return activate(exact)
+      const matches = registry.matches(entered)
+      if (matches.length === 1) return activate(matches[0])
+      if (matches.length > 1) return publish(result("invalid-input", { reason: "ambiguous-command", input: entered }))
+      return publish(result("unknown-command", { input: entered }))
+    }
+    function finishActive() {
+      if (!activeSession) return publish(result("invalid-input", { reason: "no-active-command" }))
+      const session = activeSession
+      const outcome = session.finish()
+      if (outcome.status === "command-completed") {
+        activeSession = null
+        setPrompt("Type a command...")
+      } else showSessionPrompt()
+      return publish(outcome)
+    }
+    function cancelActive() {
+      if (!activeSession) return publish(result("invalid-input", { reason: "no-active-command" }))
+      const session = activeSession
+      const outcome = session.cancel()
+      activeSession = null
+      setPrompt("Type a command...")
+      return publish(outcome.status === "command-cancelled" ? outcome : result("command-cancelled", { command: session.name }))
+    }
+
+    return Object.freeze({
+      execute, activate, finishActive, cancelActive,
+      get activeSession() { return activeSession },
+      get activeCommand() { return activeSession?.name || null },
+      get currentPrompt() { return activeSession?.prompt || "Type a command..." },
+      get lastResult() { return lastResult },
+      get isActive() { return activeSession !== null },
+    })
+  }
+
+  window.CaderactCommandRouter = Object.freeze({ createRouter })
+})()

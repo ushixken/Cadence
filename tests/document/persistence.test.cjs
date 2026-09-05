@@ -125,8 +125,8 @@ test('validator and persistence share the canonical lossless v1 Line shape', asy
 test('transient Line draft and preview are not serialized', async () => {
   const b = await browser();
   b.launch(); b.point(400, 300); b.point(450, 300); b.point(500, 250, 'pointermove');
-  assert.equal(b.read('lineDraft.draftSegments().length'), 1);
-  assert.notEqual(b.run('lineDraft.preview()'), null);
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.draftSegments().length'), 1);
+  assert.notEqual(b.run('window.caderactCommandRouter.activeSession.draft.preview()'), null);
   const payload = JSON.parse(b.run('window.CaderactPersistence.serializeDocument(modelReader.snapshot())'));
   assert.deepEqual(payload.document.records, []);
   assert.equal(JSON.stringify(payload).includes('preview'), false);

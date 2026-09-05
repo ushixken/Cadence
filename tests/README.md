@@ -6,8 +6,8 @@ There was no package.json, npm script, installed test stack, or existing test su
 
 ## Organization
 
-- `commands/input.test.cjs`: name/alias/prefix launch, trimming/case, Enter/Space/click exactly-once dispatch, Tab completion, printable-key routing and field/modifier guards.
-- `commands/line.test.cjs`: transient Line drafts, live preview, one-transaction completion, cancellation, Step Undo, failure retention, and clean restart.
+- `commands/input.test.cjs`: U1 registry-backed name/alias/prefix launch, trimming/case, Enter/Space/click exactly-once dispatch, deterministic unknown-command feedback, active-session relaunch protection, Tab completion, printable-key routing, and field/modifier guards.
+- `commands/line.test.cjs`: router-owned Line lifecycle, transient drafts, live preview, one-transaction completion, cancellation, Step Undo, failure retention, and active-session preservation.
 - `viewport/navigation.test.cjs`: real coordinate functions, pan, wheel/drag zoom anchors, navigation termination, resize and DPR through the real Canvas2D renderer.
 - `rendering/boundary.test.cjs`: scene ordering, buffer isolation, WebGPU-first creation, early fallback, context-exclusive canvas replacement, device-loss/render-exception recovery, and controlled total failure.
 - `rendering/scale.test.cjs`: 5,000-record authoritative enumeration, stable ordering, scene projection, and Canvas2D consumption baseline.
@@ -28,6 +28,7 @@ The harness executes production files in a fresh VM for each test. It reads exis
 - Rubber-band preview is removed on pointer leave; accepted draft segments remain in the transient overlay until finish or cancellation.
 - Enter used to launch a suggestion is not also consumed as Line completion.
 - Enter publishes a complete Line draft once; Escape discards the uncommitted draft without document publication.
+- Registry lookup, autocomplete, and activation use one immutable command-definition source; unknown input returns a structured result without document mutation.
 
 ## WebGPU recovery
 

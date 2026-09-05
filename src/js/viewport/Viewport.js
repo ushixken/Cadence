@@ -18,7 +18,10 @@ let viewportWidth = 0, viewportHeight = 0
 let renderer = null, isInitialized = false, isRenderScheduled = false
 let rendererStatus = "initializing", rendererError = null, recoveryPromise = null
 let navigation = null, resizeObserver = null
-let activeCommand = null, lineDraft = null
+
+function getActiveCommandSession() {
+  return window.caderactCommandRouter?.activeSession || null
+}
 
 function worldToScreen(x, y) {
   return viewportCamera.worldToScreen(x, y)
@@ -42,8 +45,8 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   camera: viewportCamera,
   getViewportSize: () => ({ width: viewportWidth, height: viewportHeight }),
   getRecords: () => modelReader.records(),
-  getDraftLines: () => activeCommand === "line" && lineDraft ? lineDraft.draftSegments() : [],
-  getPreview: () => activeCommand === "line" && lineDraft ? lineDraft.preview() : null,
+  getDraftLines: () => getActiveCommandSession()?.getDraftLines?.() || [],
+  getPreview: () => getActiveCommandSession()?.getPreview?.() || null,
 })
 
 function createScene() {
@@ -70,62 +73,75 @@ function requestRender() {
   })
 }
 
-function updateCommandFeedback(message) {
-  document.dispatchEvent(new CustomEvent("caderact:command-feedback", { detail: { message } }))
-}
-
-function closeLineCommand() {
-  activeCommand = null
-  lineDraft = null
-  updateCommandFeedback("Type a command...")
-  requestRender()
-}
-
-function startLineCommand() {
-  lineDraft?.cancel()
-  activeCommand = "line"
-  lineDraft = window.CaderactLineDraftSession.createSession({
+function createLineCommandSession({ setPrompt = () => {} } = {}) {
+  const draft = window.CaderactLineDraftSession.createSession({
     createSegment: recordGateway.createLine,
     commitSegments: recordGateway.createAll,
   })
-  updateCommandFeedback("Line: Specify first point")
+  let prompt = "Line: Specify first point"
+  function updatePrompt(message) { prompt = message; setPrompt(message) }
+
+  function handlePointerDown(point) {
+    const outcome = draft.acceptPoint(point)
+    if (outcome.status === "first-point") updatePrompt("Line: Specify next point")
+    requestRender()
+    return outcome
+  }
+  function handlePointerMove(point) { draft.updatePointer(point); requestRender() }
+  function handlePointerLeave() {
+    if (draft.preview() !== null) { draft.clearPointer(); requestRender() }
+  }
+  function finish() {
+    const outcome = draft.finish()
+    if (outcome.status !== "committed" && outcome.status !== "no-op") {
+      updatePrompt("Line: Unable to commit; draft preserved")
+      requestRender()
+      return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Line", outcome })
+    }
+    requestRender()
+    return Object.freeze({ status: "command-completed", command: "Line", outcome })
+  }
+  function cancel() {
+    draft.cancel(); requestRender()
+    return Object.freeze({ status: "command-cancelled", command: "Line" })
+  }
+  function stepUndo() {
+    const outcome = draft.stepUndo()
+    if (outcome.status === "step-undone") updatePrompt("Line: Specify next point")
+    requestRender()
+    return outcome
+  }
+
   requestRender()
+  return Object.freeze({
+    name: "Line", draft, finish, cancel, stepUndo,
+    handlePointerDown, handlePointerMove, handlePointerLeave,
+    getDraftLines: draft.draftSegments, getPreview: draft.preview,
+    get prompt() { return prompt },
+  })
+}
+
+function startLineCommand() {
+  return window.caderactCommandRouter?.execute("Line") || Object.freeze({ status: "invalid-input", reason: "router-unavailable" })
 }
 
 function finishActiveCommand() {
-  if (activeCommand === null) return false
-  if (activeCommand === "line") {
-    const outcome = lineDraft.finish()
-    if (outcome.status !== "committed" && outcome.status !== "no-op") {
-      updateCommandFeedback("Line: Unable to commit; draft preserved")
-      requestRender()
-      return false
-    }
-  }
-  closeLineCommand()
-  return true
+  return window.caderactCommandRouter?.finishActive() || Object.freeze({ status: "invalid-input", reason: "router-unavailable" })
 }
 
 function cancelActiveCommand() {
-  if (activeCommand === null) return false
-  if (activeCommand === "line") lineDraft.cancel()
-  closeLineCommand()
-  return true
+  return window.caderactCommandRouter?.cancelActive() || Object.freeze({ status: "invalid-input", reason: "router-unavailable" })
 }
 
 function stepUndoActiveCommand() {
-  if (activeCommand !== "line" || !lineDraft) return Object.freeze({ status: "no-active-line" })
-  const outcome = lineDraft.stepUndo()
-  if (outcome.status === "step-undone") updateCommandFeedback("Line: Specify next point")
-  requestRender()
-  return outcome
+  return getActiveCommandSession()?.stepUndo?.() || Object.freeze({ status: "no-active-command" })
 }
 
 function getRendererState() {
   return Object.freeze({ status: rendererStatus, error: rendererError, canvasReplacements: canvasOwner.replacementCount })
 }
 
-window.caderactViewport = { startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, getRendererState }
+window.caderactViewport = { createLineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, getRendererState }
 
 function resizeCanvas() {
   const bounds = canvas.getBoundingClientRect()
@@ -144,27 +160,22 @@ function resizeCanvas() {
   requestRender()
 }
 
-function onLinePointerDown(event) {
-  if (event.button !== 0 || navigation.isActive() || activeCommand !== "line") return
+function onCommandPointerDown(event) {
+  const session = getActiveCommandSession()
+  if (event.button !== 0 || navigation.isActive() || !session?.handlePointerDown) return
   const point = getCanvasPoint(event)
-  const worldPoint = screenToWorld(point.x, point.y)
-  const outcome = lineDraft.acceptPoint(worldPoint)
-  if (outcome.status === "first-point") updateCommandFeedback("Line: Specify next point")
-  requestRender()
+  session.handlePointerDown(screenToWorld(point.x, point.y))
 }
 
-function onLinePointerMove(event) {
-  if (activeCommand !== "line" || !lineDraft.hasFirstPoint || navigation.isActive()) return
+function onCommandPointerMove(event) {
+  const session = getActiveCommandSession()
+  if (!session?.handlePointerMove || !session.draft?.hasFirstPoint || navigation.isActive()) return
   const point = getCanvasPoint(event)
-  lineDraft.updatePointer(screenToWorld(point.x, point.y))
-  requestRender()
+  session.handlePointerMove(screenToWorld(point.x, point.y))
 }
 
-function onLinePointerLeave() {
-  if (activeCommand === "line" && lineDraft?.preview() !== null) {
-    lineDraft.clearPointer()
-    requestRender()
-  }
+function onCommandPointerLeave() {
+  getActiveCommandSession()?.handlePointerLeave?.()
 }
 
 function bindCanvas(nextCanvas) {
@@ -174,9 +185,9 @@ function bindCanvas(nextCanvas) {
   navigation = window.CaderactViewportNavigation.bindViewportNavigation({
     canvas, camera: viewportCamera, viewportSettings, getCanvasPoint, requestRender,
   })
-  canvas.addEventListener("pointerdown", onLinePointerDown)
-  canvas.addEventListener("pointermove", onLinePointerMove)
-  canvas.addEventListener("pointerleave", onLinePointerLeave)
+  canvas.addEventListener("pointerdown", onCommandPointerDown)
+  canvas.addEventListener("pointermove", onCommandPointerMove)
+  canvas.addEventListener("pointerleave", onCommandPointerLeave)
   resizeObserver = new ResizeObserver(resizeCanvas)
   resizeObserver.observe(canvas)
 }

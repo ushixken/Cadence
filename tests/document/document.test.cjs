@@ -92,10 +92,10 @@ test('an imported ID is reserved and skipped by subsequent allocation', async ()
 test('session Escape preserves earlier IDs and records exactly', async () => {
   const b = await fixture(); b.key('Enter'); const before = b.window.caderactDocument.lines();
   b.launch(); b.point(100, 100); b.point(200, 200);
-  const cancelled = b.read('lineDraft.draftSegments()[0].id');
+  const cancelled = b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()[0].id');
   b.key('Escape'); assert.deepEqual(b.window.caderactDocument.lines(), before);
   b.launch(); b.point(100, 100); b.point(200, 200);
-  assert.notEqual(b.read('lineDraft.draftSegments()[0].id'), cancelled);
+  assert.notEqual(b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()[0].id'), cancelled);
 });
 const invalidCases = [
   ['missing document ID', d => { delete d.id; }],

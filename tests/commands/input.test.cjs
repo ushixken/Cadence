@@ -5,22 +5,45 @@ const { browser, Element } = require('../helpers/browser.cjs');
 for (const value of ['Line', 'l', 'L', '  LiNe  ', 'li']) for (const key of ['Enter', ' ']) {
   test(`${JSON.stringify(value)} + ${JSON.stringify(key)} launches exactly once without finishing`, async () => {
     const b = await browser(); let starts = 0;
-    const start = b.window.caderactViewport.startLineCommand;
-    b.window.caderactViewport.startLineCommand = () => { starts++; start(); };
+    const start = b.window.caderactViewport.createLineCommandSession;
+    b.window.caderactViewport.createLineCommandSession = () => { starts++; return start(); };
     b.launch(value, key);
-    assert.equal(starts, 1); assert.equal(b.read('activeCommand'), 'line');
+    assert.equal(starts, 1); assert.equal(b.read('window.caderactCommandRouter.activeCommand'), 'Line');
     assert.equal(b.input.value, ''); assert.equal(b.suggestions.hidden, true);
   });
 }
 test('click suggestion dispatches same launch and Tab only completes spelling', async () => {
   const b = await browser(); let starts = 0;
-  const start = b.window.caderactViewport.startLineCommand;
-  b.window.caderactViewport.startLineCommand = () => { starts++; start(); };
+  const start = b.window.caderactViewport.createLineCommandSession;
+  b.window.caderactViewport.createLineCommandSession = () => { starts++; return start(); };
   b.input.value = 'li'; b.emit(b.input, 'input'); b.key('Tab', b.input);
   assert.equal(b.input.value, 'Line'); assert.equal(starts, 0);
   const button = new Element('button'); button.suggestion = true; button.dataset.commandIndex = '0';
   b.emit(b.suggestions, 'click', { target: button });
-  assert.equal(starts, 1); assert.equal(b.read('activeCommand'), 'line');
+  assert.equal(starts, 1); assert.equal(b.read('window.caderactCommandRouter.activeCommand'), 'Line');
+});
+test('unknown command returns deterministic feedback without document mutation', async () => {
+  const b = await browser();
+  const before = b.read('({document:modelReader.snapshot(),revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo})');
+  b.launch('NotACommand');
+  assert.deepEqual(b.read('window.caderactCommandRouter.lastResult'), { status: 'unknown-command', input: 'NotACommand' });
+  assert.equal(b.input.placeholder, 'Unknown command: NotACommand');
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'), null);
+  assert.deepEqual(b.read('({document:modelReader.snapshot(),revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo})'), before);
+});
+test('registry is the single deterministic autocomplete and routing source', async () => {
+  const b = await browser();
+  assert.deepEqual(b.read('window.caderactCommandRegistry.commands().map(command=>({name:command.name,aliases:command.aliases}))'), [{ name: 'Line', aliases: ['L'] }]);
+  assert.deepEqual(b.read('window.caderactCommandRegistry.matches("Li").map(command=>command.name)'), ['Line']);
+  assert.equal(b.run('window.caderactCommandRegistry.resolve("l").name'), 'Line');
+});
+test('an active Line cannot be relaunched through command routing', async () => {
+  const b = await browser(); b.launch(); b.point(100, 100); b.point(150, 150);
+  const draftId = b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()[0].id');
+  const outcome = b.window.caderactCommandRouter.execute('Line');
+  assert.equal(outcome.status, 'command-active'); assert.equal(outcome.command, 'Line');
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()[0].id'), draftId);
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.segmentCount'), 1);
 });
 test('global printable typing focuses command input; Escape clears search', async () => {
   const b = await browser(); b.key('l');
