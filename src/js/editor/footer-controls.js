@@ -42,12 +42,29 @@ unitsTrigger.addEventListener("click", () => {
 
 unitOptions.forEach((option) => {
   option.addEventListener("click", () => {
-    unitOptions.forEach((unitOption) => unitOption.classList.remove("is-selected"))
-    option.classList.add("is-selected")
-    unitValue.textContent = option.dataset.unit
+    const outcome = window.caderactDocumentSession.unitGateway.setLengthUnit(option.dataset.unit)
+    if (outcome.status === "committed" || outcome.status === "no-op") window.caderactViewport.refreshDocumentView()
     closeDropdownMenus()
   })
 })
+
+let unsubscribeUnitHistory = null
+function refreshUnitControl() {
+  const activeUnit = window.caderactDocumentSession.reader.units().length
+  unitValue.textContent = activeUnit
+  unitOptions.forEach(option => {
+    const selected = option.dataset.unit === activeUnit
+    option.classList.toggle("is-selected", selected)
+    option.setAttribute("aria-checked", String(selected))
+  })
+  window.caderactViewport.refreshDocumentView()
+}
+function bindUnitDocument() {
+  unsubscribeUnitHistory?.()
+  unsubscribeUnitHistory = window.caderactDocumentSession.controller.subscribeHistory(refreshUnitControl)
+}
+bindUnitDocument()
+window.caderactDocumentSession.subscribe(bindUnitDocument)
 
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".footer-dropdown")) closeDropdownMenus()

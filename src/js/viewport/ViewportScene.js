@@ -1,12 +1,19 @@
 (() => {
-  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getRecords, getDraftLines = () => [], getPreview }) {
+  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview }) {
+    const GRID_STEPS = Object.freeze([1, 2, 5])
+    const MAJOR_MULTIPLE = 5
+    const MAX_GRID_LINES_PER_AXIS = 512
+
     function getAdaptiveGridSpacing() {
-      const required = viewportSettings.minimumGridSpacingPixels / camera.state.zoom
-      const magnitude = 10 ** Math.floor(Math.log10(required))
-      for (const step of [1, 2, 5]) {
-        if (step * magnitude >= required) return Math.max(viewportSettings.baseGridSpacing, step * magnitude)
-      }
-      return Math.max(viewportSettings.baseGridSpacing, 10 * magnitude)
+      const zoom = camera.state.zoom
+      if (!Number.isFinite(zoom) || zoom <= 0) return 1
+      const required = viewportSettings.minimumGridSpacingPixels / zoom
+      if (!Number.isFinite(required)) return 1e300
+      if (required <= 0) return 1e-300
+      const exponent = Math.max(-300, Math.min(300, Math.floor(Math.log10(required))))
+      const magnitude = 10 ** exponent
+      for (const step of GRID_STEPS) if (step * magnitude >= required) return step * magnitude
+      return 10 * magnitude
     }
 
     function alignToPhysicalPixel(value, scale) {
@@ -34,7 +41,7 @@
       const { width: viewportWidth, height: viewportHeight } = getViewportSize()
       const scale = window.devicePixelRatio || 1
       const extent = viewportSettings.gridExtent
-      const grid = [], boundary = [], xAxis = [], yAxis = [], geometry = [], preview = []
+      const minorGrid = [], majorGrid = [], boundary = [], xAxis = [], yAxis = [], geometry = [], preview = []
       const topLeft = camera.screenToWorld(0, 0)
       const bottomRight = camera.screenToWorld(viewportWidth, viewportHeight)
       const minX = Math.max(-extent, topLeft.x), maxX = Math.min(extent, bottomRight.x)
@@ -42,20 +49,29 @@
       const top = camera.worldToScreen(0, extent).y, bottom = camera.worldToScreen(0, -extent).y
       const left = camera.worldToScreen(-extent, 0).x, right = camera.worldToScreen(extent, 0).x
 
-      if (minX <= maxX && minY <= maxY) {
-        const spacing = getAdaptiveGridSpacing()
-        for (let x = Math.ceil(minX / spacing) * spacing; x <= maxX; x += spacing) {
-          if (Math.abs(x) >= spacing * 0.001) {
-            const sx = alignToPhysicalPixel(camera.worldToScreen(x, 0).x, scale)
-            addSegment(grid, sx, Math.max(0, top), sx, Math.min(viewportHeight, bottom))
+      const spacing = getAdaptiveGridSpacing()
+      if (Number.isFinite(viewportWidth) && Number.isFinite(viewportHeight) && viewportWidth > 0 && viewportHeight > 0 &&
+          Number.isFinite(spacing) && spacing > 0 && minX <= maxX && minY <= maxY) {
+        function addVisibleLines(minimum, maximum, vertical) {
+          const first = Math.ceil(minimum / spacing), last = Math.floor(maximum / spacing)
+          if (!Number.isFinite(first) || !Number.isFinite(last) || first > last) return
+          const count = Math.min(last - first + 1, MAX_GRID_LINES_PER_AXIS)
+          for (let offset = 0; offset < count; offset++) {
+            const index = first + offset
+            if (index === 0) continue
+            const coordinate = index * spacing
+            const target = index % MAJOR_MULTIPLE === 0 ? majorGrid : minorGrid
+            if (vertical) {
+              const sx = alignToPhysicalPixel(camera.worldToScreen(coordinate, 0).x, scale)
+              addSegment(target, sx, Math.max(0, top), sx, Math.min(viewportHeight, bottom))
+            } else {
+              const sy = alignToPhysicalPixel(camera.worldToScreen(0, coordinate).y, scale)
+              addSegment(target, Math.max(0, left), sy, Math.min(viewportWidth, right), sy)
+            }
           }
         }
-        for (let y = Math.ceil(minY / spacing) * spacing; y <= maxY; y += spacing) {
-          if (Math.abs(y) >= spacing * 0.001) {
-            const sy = alignToPhysicalPixel(camera.worldToScreen(0, y).y, scale)
-            addSegment(grid, Math.max(0, left), sy, Math.min(viewportWidth, right), sy)
-          }
-        }
+        addVisibleLines(minX, maxX, true)
+        addVisibleLines(minY, maxY, false)
       }
 
       const visibleLeft = Math.max(0, left), visibleTop = Math.max(0, top)
@@ -100,13 +116,20 @@
       }
 
       // The ordered groups are a renderer input, never authoritative geometry.
+      const combinedMajorGrid = majorGrid.concat(boundary)
       return {
         width: viewportWidth, height: viewportHeight, deviceScale: scale,
         backgroundColor: viewportSettings.backgroundColor,
         backgroundColorData: colorToRgba(viewportSettings.backgroundColor),
+        grid: Object.freeze({
+          unit: getDocumentUnit(), minorSpacing: spacing, majorSpacing: spacing * MAJOR_MULTIPLE,
+          majorMultiple: MAJOR_MULTIPLE, maxLinesPerAxis: MAX_GRID_LINES_PER_AXIS,
+          minorSegments: new Float32Array(minorGrid), majorSegments: new Float32Array(majorGrid),
+          boundarySegments: new Float32Array(boundary),
+        }),
         lineGroups: [
-          lineGroup(viewportSettings.gridColor, grid),
-          lineGroup(viewportSettings.gridBoundaryColor, boundary),
+          lineGroup(viewportSettings.gridColor, minorGrid),
+          lineGroup(viewportSettings.majorGridColor || viewportSettings.gridBoundaryColor, combinedMajorGrid),
           lineGroup(viewportSettings.xAxisColor, xAxis),
           lineGroup(viewportSettings.yAxisColor, yAxis),
           lineGroup(viewportSettings.geometryColor, geometry),
@@ -115,7 +138,7 @@
       }
     }
 
-    return Object.freeze({ createScene, getAdaptiveGridSpacing })
+    return Object.freeze({ createScene, getAdaptiveGridSpacing, GRID_STEPS, MAJOR_MULTIPLE, MAX_GRID_LINES_PER_AXIS })
   }
 
   window.CaderactViewportScene = Object.freeze({ createSceneBuilder })

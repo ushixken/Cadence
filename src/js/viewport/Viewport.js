@@ -5,7 +5,7 @@ const viewportSettings = {
   gridExtent: 1000, baseGridSpacing: 10, minimumGridSpacingPixels: 28,
   initialZoom: 5, wheelZoomSensitivity: 0.0015, dragZoomSensitivity: 0.01,
   backgroundColor: "#182633", gridColor: "rgba(167, 175, 187, 0.28)",
-  gridBoundaryColor: "rgba(167, 175, 187, 0.55)", xAxisColor: "#984b51",
+  majorGridColor: "rgba(167, 175, 187, 0.45)", gridBoundaryColor: "rgba(167, 175, 187, 0.55)", xAxisColor: "#984b51",
   yAxisColor: "#3b7658", geometryColor: "#e8edf4", previewColor: "rgba(232, 237, 244, 0.65)",
 }
 
@@ -45,6 +45,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   viewportSettings,
   camera: viewportCamera,
   getViewportSize: () => ({ width: viewportWidth, height: viewportHeight }),
+  getDocumentUnit: () => modelReader.units().length,
   getRecords: () => modelReader.records(),
   getDraftLines: () => getActiveCommandSession()?.getDraftLines?.() || [],
   getPreview: () => getActiveCommandSession()?.getPreview?.() || null,

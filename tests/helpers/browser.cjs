@@ -35,7 +35,13 @@ class Element {
   }
   matches() { return ['input', 'textarea', 'select'].includes(this.tag); }
   contains(target) { for (let node = target; node; node = node.parent) if (node === this) return true; return false; }
-  closest() { return this.suggestion ? this : null; }
+  closest(selector) {
+    if (this.suggestion && selector === '.command-suggestion') return this;
+    if (!selector.startsWith('.')) return null;
+    const name = selector.slice(1);
+    for (let node = this; node; node = node.parent) if (node.classes?.has(name)) return node;
+    return null;
+  }
   focus() { this.owner.activeElement = this; }
   blur() { this.owner.activeElement = null; }
   setPointerCapture(id) { this.capturedPointer = id; }
@@ -48,11 +54,20 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const undoButton = new Element('button'); const redoButton = new Element('button');
   const fileNewButton = new Element('button'); const fileOpenButton = new Element('button'); const fileSaveButton = new Element('button');
   const fileMenu = new Element('li'); const fileMenuTrigger = new Element('button'); const fileMenuDropdown = new Element(); const editMenuTrigger = new Element('button');
+  const snapWrap = new Element(); const snapTrigger = new Element('button'); const snapMenu = new Element(); const snapEnabled = new Element('input'); const snapDependent = new Element();
+  const unitsWrap = new Element(); const unitsTrigger = new Element('button'); const unitsMenu = new Element(); const unitValue = new Element('strong');
+  const unitOptions = ['mm','cm','m','in','ft'].map(unit => { const option=new Element('button'); option.dataset.unit=unit; return option; });
   const suggestions = new Element();
   for (const el of [canvas, input, suggestions, undoButton, redoButton, fileMenu, editMenuTrigger]) { el.parent = document; el.owner = document; }
   fileMenuTrigger.parent = fileMenu; fileMenuDropdown.parent = fileMenu;
   for (const el of [fileNewButton, fileOpenButton, fileSaveButton]) el.parent = fileMenuDropdown;
   for (const el of [fileMenuTrigger, fileMenuDropdown, fileNewButton, fileOpenButton, fileSaveButton]) el.owner = document;
+  snapWrap.classList.add('footer-dropdown'); unitsWrap.classList.add('footer-dropdown');
+  snapTrigger.parent=snapWrap; snapMenu.parent=snapWrap; snapEnabled.parent=snapMenu; snapDependent.parent=snapMenu;
+  unitsTrigger.parent=unitsWrap; unitsMenu.parent=unitsWrap; unitValue.parent=unitsTrigger;
+  for(const option of unitOptions) option.parent=unitsMenu;
+  for(const el of [snapWrap,snapTrigger,snapMenu,snapEnabled,snapDependent,unitsWrap,unitsTrigger,unitsMenu,unitValue,...unitOptions]) { el.owner=document; if(!el.parent) el.parent=document; }
+  snapEnabled.checked=true; unitValue.textContent='mm'; unitOptions[0].classList.add('is-selected');
   let bounds = { left: 20, top: 40, width: 800, height: 600 };
   const drawCalls = [];
   const context2d = Object.fromEntries(['setTransform', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'stroke'].map(name => [name, (...args) => drawCalls.push([name, ...args])]));
@@ -68,8 +83,8 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
     };
   }
   canvas._configure = configureCanvas; canvas._replace = replacement => { canvas = replacement; }; configureCanvas(canvas);
-  document.querySelector = selector => ({ canvas, '#command-input': input, '#command-suggestions': suggestions, '#undo-button': undoButton, '#redo-button': redoButton, '#file-new': fileNewButton, '#file-open': fileOpenButton, '#file-save': fileSaveButton, '.file-menu': fileMenu, '.file-menu-trigger': fileMenuTrigger, '#file-menu-actions': fileMenuDropdown })[selector];
-  document.querySelectorAll = selector => selector === '.menu-items > li > button' ? [fileMenuTrigger, editMenuTrigger] : [];
+  document.querySelector = selector => ({ canvas, '#command-input': input, '#command-suggestions': suggestions, '#undo-button': undoButton, '#redo-button': redoButton, '#file-new': fileNewButton, '#file-open': fileOpenButton, '#file-save': fileSaveButton, '.file-menu': fileMenu, '.file-menu-trigger': fileMenuTrigger, '#file-menu-actions': fileMenuDropdown, '.snap-trigger': snapTrigger, '.snap-menu': snapMenu, '#snap-enabled': snapEnabled, '.snap-dependent': snapDependent, '.units-control': unitsTrigger, '.units-menu': unitsMenu, '[data-unit-value]': unitValue })[selector];
+  document.querySelectorAll = selector => ({ '.menu-items > li > button':[fileMenuTrigger,editMenuTrigger], '.snap-dependent input':[], '.footer-tool':[], '.unit-option':unitOptions })[selector] || [];
   window.devicePixelRatio = 1;
   const frames = []; const renders = []; const sizes = [];
   const fakeRenderer = { render: scene => renders.push(scene), resize: (...args) => sizes.push(args) };
@@ -100,6 +115,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/CommandRegistry.js');
   load('src/js/editor/CommandRouter.js');
   load('src/js/viewport/Viewport.js');
+  load('src/js/editor/footer-controls.js');
   if (commands) load('src/js/editor/command-input.js');
   if (commands) load('src/js/editor/history-actions.js');
   if (commands) load('src/js/editor/file-actions.js');
@@ -109,7 +125,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
       defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...props };
     target.dispatchEvent(event); return event;
   };
-  return { window, document, get canvas() { return canvas; }, input, suggestions, undoButton, redoButton, fileNewButton, fileOpenButton, fileSaveButton, fileMenu, fileMenuTrigger, fileMenuDropdown, editMenuTrigger, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
+  return { window, document, get canvas() { return canvas; }, input, suggestions, undoButton, redoButton, fileNewButton, fileOpenButton, fileSaveButton, fileMenu, fileMenuTrigger, fileMenuDropdown, editMenuTrigger, unitsTrigger, unitsMenu, unitValue, unitOptions, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
     flushOne() { const frame = frames.shift(); if (frame) frame(); return Boolean(frame); },
     flush() { while (frames.length) frames.shift()(); },
     read(expression) { return JSON.parse(run(`JSON.stringify(${expression})`)); },
