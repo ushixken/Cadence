@@ -72,6 +72,9 @@
       validate: validateDocument,
       onPublish: (newDocument) => { state = newDocument },
       freeze,
+      // A4 state identities use the same opaque, non-recycling allocator as
+      // document/geometry identities while remaining a separate ID namespace.
+      allocateStateId: newId,
     })
     const reader = Object.freeze({
       snapshot: () => state,
