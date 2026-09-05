@@ -16,7 +16,7 @@ const historyActions = (() => {
     undoButton.setAttribute("aria-disabled", String(undoButton.disabled))
     redoButton.setAttribute("aria-disabled", String(redoButton.disabled))
   }
-  function publish(outcome) { lastResult = outcome; refresh(); return outcome }
+  function publish(outcome) { lastResult = outcome; window.caderactFeedback?.presentResult(outcome); refresh(); return outcome }
   function redraw(outcome) {
     if (outcome.status === "undone" || outcome.status === "redone") window.caderactViewport.refreshDocumentView()
   }

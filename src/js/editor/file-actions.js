@@ -34,7 +34,7 @@
   function createActions({ session, commandRouter, viewport, persistence = window.CaderactPersistence, adapters = browserAdapters() }) {
     let filename = DEFAULT_FILENAME
     let lastResult = result("file-idle")
-    const publish = outcome => (lastResult = outcome)
+    const publish = outcome => { lastResult = outcome; window.caderactFeedback?.presentResult(outcome); return outcome }
     const activeBlocked = operation => commandRouter.isActive
       ? publish(result(`${operation}-blocked-active-command`, { command: commandRouter.activeCommand })) : null
     async function confirmReplacement(operation) {

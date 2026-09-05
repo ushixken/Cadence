@@ -8,6 +8,7 @@ class Element {
   constructor(tag = 'div') {
     this.tag = tag; this.listeners = {}; this.value = ''; this.hidden = true;
     this.disabled = false;
+    this.children = []; this.textContent = '';
     this.dataset = {}; this.attributes = {}; this.isContentEditable = false;
     const classes = this.classes = new Set();
     this.classList = {
@@ -27,6 +28,8 @@ class Element {
     clone._configure?.(clone); return clone;
   }
   replaceWith(replacement) { this._replace?.(replacement); }
+  appendChild(child) { child.parent = this; child.owner ??= this.owner; this.children.push(child); return child; }
+  replaceChildren(...children) { this.children = []; for (const child of children) this.appendChild(child); }
   dispatchEvent(event) {
     event.target ??= this;
     for (const fn of this.listeners[event.type] ?? []) fn(event);
@@ -58,7 +61,8 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const unitsWrap = new Element(); const unitsTrigger = new Element('button'); const unitsMenu = new Element(); const unitValue = new Element('strong');
   const unitOptions = ['mm','cm','m','in','ft'].map(unit => { const option=new Element('button'); option.dataset.unit=unit; return option; });
   const suggestions = new Element();
-  for (const el of [canvas, input, suggestions, undoButton, redoButton, fileMenu, editMenuTrigger]) { el.parent = document; el.owner = document; }
+  const commandHistory = new Element();
+  for (const el of [canvas, input, suggestions, commandHistory, undoButton, redoButton, fileMenu, editMenuTrigger]) { el.parent = document; el.owner = document; }
   fileMenuTrigger.parent = fileMenu; fileMenuDropdown.parent = fileMenu;
   for (const el of [fileNewButton, fileOpenButton, fileSaveButton]) el.parent = fileMenuDropdown;
   for (const el of [fileMenuTrigger, fileMenuDropdown, fileNewButton, fileOpenButton, fileSaveButton]) el.owner = document;
@@ -83,10 +87,14 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
     };
   }
   canvas._configure = configureCanvas; canvas._replace = replacement => { canvas = replacement; }; configureCanvas(canvas);
-  document.querySelector = selector => ({ canvas, '#command-input': input, '#command-suggestions': suggestions, '#undo-button': undoButton, '#redo-button': redoButton, '#file-new': fileNewButton, '#file-open': fileOpenButton, '#file-save': fileSaveButton, '.file-menu': fileMenu, '.file-menu-trigger': fileMenuTrigger, '#file-menu-actions': fileMenuDropdown, '.snap-trigger': snapTrigger, '.snap-menu': snapMenu, '#snap-enabled': snapEnabled, '.snap-dependent': snapDependent, '.units-control': unitsTrigger, '.units-menu': unitsMenu, '[data-unit-value]': unitValue })[selector];
+  document.querySelector = selector => ({ canvas, '#command-input': input, '#command-suggestions': suggestions, '#command-history': commandHistory, '#undo-button': undoButton, '#redo-button': redoButton, '#file-new': fileNewButton, '#file-open': fileOpenButton, '#file-save': fileSaveButton, '.file-menu': fileMenu, '.file-menu-trigger': fileMenuTrigger, '#file-menu-actions': fileMenuDropdown, '.snap-trigger': snapTrigger, '.snap-menu': snapMenu, '#snap-enabled': snapEnabled, '.snap-dependent': snapDependent, '.units-control': unitsTrigger, '.units-menu': unitsMenu, '[data-unit-value]': unitValue })[selector];
   document.querySelectorAll = selector => ({ '.menu-items > li > button':[fileMenuTrigger,editMenuTrigger], '.snap-dependent input':[], '.footer-tool':[], '.unit-option':unitOptions })[selector] || [];
+  document.createElement = tag => { const element = new Element(tag); element.owner = document; return element; };
   window.devicePixelRatio = 1;
   const frames = []; const renders = []; const sizes = [];
+  let clock = 0, nextTimerId = 1; const timers = new Map();
+  const setTimer = (fn, delay = 0) => { const id = nextTimerId++; timers.set(id, { fn, at: clock + delay }); return id; };
+  const clearTimer = id => timers.delete(id);
   const fakeRenderer = { render: scene => renders.push(scene), resize: (...args) => sizes.push(args) };
   window.createCaderactRenderer = async () => fakeRenderer;
   let observedResize;
@@ -94,7 +102,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const context = vm.createContext({ window, document, crypto: require('node:crypto').webcrypto, navigator: { gpu }, HTMLElement: Element,
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
     ResizeObserver: class { constructor(fn) { this.fn = fn; } observe() { observerStats.observeCount += 1; observedResize = this.fn; } disconnect() { observerStats.disconnectCount += 1; if (observedResize === this.fn) observedResize = undefined; } },
-    requestAnimationFrame: fn => frames.push(fn), console: { info() {}, warn() {} },
+    requestAnimationFrame: fn => frames.push(fn), setTimeout: setTimer, clearTimeout: clearTimer, console: { info() {}, warn() {} },
   });
   const run = expression => vm.runInContext(expression, context);
   const load = file => vm.runInContext(fs.readFileSync(path.join(__dirname, '../../', file), 'utf8'), context, { filename: file });
@@ -114,6 +122,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/LineDraftSession.js');
   load('src/js/editor/CommandRegistry.js');
   load('src/js/editor/CommandRouter.js');
+  load('src/js/editor/CommandFeedback.js');
   load('src/js/viewport/Viewport.js');
   load('src/js/editor/footer-controls.js');
   if (commands) load('src/js/editor/command-input.js');
@@ -125,7 +134,8 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
       defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...props };
     target.dispatchEvent(event); return event;
   };
-  return { window, document, get canvas() { return canvas; }, input, suggestions, undoButton, redoButton, fileNewButton, fileOpenButton, fileSaveButton, fileMenu, fileMenuTrigger, fileMenuDropdown, editMenuTrigger, unitsTrigger, unitsMenu, unitValue, unitOptions, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
+  return { window, document, get canvas() { return canvas; }, input, suggestions, commandHistory, undoButton, redoButton, fileNewButton, fileOpenButton, fileSaveButton, fileMenu, fileMenuTrigger, fileMenuDropdown, editMenuTrigger, unitsTrigger, unitsMenu, unitValue, unitOptions, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
+    advance(milliseconds) { clock += milliseconds; let ran; do { ran = false; for (const [id,timer] of [...timers].sort((a,b)=>a[1].at-b[1].at)) if (timer.at <= clock) { timers.delete(id); timer.fn(); ran = true; } } while (ran); },
     flushOne() { const frame = frames.shift(); if (frame) frame(); return Boolean(frame); },
     flush() { while (frames.length) frames.shift()(); },
     read(expression) { return JSON.parse(run(`JSON.stringify(${expression})`)); },

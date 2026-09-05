@@ -85,6 +85,37 @@ canvas.is-navigating {
   opacity: 1;
 }
 
+.command-input.has-command-error::placeholder { color: #e2767c; }
+
+.command-history {
+  display: flex;
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 2px;
+  width: calc(100% - 4px);
+  flex-direction: column;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.command-history-entry {
+  max-width: 100%;
+  overflow: hidden;
+  color: #91a0b2;
+  line-height: 1.55;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: command-history-life 4s ease-in forwards;
+}
+
+.command-history-entry.is-error { color: #d77a80; }
+
+@keyframes command-history-life {
+  0% { opacity: 0; transform: translateY(2px); }
+  4%, 84% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
 .command-suggestions {
   position: absolute;
   z-index: 3;
@@ -118,6 +149,8 @@ canvas.is-navigating {
   background-color: #1c3348;
   color: var(--mainText);
 }
+
+.command-suggestion strong { color: #f3f7fc; font-weight: 700; }
 
 .footer-tools {
   gap: 7px;

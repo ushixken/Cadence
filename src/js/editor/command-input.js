@@ -1,10 +1,12 @@
 const commandInput = document.querySelector("#command-input")
 const commandSuggestions = document.querySelector("#command-suggestions")
+const commandHistory = document.querySelector("#command-history")
 let selectedSuggestionIndex = 0
+let suggestionExplicitlySelected = false
+let feedbackController = null
 
 function setCommandHint(message) {
-  commandInput.placeholder = message
-  commandInput.classList.toggle("has-active-command", message !== "Type a command...")
+  feedbackController?.setActivePrompt(message)
 }
 
 const commandRegistry = window.CaderactCommandRegistry.createRegistry([
@@ -14,12 +16,59 @@ const commandRouter = window.CaderactCommandRouter.createRouter({ registry: comm
 window.caderactCommandRegistry = commandRegistry
 window.caderactCommandRouter = commandRouter
 
-function getMatchingCommands(value) { return commandRegistry.matches(value) }
+feedbackController = window.CaderactCommandFeedback.createController({
+  setDisplay(message, kind) {
+    commandInput.placeholder = message
+    commandInput.classList.toggle("has-active-command", message !== "Type a command...")
+    commandInput.classList.toggle("has-command-error", kind === "error")
+  },
+  setHistory(entries) {
+    commandHistory.replaceChildren(...entries.map(entry => {
+      const row = document.createElement("div")
+      row.classList.add("command-history-entry")
+      if (entry.kind === "error") row.classList.add("is-error")
+      row.textContent = entry.message
+      return row
+    }))
+  },
+})
+feedbackController.setActivePrompt(commandRouter.currentPrompt)
+commandRouter.subscribe(feedbackController.presentResult)
+window.caderactFeedback = feedbackController
+
+function getMatchingCommands(value) { return commandRegistry.search(value, { limit: 8 }) }
+
+function appendHighlightedText(parent, text, indices) {
+  const matched = new Set(indices)
+  for (let index = 0; index < text.length; index++) {
+    const node = matched.has(index) ? document.createElement("strong") : document.createElement("span")
+    node.textContent = text[index]
+    parent.appendChild(node)
+  }
+}
+
+function createSuggestion(result, index) {
+  const button = document.createElement("button")
+  button.classList.add("command-suggestion")
+  if (index === selectedSuggestionIndex) button.classList.add("is-selected")
+  button.type = "button"
+  button.dataset.commandIndex = String(index)
+  if (result.field === "canonical") appendHighlightedText(button, result.command.name, result.indices)
+  else {
+    const name = document.createElement("span")
+    name.textContent = `${result.command.name} (`
+    button.appendChild(name)
+    appendHighlightedText(button, result.candidate, result.indices)
+    const close = document.createElement("span"); close.textContent = ")"; button.appendChild(close)
+  }
+  return button
+}
 
 function hideSuggestions() {
   commandSuggestions.hidden = true
-  commandSuggestions.innerHTML = ""
+  commandSuggestions.replaceChildren()
   selectedSuggestionIndex = 0
+  suggestionExplicitlySelected = false
 }
 
 function showSuggestions() {
@@ -27,9 +76,7 @@ function showSuggestions() {
   const matches = getMatchingCommands(commandInput.value)
   if (matches.length === 0) { hideSuggestions(); return matches }
   selectedSuggestionIndex = Math.min(selectedSuggestionIndex, matches.length - 1)
-  commandSuggestions.innerHTML = matches.map((command, index) =>
-    `<button class="command-suggestion${index === selectedSuggestionIndex ? " is-selected" : ""}" type="button" data-command-index="${index}">${command.name}</button>`,
-  ).join("")
+  commandSuggestions.replaceChildren(...matches.map(createSuggestion))
   commandSuggestions.hidden = false
   return matches
 }
@@ -42,7 +89,6 @@ function applyCommandResult(outcome) {
   } else if (outcome.status === "unknown-command") {
     commandInput.value = ""
     hideSuggestions()
-    setCommandHint(`Unknown command: ${outcome.input}`)
   } else if (outcome.status === "invalid-input" && outcome.reason === "empty-command") {
     setCommandHint("Type a command...")
   }
@@ -52,7 +98,7 @@ function applyCommandResult(outcome) {
 function confirmSelectedCommand() {
   const matches = getMatchingCommands(commandInput.value)
   if (matches.length === 0) return
-  commandInput.value = matches[selectedSuggestionIndex].name
+  commandInput.value = matches[selectedSuggestionIndex].command.name
   hideSuggestions()
 }
 
@@ -69,7 +115,7 @@ function isTypingInAnotherField(target) {
     (target.matches("input, textarea, select") || target.isContentEditable)
 }
 
-commandInput.addEventListener("input", () => { selectedSuggestionIndex = 0; showSuggestions() })
+commandInput.addEventListener("input", () => { selectedSuggestionIndex = 0; suggestionExplicitlySelected = false; showSuggestions() })
 
 commandInput.addEventListener("keydown", (event) => {
   const matches = getMatchingCommands(commandInput.value)
@@ -80,13 +126,16 @@ commandInput.addEventListener("keydown", (event) => {
     event.preventDefault(); applyCommandResult(commandRouter.cancelActive()); resetCommandInput(); return
   }
   if (event.key === "ArrowDown" && matches.length > 0) {
-    event.preventDefault(); selectedSuggestionIndex = (selectedSuggestionIndex + 1) % matches.length; showSuggestions()
+    event.preventDefault(); selectedSuggestionIndex = (selectedSuggestionIndex + 1) % matches.length; suggestionExplicitlySelected = true; showSuggestions()
   } else if (event.key === "ArrowUp" && matches.length > 0) {
-    event.preventDefault(); selectedSuggestionIndex = (selectedSuggestionIndex - 1 + matches.length) % matches.length; showSuggestions()
+    event.preventDefault(); selectedSuggestionIndex = (selectedSuggestionIndex - 1 + matches.length) % matches.length; suggestionExplicitlySelected = true; showSuggestions()
   } else if (event.key === "Tab" && matches.length > 0) {
     event.preventDefault(); confirmSelectedCommand()
   } else if ((event.key === "Enter" || event.key === " ") && commandInput.value.trim() !== "") {
-    event.preventDefault(); runCommandInput()
+    event.preventDefault()
+    if (event.key === "Enter" && suggestionExplicitlySelected && matches[selectedSuggestionIndex]) {
+      applyCommandResult(commandRouter.execute(matches[selectedSuggestionIndex].command.name))
+    } else runCommandInput()
   }
 })
 
@@ -96,7 +145,7 @@ commandSuggestions.addEventListener("click", (event) => {
   const matches = getMatchingCommands(commandInput.value)
   selectedSuggestionIndex = Number(suggestion.dataset.commandIndex)
   const selected = matches[selectedSuggestionIndex]
-  if (selected) applyCommandResult(commandRouter.execute(selected.name))
+  if (selected) applyCommandResult(commandRouter.execute(selected.command.name))
 })
 
 document.addEventListener("keydown", (event) => {
@@ -121,6 +170,7 @@ document.addEventListener("keydown", (event) => {
     commandInput.focus()
     commandInput.value += event.key
     selectedSuggestionIndex = 0
+    suggestionExplicitlySelected = false
     showSuggestions()
     event.preventDefault()
   }
