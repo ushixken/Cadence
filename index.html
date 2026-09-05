@@ -35,6 +35,7 @@
     <script src="/src/js/editor/command-input.js" defer></script>
     <script src="/src/js/editor/history-actions.js" defer></script>
     <script src="/src/js/editor/file-actions.js" defer></script>
+    <script src="/src/js/editor/layers-panel.js" defer></script>
   </head>
   <body>
     <main>
@@ -366,8 +367,17 @@
             <button class="profile" type="button">Sign In</button>
           </div>
         </nav>
-        <div class="viewport">
-          <canvas></canvas>
+        <div class="editor-workspace">
+          <div class="viewport">
+            <canvas></canvas>
+          </div>
+          <aside class="layers-panel" aria-label="Layers">
+            <header class="layers-panel-header">
+              <strong>Layers</strong>
+              <button id="layer-create" type="button" aria-label="Create layer" title="Create layer">+</button>
+            </header>
+            <div id="layers-list" class="layers-list" role="list"></div>
+          </aside>
         </div>
         <footer class="editor-footer" aria-label="Editor status bar">
           <div class="command-area">

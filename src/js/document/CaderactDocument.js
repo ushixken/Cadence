@@ -127,12 +127,14 @@
     // the controller a way to read/replace `state` and the existing A2 validator.
     const controller = window.DocumentController.createController({
       getDocument: () => state,
-      getCollections: document => ({ records: document.geometry.objects, layers: document.layers, settings: { units: document.units } }),
+      getCollections: document => ({ records: document.geometry.objects, layers: document.layers,
+        settings: { units: document.units, currentLayerId: document.currentLayerId } }),
       assembleDocument: (baseDocument, collections) => ({
         ...baseDocument,
         geometry: { objects: collections.records },
         layers: collections.layers,
         units: collections.settings.units,
+        currentLayerId: collections.settings.currentLayerId,
       }),
       validate: validateDocument,
       onPublish: (newDocument) => { state = newDocument },
@@ -202,6 +204,13 @@
       return Object.values(state.layers).find(layer => layerNameKey(layer.name) === key) || null
     }
     const layerGateway = Object.freeze({
+      setCurrent(layerId) {
+        if (!has(state.layers, layerId)) return Object.freeze({ status: "unknown-layer", layerId })
+        if (state.currentLayerId === layerId) return Object.freeze({ status: "no-op", changes: Object.freeze([]) })
+        const transaction = controller.beginTransaction()
+        transaction.replaceIn("settings", "currentLayerId", layerId)
+        return transaction.publish()
+      },
       create(name) {
         const normalizedName = normalizeLayerName(name)
         if (!normalizedName) return Object.freeze({ status: "invalid-layer-name" })

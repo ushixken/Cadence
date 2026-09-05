@@ -10,6 +10,7 @@ There was no package.json, npm script, installed test stack, or existing test su
 - `commands/line.test.cjs`: router-owned Line lifecycle, transient drafts, live preview, one-transaction completion, cancellation, Step Undo, failure retention, and active-session preservation.
 - `commands/history.test.cjs`: U2 document Undo/Redo shortcuts, command-local Step Undo priority, focus/browser safety, authoritative button availability, single-fire traversal, and Redo branch discard.
 - `commands/feedback-autocomplete.test.cjs`: U5 router-derived prompts, timed feedback/history, ranked fuzzy discovery, safe match highlighting, and explicit-selection execution safety.
+- `commands/layers-ui.test.cjs`: U6 authoritative layer list/actions, current/default identity, A4 history, command safety, U5 feedback, and U3 session rebinding.
 - `commands/files.test.cjs`: U3 pinned Save, atomic Open/New replacement, dirty guards, active-command safety, consumer rebinding, and file shortcuts.
 - `viewport/navigation.test.cjs`: real coordinate functions, pan, wheel/drag zoom anchors, navigation termination, resize and DPR through the real Canvas2D renderer.
 - `viewport/units-grid.test.cjs`: U4 authoritative footer units, history/session rebinding, adaptive 1/2/5 world grid, major/minor classification, anchoring, and extreme-zoom bounds.
