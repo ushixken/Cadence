@@ -4,12 +4,15 @@ const redoButton = document.querySelector("#redo-button")
 
 const historyActions = (() => {
   let lastResult = Object.freeze({ status: "undo-unavailable" })
+  let historyUnsubscribe = null
   const result = (status, details = {}) => Object.freeze({ status, ...details })
+
+  const controller = () => window.caderactDocumentSession?.controller || documentController
 
   function refresh() {
     const blocked = commandRouter.isActive
-    undoButton.disabled = blocked || !documentController.canUndo
-    redoButton.disabled = blocked || !documentController.canRedo
+    undoButton.disabled = blocked || !controller().canUndo
+    redoButton.disabled = blocked || !controller().canRedo
     undoButton.setAttribute("aria-disabled", String(undoButton.disabled))
     redoButton.setAttribute("aria-disabled", String(redoButton.disabled))
   }
@@ -26,7 +29,7 @@ const historyActions = (() => {
         ? result("undo-completed", { scope: "command", command: session.name, outcome })
         : result("undo-unavailable", { scope: "command", command: session.name, outcome }))
     }
-    const outcome = documentController.undo()
+    const outcome = controller().undo()
     redraw(outcome)
     if (outcome.status === "undone") return publish(result("undo-completed", { scope: "document", outcome }))
     if (outcome.status === "no-undo") return publish(result("undo-unavailable", { scope: "document" }))
@@ -34,14 +37,20 @@ const historyActions = (() => {
   }
   function redo() {
     if (commandRouter.isActive) return publish(result("redo-blocked-active-command", { command: commandRouter.activeCommand }))
-    const outcome = documentController.redo()
+    const outcome = controller().redo()
     redraw(outcome)
     if (outcome.status === "redone") return publish(result("redo-completed", { scope: "document", outcome }))
     if (outcome.status === "no-redo") return publish(result("redo-unavailable", { scope: "document" }))
     return publish(result("redo-blocked", { scope: "document", outcome }))
   }
 
-  documentController.subscribeHistory(refresh)
+  function bindController() {
+    historyUnsubscribe?.()
+    historyUnsubscribe = controller().subscribeHistory(refresh)
+    refresh()
+  }
+  bindController()
+  window.caderactDocumentSession?.subscribe(bindController)
   commandRouter.subscribe(refresh)
   return Object.freeze({ undo, redo, refresh, get lastResult() { return lastResult } })
 })()

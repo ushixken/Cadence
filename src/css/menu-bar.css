@@ -54,6 +54,33 @@
   background-color: #1b2b3c;
 }
 
+.file-menu { position: relative; }
+
+.file-menu-dropdown {
+  display: none;
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 0;
+  width: 170px;
+  padding: 4px;
+  border: 1px solid #30445a;
+  border-radius: var(--borderRadius);
+  background: #101b28;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.28);
+}
+
+.file-menu.is-open .file-menu-dropdown { display: block; }
+
+.menu-items .file-menu-dropdown button {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.file-menu-dropdown span { color: var(--secondaryText); font-size: 0.68rem; }
+
 .history-actions {
   display: flex;
   gap: 1px;

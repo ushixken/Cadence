@@ -11,8 +11,9 @@ const viewportSettings = {
 
 const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettings.initialZoom)
 const camera = viewportCamera.state
-const { reader: modelReader, recordGateway, layerGateway, unitGateway, controller: documentController } = window.CaderactDocument.createStore()
-window.caderactDocument = modelReader
+const documentSession = window.CaderactDocumentSession.createSession()
+window.caderactDocumentSession = documentSession
+let { reader: modelReader, recordGateway, layerGateway, unitGateway, controller: documentController } = documentSession.store
 
 let viewportWidth = 0, viewportHeight = 0
 let renderer = null, isInitialized = false, isRenderScheduled = false
@@ -143,7 +144,23 @@ function getRendererState() {
 
 function refreshDocumentView() { requestRender() }
 
-window.caderactViewport = { createLineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, getRendererState, refreshDocumentView }
+function resetForDocumentReplacement() {
+  camera.zoom = viewportSettings.initialZoom
+  camera.panX = viewportWidth / 2
+  camera.panY = viewportHeight / 2
+  requestRender()
+  return Object.freeze({ status: "viewport-document-reset" })
+}
+
+documentSession.subscribe(({ store }) => {
+  modelReader = store.reader
+  recordGateway = store.recordGateway
+  layerGateway = store.layerGateway
+  unitGateway = store.unitGateway
+  documentController = store.controller
+})
+
+window.caderactViewport = { createLineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, getRendererState, refreshDocumentView, resetForDocumentReplacement }
 
 function resizeCanvas() {
   const bounds = canvas.getBoundingClientRect()

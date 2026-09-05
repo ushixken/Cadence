@@ -9,6 +9,7 @@ There was no package.json, npm script, installed test stack, or existing test su
 - `commands/input.test.cjs`: U1 registry-backed name/alias/prefix launch, trimming/case, Enter/Space/click exactly-once dispatch, deterministic unknown-command feedback, active-session relaunch protection, Tab completion, printable-key routing, and field/modifier guards.
 - `commands/line.test.cjs`: router-owned Line lifecycle, transient drafts, live preview, one-transaction completion, cancellation, Step Undo, failure retention, and active-session preservation.
 - `commands/history.test.cjs`: U2 document Undo/Redo shortcuts, command-local Step Undo priority, focus/browser safety, authoritative button availability, single-fire traversal, and Redo branch discard.
+- `commands/files.test.cjs`: U3 pinned Save, atomic Open/New replacement, dirty guards, active-command safety, consumer rebinding, and file shortcuts.
 - `viewport/navigation.test.cjs`: real coordinate functions, pan, wheel/drag zoom anchors, navigation termination, resize and DPR through the real Canvas2D renderer.
 - `rendering/boundary.test.cjs`: scene ordering, buffer isolation, WebGPU-first creation, early fallback, context-exclusive canvas replacement, device-loss/render-exception recovery, and controlled total failure.
 - `rendering/scale.test.cjs`: 5,000-record authoritative enumeration, stable ordering, scene projection, and Canvas2D consumption baseline.

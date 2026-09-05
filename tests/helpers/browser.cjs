@@ -34,6 +34,7 @@ class Element {
     return !event.defaultPrevented;
   }
   matches() { return ['input', 'textarea', 'select'].includes(this.tag); }
+  contains(target) { for (let node = target; node; node = node.parent) if (node === this) return true; return false; }
   closest() { return this.suggestion ? this : null; }
   focus() { this.owner.activeElement = this; }
   blur() { this.owner.activeElement = null; }
@@ -45,8 +46,13 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   document.parent = window;
   let canvas = new Element('canvas'); const input = new Element('input');
   const undoButton = new Element('button'); const redoButton = new Element('button');
+  const fileNewButton = new Element('button'); const fileOpenButton = new Element('button'); const fileSaveButton = new Element('button');
+  const fileMenu = new Element('li'); const fileMenuTrigger = new Element('button'); const fileMenuDropdown = new Element(); const editMenuTrigger = new Element('button');
   const suggestions = new Element();
-  for (const el of [canvas, input, suggestions, undoButton, redoButton]) { el.parent = document; el.owner = document; }
+  for (const el of [canvas, input, suggestions, undoButton, redoButton, fileMenu, editMenuTrigger]) { el.parent = document; el.owner = document; }
+  fileMenuTrigger.parent = fileMenu; fileMenuDropdown.parent = fileMenu;
+  for (const el of [fileNewButton, fileOpenButton, fileSaveButton]) el.parent = fileMenuDropdown;
+  for (const el of [fileMenuTrigger, fileMenuDropdown, fileNewButton, fileOpenButton, fileSaveButton]) el.owner = document;
   let bounds = { left: 20, top: 40, width: 800, height: 600 };
   const drawCalls = [];
   const context2d = Object.fromEntries(['setTransform', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'stroke'].map(name => [name, (...args) => drawCalls.push([name, ...args])]));
@@ -62,7 +68,8 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
     };
   }
   canvas._configure = configureCanvas; canvas._replace = replacement => { canvas = replacement; }; configureCanvas(canvas);
-  document.querySelector = selector => ({ canvas, '#command-input': input, '#command-suggestions': suggestions, '#undo-button': undoButton, '#redo-button': redoButton })[selector];
+  document.querySelector = selector => ({ canvas, '#command-input': input, '#command-suggestions': suggestions, '#undo-button': undoButton, '#redo-button': redoButton, '#file-new': fileNewButton, '#file-open': fileOpenButton, '#file-save': fileSaveButton, '.file-menu': fileMenu, '.file-menu-trigger': fileMenuTrigger, '#file-menu-actions': fileMenuDropdown })[selector];
+  document.querySelectorAll = selector => selector === '.menu-items > li > button' ? [fileMenuTrigger, editMenuTrigger] : [];
   window.devicePixelRatio = 1;
   const frames = []; const renders = []; const sizes = [];
   const fakeRenderer = { render: scene => renders.push(scene), resize: (...args) => sizes.push(args) };
@@ -84,6 +91,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/document/CaderactDocument.js');
   load('src/js/document/CaderactReferences.js');
   load('src/js/document/CaderactPersistence.js');
+  load('src/js/editor/DocumentSession.js');
   load('src/js/viewport/ViewportCamera.js');
   load('src/js/viewport/ViewportScene.js');
   load('src/js/viewport/ViewportCanvas.js');
@@ -94,13 +102,14 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/viewport/Viewport.js');
   if (commands) load('src/js/editor/command-input.js');
   if (commands) load('src/js/editor/history-actions.js');
+  if (commands) load('src/js/editor/file-actions.js');
   await settle();
   const emit = (target, type, props = {}) => {
     const event = { type, bubbles: true, button: 0, pointerId: 1, ctrlKey: false, altKey: false, metaKey: false,
       defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...props };
     target.dispatchEvent(event); return event;
   };
-  return { window, document, get canvas() { return canvas; }, input, suggestions, undoButton, redoButton, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
+  return { window, document, get canvas() { return canvas; }, input, suggestions, undoButton, redoButton, fileNewButton, fileOpenButton, fileSaveButton, fileMenu, fileMenuTrigger, fileMenuDropdown, editMenuTrigger, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
     flushOne() { const frame = frames.shift(); if (frame) frame(); return Boolean(frame); },
     flush() { while (frames.length) frames.shift()(); },
     read(expression) { return JSON.parse(run(`JSON.stringify(${expression})`)); },

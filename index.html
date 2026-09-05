@@ -21,6 +21,7 @@
     <script src="/src/js/document/CaderactDocument.js" defer></script>
     <script src="/src/js/document/CaderactReferences.js" defer></script>
     <script src="/src/js/document/CaderactPersistence.js" defer></script>
+    <script src="/src/js/editor/DocumentSession.js" defer></script>
     <script src="/src/js/viewport/ViewportCamera.js" defer></script>
     <script src="/src/js/viewport/ViewportScene.js" defer></script>
     <script src="/src/js/viewport/ViewportCanvas.js" defer></script>
@@ -32,6 +33,7 @@
     <script src="/src/js/editor/footer-controls.js" defer></script>
     <script src="/src/js/editor/command-input.js" defer></script>
     <script src="/src/js/editor/history-actions.js" defer></script>
+    <script src="/src/js/editor/file-actions.js" defer></script>
   </head>
   <body>
     <main>
@@ -325,7 +327,14 @@
           />
           <span class="project-title">Caderact - Project</span>
           <ul class="menu-items">
-            <li><button type="button">File</button></li>
+            <li class="file-menu">
+              <button class="file-menu-trigger" type="button" aria-expanded="false" aria-controls="file-menu-actions">File</button>
+              <div class="file-menu-dropdown" id="file-menu-actions" role="menu" aria-label="File actions" hidden>
+                <button id="file-new" type="button">New <span>Ctrl+N</span></button>
+                <button id="file-open" type="button">Open… <span>Ctrl+O</span></button>
+                <button id="file-save" type="button">Save <span>Ctrl+S</span></button>
+              </div>
+            </li>
             <li><button type="button">Edit</button></li>
             <li><button type="button">View</button></li>
             <li><button type="button">Tools</button></li>
