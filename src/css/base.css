@@ -1,0 +1,30 @@
+:root {
+  --sideBar: #090d12;
+  --mainPage: #121c27;
+  --mainText: #f2f4f7;
+  --secondaryText: #a7afbb;
+  --borders: #252d38;
+  --buttonBorder: #5b6c85;
+  --activeButton: #17233d;
+  --activeText: #3f6df6;
+  --hoverButton: #232528;
+
+  --borderRadius: 0.5rem;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+body {
+  background-color: var(--mainPage);
+  font-family: sans-serif;
+}
+
+body :focus-visible {
+  outline: none;
+}

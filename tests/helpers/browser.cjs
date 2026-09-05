@@ -62,12 +62,15 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const run = expression => vm.runInContext(expression, context);
   const load = file => vm.runInContext(fs.readFileSync(path.join(__dirname, '../../', file), 'utf8'), context, { filename: file });
   if (realRenderer) {
-    for (const name of ['Renderer', 'Canvas2DRenderer', 'createRenderer']) load(`src/js/rendering/${name}.js`);
+    for (const name of ['Renderer', 'Canvas2DRenderer', 'createCaderactRenderer']) load(`src/js/rendering/${name}.js`);
   }
   load('src/js/document/DocumentController.js');
   load('src/js/document/CaderactDocument.js');
-  load('src/js/viewport/canvas.js');
-  if (commands) load('src/js/editor/commands.js');
+  load('src/js/viewport/ViewportCamera.js');
+  load('src/js/viewport/ViewportScene.js');
+  load('src/js/viewport/ViewportNavigation.js');
+  load('src/js/viewport/Viewport.js');
+  if (commands) load('src/js/editor/command-input.js');
   await settle();
   const emit = (target, type, props = {}) => {
     const event = { type, bubbles: true, button: 0, pointerId: 1, ctrlKey: false, altKey: false, metaKey: false,

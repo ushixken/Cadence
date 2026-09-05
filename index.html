@@ -6,27 +6,31 @@
     <title>Caderact - Design, model, and create...</title>
 
     <!-- CSS Files -->
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="/src/css/base.css" />
+    <link rel="stylesheet" href="/src/css/home-page.css" />
     <link rel="stylesheet" href="/src/css/menu-bar.css" />
     <link rel="stylesheet" href="/src/css/editor-page.css" />
     <!-- JavaScript Files -->
-    <script src="/src/js/home/home.js" defer></script>
+    <script src="/src/js/home/home-page.js" defer></script>
     <script src="/src/js/rendering/Renderer.js" defer></script>
     <script src="/src/js/rendering/Canvas2DRenderer.js" defer></script>
     <script src="/src/js/rendering/WebGPURenderer.js" defer></script>
-    <script src="/src/js/rendering/createRenderer.js" defer></script>
+    <script src="/src/js/rendering/createCaderactRenderer.js" defer></script>
     <script src="/src/js/document/DocumentController.js" defer></script>
     <script src="/src/js/document/CaderactDocument.js" defer></script>
-    <script src="/src/js/viewport/canvas.js" defer></script>
-    <script src="/src/js/editor/footer.js" defer></script>
-    <script src="/src/js/editor/commands.js" defer></script>
+    <script src="/src/js/viewport/ViewportCamera.js" defer></script>
+    <script src="/src/js/viewport/ViewportScene.js" defer></script>
+    <script src="/src/js/viewport/ViewportNavigation.js" defer></script>
+    <script src="/src/js/viewport/Viewport.js" defer></script>
+    <script src="/src/js/editor/footer-controls.js" defer></script>
+    <script src="/src/js/editor/command-input.js" defer></script>
   </head>
   <body>
     <main>
       <div class="home-page">
         <aside class="home-sidebar">
           <a class="caderact-logo" href="">
-            <img class="caderact-img" src="svg/logo.svg" alt="CADERACT Logo" />
+            <img class="caderact-img" src="/assets/branding/caderact-logo.svg" alt="CADERACT Logo" />
             <h1>CADERACT</h1>
           </a>
           <nav>
@@ -302,7 +306,7 @@
       </div>
       <div class="editor-page">
         <nav class="menu-bar" aria-label="Editor menu">
-          <img class="caderact-img" src="svg/logo.svg" alt="CADERACT Logo" />
+          <img class="caderact-img" src="/assets/branding/caderact-logo.svg" alt="CADERACT Logo" />
           <span class="project-title">Caderact - Project</span>
           <ul class="menu-items">
             <li><button type="button">File</button></li>

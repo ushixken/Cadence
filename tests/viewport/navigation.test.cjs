@@ -19,7 +19,7 @@ for (const middle of [false, true]) test(`${middle ? 'middle' : 'Space-left'} dr
   const after = b.read('worldToScreen(10,20)');
   near(after.x - before.x, 30); near(after.y - before.y, -20);
   assert.deepEqual(b.read('modelReader.lines().map(line => ({ start: { x: line.start.x, y: line.start.y }, end: { x: line.end.x, y: line.end.y } }))'), lines);
-  b.point(230, 180, 'pointerup'); assert.equal(b.read('navigationMode'), null);
+  b.point(230, 180, 'pointerup'); assert.equal(b.read('navigation.getMode()'), null);
 });
 test('wheel zoom preserves cursor world anchor and model', async () => {
   const b = await browser(); b.launch(); b.point(400, 300); b.point(450, 300);
@@ -39,10 +39,10 @@ test('pointer cancel and blur stop navigation; invalid zoom is ignored', async (
   const b = await browser();
   for (const stop of ['pointercancel', 'lostpointercapture']) {
     b.point(100, 100, 'pointerdown', { button: 1 }); b.emit(b.canvas, stop, { pointerId: 1 });
-    assert.equal(b.read('navigationMode'), null);
+    assert.equal(b.read('navigation.getMode()'), null);
   }
   b.point(100, 100, 'pointerdown', { button: 1 }); b.emit(b.window, 'blur');
-  assert.equal(b.read('navigationMode'), null);
+  assert.equal(b.read('navigation.getMode()'), null);
   b.run('zoomAtScreenPoint(0,10,10); zoomAtScreenPoint(Infinity,10,10)');
   assert.equal(b.read('camera.zoom'), 5);
 });
