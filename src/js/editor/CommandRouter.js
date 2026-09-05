@@ -8,10 +8,19 @@
     }
     let activeSession = null
     let lastResult = result("invalid-input", { reason: "no-command" })
+    const listeners = new Set()
 
     function publish(outcome) {
       lastResult = outcome
+      for (const listener of listeners) {
+        try { listener(outcome) } catch (error) { console.warn("Caderact command observer failed", error) }
+      }
       return outcome
+    }
+    function subscribe(listener) {
+      if (typeof listener !== "function") throw new Error("Command listener must be a function")
+      listeners.add(listener)
+      return () => listeners.delete(listener)
     }
     function showSessionPrompt() {
       setPrompt(activeSession?.prompt || "Type a command...")
@@ -60,7 +69,7 @@
     }
 
     return Object.freeze({
-      execute, activate, finishActive, cancelActive,
+      execute, activate, finishActive, cancelActive, subscribe,
       get activeSession() { return activeSession },
       get activeCommand() { return activeSession?.name || null },
       get currentPrompt() { return activeSession?.prompt || "Type a command..." },

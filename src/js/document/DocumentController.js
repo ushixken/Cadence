@@ -56,6 +56,19 @@
     const issuedStateTokens = new WeakSet()
     const historyEntries = []
     let historyCursor = 0 // number of applied entries; 0 is the initial state
+    const historyListeners = new Set()
+
+    function notifyHistory() {
+      for (const listener of historyListeners) {
+        try { listener() } catch (error) { console.warn("Caderact history observer failed", error) }
+      }
+    }
+    function subscribeHistory(listener) {
+      if (typeof listener !== "function") throw new Error("History listener must be a function")
+      historyListeners.add(listener)
+      listener()
+      return () => historyListeners.delete(listener)
+    }
 
     const usesCollections = typeof getCollections === "function"
     function collectionsOf(document) {
@@ -112,6 +125,7 @@
       revision += 1
       currentStateId = nextStateId
       historyCursor = nextCursor
+      notifyHistory()
       return Object.freeze({ status, revision, stateId: currentStateId })
     }
 
@@ -221,6 +235,7 @@
         currentStateId = afterStateId
         closed = true
         releaseLease()
+        notifyHistory()
         return Object.freeze({ status: "committed", revision, stateId: currentStateId, changes: entry.changes })
       }
       return Object.freeze({
@@ -274,7 +289,7 @@
     }
 
     return Object.freeze({
-      beginTransaction, undo, redo, captureStateToken, markStateSaved,
+      beginTransaction, undo, redo, captureStateToken, markStateSaved, subscribeHistory,
       get currentRevision() { return revision },
       get currentStateId() { return currentStateId },
       get savedStateId() { return savedStateId },

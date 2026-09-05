@@ -7,6 +7,7 @@ const vm = require('node:vm');
 class Element {
   constructor(tag = 'div') {
     this.tag = tag; this.listeners = {}; this.value = ''; this.hidden = true;
+    this.disabled = false;
     this.dataset = {}; this.attributes = {}; this.isContentEditable = false;
     const classes = this.classes = new Set();
     this.classList = {
@@ -43,8 +44,9 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const window = new Element(); const document = new Element();
   document.parent = window;
   let canvas = new Element('canvas'); const input = new Element('input');
+  const undoButton = new Element('button'); const redoButton = new Element('button');
   const suggestions = new Element();
-  for (const el of [canvas, input, suggestions]) { el.parent = document; el.owner = document; }
+  for (const el of [canvas, input, suggestions, undoButton, redoButton]) { el.parent = document; el.owner = document; }
   let bounds = { left: 20, top: 40, width: 800, height: 600 };
   const drawCalls = [];
   const context2d = Object.fromEntries(['setTransform', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'stroke'].map(name => [name, (...args) => drawCalls.push([name, ...args])]));
@@ -60,7 +62,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
     };
   }
   canvas._configure = configureCanvas; canvas._replace = replacement => { canvas = replacement; }; configureCanvas(canvas);
-  document.querySelector = selector => ({ canvas, '#command-input': input, '#command-suggestions': suggestions })[selector];
+  document.querySelector = selector => ({ canvas, '#command-input': input, '#command-suggestions': suggestions, '#undo-button': undoButton, '#redo-button': redoButton })[selector];
   window.devicePixelRatio = 1;
   const frames = []; const renders = []; const sizes = [];
   const fakeRenderer = { render: scene => renders.push(scene), resize: (...args) => sizes.push(args) };
@@ -91,13 +93,14 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/CommandRouter.js');
   load('src/js/viewport/Viewport.js');
   if (commands) load('src/js/editor/command-input.js');
+  if (commands) load('src/js/editor/history-actions.js');
   await settle();
   const emit = (target, type, props = {}) => {
     const event = { type, bubbles: true, button: 0, pointerId: 1, ctrlKey: false, altKey: false, metaKey: false,
       defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...props };
     target.dispatchEvent(event); return event;
   };
-  return { window, document, get canvas() { return canvas; }, input, suggestions, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
+  return { window, document, get canvas() { return canvas; }, input, suggestions, undoButton, redoButton, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
     flushOne() { const frame = frames.shift(); if (frame) frame(); return Boolean(frame); },
     flush() { while (frames.length) frames.shift()(); },
     read(expression) { return JSON.parse(run(`JSON.stringify(${expression})`)); },

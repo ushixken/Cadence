@@ -141,7 +141,9 @@ function getRendererState() {
   return Object.freeze({ status: rendererStatus, error: rendererError, canvasReplacements: canvasOwner.replacementCount })
 }
 
-window.caderactViewport = { createLineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, getRendererState }
+function refreshDocumentView() { requestRender() }
+
+window.caderactViewport = { createLineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, getRendererState, refreshDocumentView }
 
 function resizeCanvas() {
   const bounds = canvas.getBoundingClientRect()

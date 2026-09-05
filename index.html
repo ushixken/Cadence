@@ -31,6 +31,7 @@
     <script src="/src/js/viewport/Viewport.js" defer></script>
     <script src="/src/js/editor/footer-controls.js" defer></script>
     <script src="/src/js/editor/command-input.js" defer></script>
+    <script src="/src/js/editor/history-actions.js" defer></script>
   </head>
   <body>
     <main>
@@ -332,6 +333,10 @@
             <li><button type="button">Window</button></li>
             <li><button type="button">Help</button></li>
           </ul>
+          <div class="history-actions" aria-label="Document history">
+            <button id="undo-button" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled>↶</button>
+            <button id="redo-button" type="button" aria-label="Redo" title="Redo (Ctrl+Y)" disabled>↷</button>
+          </div>
           <div class="menu-actions">
             <button
               class="notification"
