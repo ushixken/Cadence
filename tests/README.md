@@ -1,6 +1,6 @@
 # Stage 1 behavior regression suite
 
-Run `npm test` with Node.js 22 or newer. No npm dependencies or installation are needed. Stage 1 established 40 passing cases. Stage 2 adds document tests and adapts array reads to the document reader; see `docs/architecture/stage-2-document-boundary.md`.
+Run `npm test` with Node.js 22 or newer. No npm dependencies or installation are needed. Stage 1 established 40 passing cases. Stage 2 adds document tests and adapts array reads to the document reader; see `docs/architecture/stages/A2-document-boundary.md`. A3 adds the Transaction Core; see `docs/architecture/stages/A3-transaction-core.md`.
 
 There was no package.json, npm script, installed test stack, or existing test suite when Stage 1 began. Node's built-in test runner and VM provide the smallest dependency-free setup for these classic browser scripts. No production source files were changed.
 

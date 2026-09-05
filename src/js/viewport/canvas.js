@@ -8,7 +8,7 @@ const viewportSettings = {
   yAxisColor: "#3b7658", geometryColor: "#e8edf4", previewColor: "rgba(232, 237, 244, 0.65)",
 }
 const camera = { panX: 0, panY: 0, zoom: viewportSettings.initialZoom }
-const { reader: modelReader, legacyLineWriter } = window.CaderactDocument.createStore()
+const { reader: modelReader, legacyLineWriter, controller: documentController } = window.CaderactDocument.createStore()
 window.caderactDocument = modelReader
 let viewportWidth = 0, viewportHeight = 0, renderer = null, isInitialized = false, isRenderScheduled = false
 let isSpacePressed = false, navigationMode = null, activePointerId = null

@@ -64,6 +64,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   if (realRenderer) {
     for (const name of ['Renderer', 'Canvas2DRenderer', 'createRenderer']) load(`src/js/rendering/${name}.js`);
   }
+  load('src/js/document/DocumentController.js');
   load('src/js/document/CaderactDocument.js');
   load('src/js/viewport/canvas.js');
   if (commands) load('src/js/editor/commands.js');

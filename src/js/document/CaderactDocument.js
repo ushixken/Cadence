@@ -63,34 +63,50 @@
       layers: { [layerId]: { id: layerId, name: "Default", visible: true, locked: false } },
       currentLayerId: layerId,
     })
-    function publish(objects) {
-      const candidate = { ...state, geometry: { objects } }
-      const errors = validateDocument(candidate)
-      if (errors.length) throw new Error(errors.join("; "))
-      state = freeze(candidate)
-    }
+    // A3: persistent document mutation is now gated by the Document Controller's
+    // transaction core. This closure no longer publishes state directly; it hands
+    // the controller a way to read/replace `state` and the existing A2 validator.
+    const controller = window.DocumentController.createController({
+      getDocument: () => state,
+      assembleDocument: (baseDocument, objects) => ({ ...baseDocument, geometry: { objects } }),
+      validate: validateDocument,
+      onPublish: (newDocument) => { state = newDocument },
+      freeze,
+    })
     const reader = Object.freeze({
       snapshot: () => state,
       lines: () => Object.freeze(Object.values(state.geometry.objects)),
     })
-    // Temporary, narrow capability for the existing immediate-write Line command.
-    // Only the viewport owns it; consumers receive the reader instead.
+    function publishOrThrow(transaction) {
+      const outcome = transaction.publish()
+      if (outcome.status === "validation-failed") throw new Error(outcome.errors.join("; "))
+      return outcome
+    }
+    // Transitional (A3) Line integration: each accepted segment or session-cancel
+    // uses one short, immediately-published transaction through the controller.
+    // This is still not the final A5 whole-session draft architecture; the
+    // viewport continues to call add()/remove() per accepted point/session,
+    // exactly as it did in A2, but persistent writes now flow through the
+    // transaction core instead of a private ad hoc publish().
+    // Only the viewport owns this capability; consumers receive the reader.
     const legacyLineWriter = Object.freeze({
       add(start, end) {
+        const transaction = controller.beginTransaction()
         const line = { id: newId(), type: "line", layerId: state.currentLayerId,
           start: { x: start?.x, y: start?.y, featureId: newId() },
           end: { x: end?.x, y: end?.y, featureId: newId() },
         }
-        publish({ ...state.geometry.objects, [line.id]: line })
+        transaction.create(line.id, line)
+        publishOrThrow(transaction)
         return line.id
       },
       remove(ids) {
-        const objects = { ...state.geometry.objects }
-        for (const id of ids) delete objects[id]
-        publish(objects)
+        const transaction = controller.beginTransaction()
+        for (const id of ids) transaction.remove(id)
+        publishOrThrow(transaction)
       },
     })
-    return Object.freeze({ reader, legacyLineWriter })
+    return Object.freeze({ reader, legacyLineWriter, controller })
   }
   window.CaderactDocument = Object.freeze({ createStore, validateDocument })
 })()
