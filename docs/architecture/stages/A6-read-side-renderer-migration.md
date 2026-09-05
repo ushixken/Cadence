@@ -82,6 +82,6 @@ a renderer/canvas lifecycle decision rather than read-side ownership changes.
 
 ## Deferred work
 
-A6 adds no A7 layer/property transactions, selection, snapping, new commands,
+A6 itself added no layer/property transactions (A7 later supplies them), selection, snapping, new commands,
 persistence, file formats, rendering-performance architecture, global history
 shortcuts, framework migration, or public Help content.

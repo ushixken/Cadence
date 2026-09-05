@@ -1,4 +1,4 @@
-// A4: Document Controller / transaction and exact-value history boundary.
+// A4/A7: Document Controller / transaction and exact-value history boundary.
 //
 // This module owns persistent publication, the foreground edit lease, linear
 // history, content-state identity, and save-state markers. It remains schema
@@ -43,7 +43,7 @@
 
   // `testHooks` is an explicitly supplied test-fixture capability. Production
   // CaderactDocument stores do not pass it and receive no bypass surface.
-  function createController({ getDocument, assembleDocument, validate, onPublish, freeze, allocateStateId = defaultStateIdAllocator }, testHooks) {
+  function createController({ getDocument, assembleDocument, getCollections, validate, onPublish, freeze, allocateStateId = defaultStateIdAllocator }, testHooks) {
     let revision = 0
     let leaseHolder = null
     let transactionSequence = 0
@@ -57,10 +57,17 @@
     const historyEntries = []
     let historyCursor = 0 // number of applied entries; 0 is the initial state
 
-    function baseObjectsOf(document) { return document.geometry.objects }
+    const usesCollections = typeof getCollections === "function"
+    function collectionsOf(document) {
+      return usesCollections ? getCollections(document) : { records: document.geometry.objects }
+    }
+    function assemble(baseDocument, collections) {
+      return usesCollections ? assembleDocument(baseDocument, collections) : assembleDocument(baseDocument, collections.records)
+    }
     function serializeChanges(changes) {
-      return Array.from(changes, ([recordId, change]) => freezeValue({
-        recordId,
+      return Array.from(changes.values(), change => freezeValue({
+        collection: change.collection,
+        recordId: change.recordId,
         before: frozenCopy(change.before),
         after: frozenCopy(change.after),
       }))
@@ -71,14 +78,16 @@
     function historyBlocked() {
       return Object.freeze({ status: "blocked-by-active-transaction" })
     }
-    function buildCandidateObjects(baseObjects, changes, side) {
-      const objects = { ...baseObjects }
+    function buildCandidateCollections(baseCollections, changes, side) {
+      const collections = Object.fromEntries(Object.entries(baseCollections).map(([name, table]) => [name, { ...table }]))
       for (const change of changes) {
         const value = change[side]
-        if (value === null) delete objects[change.recordId]
-        else objects[change.recordId] = copyValue(value)
+        const table = collections[change.collection]
+        if (!table) return null
+        if (value === null) delete table[change.recordId]
+        else table[change.recordId] = copyValue(value)
       }
-      return objects
+      return collections
     }
     function integrityFailure(message) {
       return Object.freeze({ status: "integrity-failed", errors: Object.freeze([message]) })
@@ -86,15 +95,17 @@
     function applyHistory(entry, expectedSide, applySide, nextStateId, nextCursor, status) {
       if (leaseHolder !== null) return historyBlocked()
       const currentDocument = getDocument()
-      const currentObjects = baseObjectsOf(currentDocument)
+      const currentCollections = collectionsOf(currentDocument)
       for (const change of entry.changes) {
-        const actual = has(currentObjects, change.recordId) ? currentObjects[change.recordId] : null
+        const table = currentCollections[change.collection]
+        const actual = table && has(table, change.recordId) ? table[change.recordId] : null
         if (!recordsEqual(actual, change[expectedSide])) {
-          return integrityFailure(`History ${status} precondition failed for record ${change.recordId}`)
+          return integrityFailure(`History ${status} precondition failed for ${change.collection} ${change.recordId}`)
         }
       }
-      const candidateObjects = buildCandidateObjects(currentObjects, entry.changes, applySide)
-      const candidateDocument = assembleDocument(currentDocument, candidateObjects)
+      const candidateCollections = buildCandidateCollections(currentCollections, entry.changes, applySide)
+      if (!candidateCollections) return integrityFailure(`History ${status} references an unknown collection`)
+      const candidateDocument = assemble(currentDocument, candidateCollections)
       const errors = validate(candidateDocument)
       if (errors.length) return Object.freeze({ status: "integrity-failed", errors: Object.freeze(Array.from(errors)) })
       onPublish(freeze(candidateDocument))
@@ -110,37 +121,51 @@
       leaseHolder = transactionId
       const baseDocument = getDocument()
       const baseRevision = revision
-      const baseObjects = baseObjectsOf(baseDocument)
+      const baseCollections = collectionsOf(baseDocument)
       const staged = new Map()
       let closed = false
 
       function ownsLease() { return leaseHolder === transactionId }
       function ensureOpen() { if (closed) throw new Error("Transaction is already closed") }
       function releaseLease() { if (ownsLease()) leaseHolder = null }
-      function committedBefore(recordId) { return has(baseObjects, recordId) ? baseObjects[recordId] : null }
-      function read(recordId) {
-        ensureOpen()
-        return staged.has(recordId) ? staged.get(recordId).after : committedBefore(recordId)
+      function changeKey(collection, recordId) { return `${collection}\u0000${recordId}` }
+      function tableFor(collection) {
+        const table = baseCollections[collection]
+        if (!table) throw new Error(`Unknown transaction collection ${collection}`)
+        return table
       }
-      function stage(recordId, after) {
-        ensureOpen()
-        const existing = staged.get(recordId)
-        staged.set(recordId, { before: existing ? existing.before : committedBefore(recordId), after })
+      function committedBefore(collection, recordId) {
+        const table = tableFor(collection)
+        return has(table, recordId) ? table[recordId] : null
       }
-      function create(recordId, record) {
+      function readIn(collection, recordId) {
         ensureOpen()
-        if (read(recordId) !== null) throw new Error(`Cannot create record ${recordId}: it already exists in this transaction's staged view`)
-        stage(recordId, record)
+        const key = changeKey(collection, recordId)
+        return staged.has(key) ? staged.get(key).after : committedBefore(collection, recordId)
       }
-      function replace(recordId, record) {
+      function stageIn(collection, recordId, after) {
         ensureOpen()
-        if (read(recordId) === null) throw new Error(`Cannot replace record ${recordId}: it does not exist in this transaction's staged view`)
-        stage(recordId, record)
+        const key = changeKey(collection, recordId), existing = staged.get(key)
+        staged.set(key, { collection, recordId, before: existing ? existing.before : committedBefore(collection, recordId), after })
       }
-      function remove(recordId) { stage(recordId, null) }
+      function createIn(collection, recordId, record) {
+        ensureOpen()
+        if (readIn(collection, recordId) !== null) throw new Error(`Cannot create ${collection} ${recordId}: it already exists in this transaction's staged view`)
+        stageIn(collection, recordId, record)
+      }
+      function replaceIn(collection, recordId, record) {
+        ensureOpen()
+        if (readIn(collection, recordId) === null) throw new Error(`Cannot replace ${collection} ${recordId}: it does not exist in this transaction's staged view`)
+        stageIn(collection, recordId, record)
+      }
+      function removeIn(collection, recordId) { stageIn(collection, recordId, null) }
+      const read = recordId => readIn("records", recordId)
+      const create = (recordId, record) => createIn("records", recordId, record)
+      const replace = (recordId, record) => replaceIn("records", recordId, record)
+      const remove = recordId => removeIn("records", recordId)
       function coalesce() {
         const net = new Map()
-        for (const [recordId, change] of staged) if (!recordsEqual(change.before, change.after)) net.set(recordId, change)
+        for (const [key, change] of staged) if (!recordsEqual(change.before, change.after)) net.set(key, change)
         return net
       }
       function rollback() {
@@ -166,12 +191,13 @@
           releaseLease()
           return Object.freeze({ status: "no-op", changes: [] })
         }
-        const candidateObjects = { ...baseObjects }
-        for (const [recordId, change] of changes) {
-          if (change.after === null) delete candidateObjects[recordId]
-          else candidateObjects[recordId] = change.after
+        const candidateCollections = Object.fromEntries(Object.entries(baseCollections).map(([name, table]) => [name, { ...table }]))
+        for (const change of changes.values()) {
+          const table = candidateCollections[change.collection]
+          if (change.after === null) delete table[change.recordId]
+          else table[change.recordId] = change.after
         }
-        const candidateDocument = assembleDocument(baseDocument, candidateObjects)
+        const candidateDocument = assemble(baseDocument, candidateCollections)
         const errors = validate(candidateDocument)
         if (errors.length) {
           closed = true
@@ -199,7 +225,7 @@
       }
       return Object.freeze({
         id: transactionId, baseRevision,
-        read, create, replace, remove, publish, rollback,
+        read, create, replace, remove, readIn, createIn, replaceIn, removeIn, publish, rollback,
         get isOpen() { return !closed },
       })
     }
@@ -234,7 +260,9 @@
       // transaction outcomes without weakening production's edit lease.
       testHooks.forceRevision = () => { revision += 1 }
       testHooks.forcePublish = objects => {
-        const candidateDocument = assembleDocument(getDocument(), objects)
+        const currentDocument = getDocument()
+        const collections = collectionsOf(currentDocument)
+        const candidateDocument = assemble(currentDocument, { ...collections, records: objects })
         onPublish(freeze(candidateDocument))
         revision += 1
         // This test-only external transition has no exact record set, so it

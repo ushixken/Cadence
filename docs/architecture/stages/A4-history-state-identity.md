@@ -26,6 +26,10 @@ published revisions, before/after state IDs, and immutable copies of each exact
 record change. A change uses `null` for explicit absence. A4 stores changed
 payloads rather than full document snapshots.
 
+A7 later added a collection name to each change so the same exact-value history
+mechanism can address both records and layers. The paragraph above describes
+the A4 record-only implementation.
+
 ## Exact-value traversal
 
 Undo applies each entry's recorded `before` values; Redo applies its recorded

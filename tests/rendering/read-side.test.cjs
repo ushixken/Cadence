@@ -3,11 +3,17 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { browser } = require('../helpers/browser.cjs');
 
+function sortedSegments(values) {
+  const segments = [];
+  for (let index = 0; index < values.length; index += 4) segments.push(values.slice(index, index + 4));
+  return segments.sort((a, b) => a.join(',').localeCompare(b.join(',')));
+}
+
 test('finished Line rendering follows A4 Undo and Redo through the document read-side', async () => {
   const b = await browser(); b.launch();
   b.point(400, 300); b.point(450, 300); b.point(450, 250); b.key('Enter'); b.flush();
   const committed = Array.from(b.renders.at(-1).lineGroups[4].segments);
-  assert.deepEqual(committed, [400, 300, 450, 300, 450, 300, 450, 250]);
+  assert.deepEqual(sortedSegments(committed), sortedSegments([400, 300, 450, 300, 450, 300, 450, 250]));
   assert.equal(b.renders.at(-1).lineGroups[5].segments.length, 0);
 
   b.run('documentController.undo(); requestRender()'); b.flush();

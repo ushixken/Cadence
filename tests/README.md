@@ -1,6 +1,6 @@
 # Stage 1 behavior regression suite
 
-Run `npm test` with Node.js 22 or newer. No npm dependencies or installation are needed. Stage 1 established 40 passing cases. Later suites protect the document boundary, transaction/history core, and A5 Line draft migration; see `docs/architecture/stages/`.
+Run `npm test` with Node.js 22 or newer. No npm dependencies or installation are needed. Stage 1 established 40 passing cases. Later suites protect the document boundary, transaction/history core, A5 Line draft migration, A6 read side, and A7 layer/property transactions; see `docs/architecture/stages/`.
 
 There was no package.json, npm script, installed test stack, or existing test suite when Stage 1 began. Node's built-in test runner and VM provide the smallest dependency-free setup for these classic browser scripts. No production source files were changed.
 
@@ -11,6 +11,7 @@ There was no package.json, npm script, installed test stack, or existing test su
 - `viewport/navigation.test.cjs`: real coordinate functions, pan, wheel/drag zoom anchors, navigation termination, resize and DPR through the real Canvas2D renderer.
 - `rendering/boundary.test.cjs`: scene ordering, buffer isolation, renderer exception, early fallback, and known late-fallback defect.
 - `rendering/read-side.test.cjs`: authoritative document projection, Undo/Redo and external publication rendering, immutable deterministic enumeration, unsupported records, and the shared backend scene contract.
+- `document/layers.test.cjs`: layer invariants and immutable reads, atomic lifecycle/property edits, deletion policy, exact history, stale/rollback behavior, branching, and A6 rendering continuity.
 - `helpers/browser.cjs`: isolated browser/event/canvas stubs and deterministic animation-frame flushing.
 
 The harness executes production files in a fresh VM for each test. It reads existing lexical state for assertions instead of adding test-only production exports. Mathematical tests call the actual production functions, not reimplemented formulas.

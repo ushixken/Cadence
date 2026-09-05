@@ -15,6 +15,9 @@ boundary.
 - Each endpoint: `x`, `y`, `featureId`. The feature ID—not the property position—is its identity. Future reversal must carry the feature ID with its endpoint.
 - Default layer: stable `id`, `name: "Default"`, `visible: true`, `locked: false`.
 
+A7 later added an explicit `defaultLayerId` invariant and transactional layer
+operations; the description above records the schema as it existed at A2.
+
 Coordinates are JavaScript Numbers in world space. Endpoints are copied on insertion, so pointer state cannot mutate model records. No screen-space, preview, or renderer buffers enter the document. Zero-length segments remain allowed to preserve existing behavior; validation is structural, not a geometry solver.
 
 IDs use 128 random bits from Web Crypto, encoded as opaque strings. A store retains allocated IDs after removal and checks collisions before allocation. IDs are unrelated to coordinates, render positions, or collection ordering. Records retain their IDs on reads; cancelled IDs are not intentionally recycled. No ID rewriting policy or Undo implementation is introduced.
