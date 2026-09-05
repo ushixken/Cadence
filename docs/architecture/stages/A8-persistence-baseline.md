@@ -22,6 +22,10 @@ The top-level JSON object contains:
 - `document`, containing `id`, `name`, `formatVersion`, `defaultLayerId`,
   `currentLayerId`, a `layers` array, and a `records` array.
 
+A9 later completed the initial version-1 document payload with the required
+`units: { length }` singleton. Files produced by the current v1 encoder include
+it; A8-only prototype payloads without it are rejected rather than migrated.
+
 Each layer persists its stable `id`, `name`, `visible`, and `locked` fields.
 Each current Line record persists its stable object ID, type, layer reference,
 coordinates, and both stable endpoint feature IDs. JavaScript Number values use
@@ -96,5 +100,5 @@ explicit migration policy before acceptance.
 
 Deferred beyond A8: Save/Open UI, file pickers, active-store swapping commands,
 autosave, recent files, IndexedDB, cloud synchronization, recovery journals,
-compression, binary formats, DXF, units changes, and A9+ features.
-
+compression, binary formats, DXF, and A9+ features. Units were added later by
+A9 without changing the still-initial file version.

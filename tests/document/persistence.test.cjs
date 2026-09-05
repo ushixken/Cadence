@@ -19,7 +19,7 @@ test('save payload contains only versioned durable content in deterministic ID o
   assert.equal(payload.fileVersion, 1);
   assert.deepEqual(Object.keys(payload), ['fileVersion', 'document']);
   assert.deepEqual(Object.keys(payload.document), [
-    'id', 'name', 'formatVersion', 'defaultLayerId', 'currentLayerId', 'layers', 'records',
+    'id', 'name', 'formatVersion', 'units', 'defaultLayerId', 'currentLayerId', 'layers', 'records',
   ]);
   assert.deepEqual(payload.document.layers.map(layer => layer.id), [...payload.document.layers.map(layer => layer.id)].sort());
   assert.deepEqual(payload.document.records.map(record => record.id), [...payload.document.records.map(record => record.id)].sort());
@@ -75,6 +75,7 @@ test('invalid, corrupt, and incompatible payloads are rejected without touching 
     payload => { payload.document.layers.push({ ...payload.document.layers[0] }); },
     payload => { payload.document.records[0].layerId = 'missing'; },
     payload => { payload.document.defaultLayerId = 'missing'; },
+    payload => { payload.document.units.length = 'yard'; },
     payload => { payload.document.records[0].type = 'circle'; },
     payload => { payload.document.records[0].start.x = null; },
     payload => { delete payload.document.records[0].start; },

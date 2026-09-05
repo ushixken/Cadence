@@ -19,6 +19,7 @@
     identity(value.id, "document")
     if (value.formatVersion !== 1) errors.push("Unsupported formatVersion")
     if (typeof value.name !== "string") errors.push("Invalid document name")
+    if (!isRecord(value.units) || !window.CaderactUnits.isSupportedLengthUnit(value.units.length)) errors.push("Invalid document length unit")
     const layers = value.layers, objects = value.geometry?.objects
     const layerNames = new Set()
     if (!isRecord(layers)) errors.push("Invalid layer table")
@@ -84,7 +85,7 @@
       state = freeze(candidate)
     } else {
       const id = newId(), layerId = newId()
-      state = freeze({ id, name: "Untitled", formatVersion: 1,
+      state = freeze({ id, name: "Untitled", formatVersion: 1, units: { length: "mm" },
         geometry: { objects: {} },
         layers: { [layerId]: { id: layerId, name: "Default", visible: true, locked: false } },
         defaultLayerId: layerId,
@@ -96,11 +97,12 @@
     // the controller a way to read/replace `state` and the existing A2 validator.
     const controller = window.DocumentController.createController({
       getDocument: () => state,
-      getCollections: document => ({ records: document.geometry.objects, layers: document.layers }),
+      getCollections: document => ({ records: document.geometry.objects, layers: document.layers, settings: { units: document.units } }),
       assembleDocument: (baseDocument, collections) => ({
         ...baseDocument,
         geometry: { objects: collections.records },
         layers: collections.layers,
+        units: collections.settings.units,
       }),
       validate: validateDocument,
       onPublish: (newDocument) => { state = newDocument },
@@ -117,6 +119,7 @@
       records: () => Object.freeze(Object.values(state.geometry.objects).sort((a, b) => a.id.localeCompare(b.id))),
       layers: () => Object.freeze(Object.values(state.layers).sort((a, b) => a.id.localeCompare(b.id))),
       layer: layerId => state.layers[layerId] || null,
+      units: () => state.units,
       // Compatibility query for current Line-oriented callers; render code uses
       // records() and performs its own supported-type projection.
       lines: () => Object.freeze(Object.values(state.geometry.objects).filter(record => record.type === "line")),
@@ -200,7 +203,16 @@
         return transaction.publish()
       },
     })
-    return Object.freeze({ reader, recordGateway, layerGateway, controller })
+    const unitGateway = Object.freeze({
+      setLengthUnit(unit) {
+        if (!window.CaderactUnits.isSupportedLengthUnit(unit)) return Object.freeze({ status: "unsupported-unit", unit })
+        if (state.units.length === unit) return Object.freeze({ status: "no-op", changes: Object.freeze([]) })
+        const transaction = controller.beginTransaction()
+        transaction.replaceIn("settings", "units", { ...state.units, length: unit })
+        return transaction.publish()
+      },
+    })
+    return Object.freeze({ reader, recordGateway, layerGateway, unitGateway, controller })
   }
   window.CaderactDocument = Object.freeze({ createStore, validateDocument })
 })()

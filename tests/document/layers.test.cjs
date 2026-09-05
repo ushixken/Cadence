@@ -126,7 +126,7 @@ test('rolled-back and stale layer transactions leave document, history, and iden
 
   const result = b.run(`(() => {
     const defaultId='stale_default', hooks={};
-    let document={id:'stale_doc',name:'Test',formatVersion:1,geometry:{objects:{}},layers:{[defaultId]:{id:defaultId,name:'Default',visible:true,locked:false}},defaultLayerId:defaultId,currentLayerId:defaultId};
+    let document={id:'stale_doc',name:'Test',formatVersion:1,units:{length:'mm'},geometry:{objects:{}},layers:{[defaultId]:{id:defaultId,name:'Default',visible:true,locked:false}},defaultLayerId:defaultId,currentLayerId:defaultId};
     const freeze=value => { if (value && typeof value === 'object') { for (const child of Object.values(value)) freeze(child); Object.freeze(value) } return value };
     document=freeze(document);
     const controller=window.DocumentController.createController({

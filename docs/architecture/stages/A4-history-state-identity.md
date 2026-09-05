@@ -108,5 +108,5 @@ see `A5-line-draft-migration.md`.
 
 A4 deliberately does not add A5 Line drafts or step undo, Ctrl+Z/Ctrl+Y input
 routing, command management/options, persistence (including files, IndexedDB,
-autosave and recovery), history persistence/compression, units, snapping,
+autosave and recovery), history persistence/compression, units (added later by A9), snapping,
 collaboration, rendering changes, or the known WebGPU recovery fix.

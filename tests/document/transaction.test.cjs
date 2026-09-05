@@ -28,7 +28,7 @@ function recordExpr(id, layerId, ax, ay, bx, by, fa, fb) {
 function testableController(b, layerId) {
   return b.run(`(() => {
     const layers = { ${JSON.stringify(layerId)}: { id: ${JSON.stringify(layerId)}, name: 'Default', visible: true, locked: false } }
-    let state = Object.freeze({ id: 'doc_test', name: 'Test', formatVersion: 1,
+    let state = Object.freeze({ id: 'doc_test', name: 'Test', formatVersion: 1, units: { length: 'mm' },
       geometry: { objects: {} }, layers, defaultLayerId: ${JSON.stringify(layerId)}, currentLayerId: ${JSON.stringify(layerId)} })
     const testHooks = {}
     const controller = window.DocumentController.createController({

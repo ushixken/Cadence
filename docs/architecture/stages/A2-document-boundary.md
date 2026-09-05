@@ -46,4 +46,4 @@ No renderer, command-input, navigation, crosshair, transaction, history, or visi
 - Freezing is not the final transaction architecture. Each write currently copies the object table and validates the document, O(N); it is deliberately not a million-object storage solution.
 - Explicit ordering and topology correspondence will be needed for later composite/modify tools. Current enumeration preserves creation order but does not define identity.
 - Future exact restore must accept validated original records and their IDs rather than call the new-Line allocator. No restore API or history is implemented now.
-- Units, revision/saved-state semantics and layers beyond the minimal default remain future work.
+- Units (added later by A9), revision/saved-state semantics and layers beyond the minimal default remain future work at A2.

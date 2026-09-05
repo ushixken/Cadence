@@ -65,6 +65,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
     for (const name of ['Renderer', 'Canvas2DRenderer', 'createCaderactRenderer']) load(`src/js/rendering/${name}.js`);
   }
   load('src/js/document/DocumentController.js');
+  load('src/js/document/CaderactUnits.js');
   load('src/js/document/CaderactDocument.js');
   load('src/js/document/CaderactPersistence.js');
   load('src/js/viewport/ViewportCamera.js');

@@ -10,7 +10,7 @@ const viewportSettings = {
 
 const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettings.initialZoom)
 const camera = viewportCamera.state
-const { reader: modelReader, recordGateway, layerGateway, controller: documentController } = window.CaderactDocument.createStore()
+const { reader: modelReader, recordGateway, layerGateway, unitGateway, controller: documentController } = window.CaderactDocument.createStore()
 window.caderactDocument = modelReader
 
 let viewportWidth = 0, viewportHeight = 0
