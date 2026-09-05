@@ -76,8 +76,9 @@ and is also an immutable controller-issued in-memory capability. The controller
 keeps its issued token objects privately, so a fabricated object (or a token
 from another controller/runtime) is rejected even if its fields happen to
 match. This is an A4 in-memory contract, not persistence encoding or
-cryptography; a later persistence stage must define a durable acknowledgement
-contract deliberately.
+cryptography. A8 later uses the issued token to acknowledge the exact snapshot
+serialized by an engine-level save operation; the token itself remains
+runtime-only.
 
 `savedStateId` is initially absent. `savedRevision` is retained as a diagnostic
 of the acknowledged token only. Cleanliness is identity based:

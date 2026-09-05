@@ -52,7 +52,13 @@
     return Object.freeze(value)
   }
 
-  function createStore() {
+  function copyValue(value) {
+    if (value === null || typeof value !== "object") return value
+    if (Array.isArray(value)) return value.map(copyValue)
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, copyValue(child)]))
+  }
+
+  function createStore({ document: initialDocument, initiallySaved = false } = {}) {
     // Retain allocated identities after cancellation. Random IDs do not encode order.
     const allocated = new Set()
     function newId() {
@@ -64,13 +70,27 @@
       }
       throw new Error("Unable to allocate a unique ID")
     }
-    const id = newId(), layerId = newId()
-    let state = freeze({ id, name: "Untitled", formatVersion: 1,
-      geometry: { objects: {} },
-      layers: { [layerId]: { id: layerId, name: "Default", visible: true, locked: false } },
-      defaultLayerId: layerId,
-      currentLayerId: layerId,
-    })
+    let state
+    if (initialDocument !== undefined) {
+      const candidate = copyValue(initialDocument), errors = validateDocument(candidate)
+      if (errors.length) throw new Error(`Invalid initial document: ${errors.join("; ")}`)
+      allocated.add(candidate.id)
+      for (const layer of Object.values(candidate.layers)) allocated.add(layer.id)
+      for (const record of Object.values(candidate.geometry.objects)) {
+        allocated.add(record.id)
+        allocated.add(record.start.featureId)
+        allocated.add(record.end.featureId)
+      }
+      state = freeze(candidate)
+    } else {
+      const id = newId(), layerId = newId()
+      state = freeze({ id, name: "Untitled", formatVersion: 1,
+        geometry: { objects: {} },
+        layers: { [layerId]: { id: layerId, name: "Default", visible: true, locked: false } },
+        defaultLayerId: layerId,
+        currentLayerId: layerId,
+      })
+    }
     // A3: persistent document mutation is now gated by the Document Controller's
     // transaction core. This closure no longer publishes state directly; it hands
     // the controller a way to read/replace `state` and the existing A2 validator.
@@ -89,6 +109,7 @@
       // document/geometry identities while remaining a separate ID namespace.
       allocateStateId: newId,
     })
+    if (initiallySaved) controller.markStateSaved(controller.captureStateToken())
     const reader = Object.freeze({
       snapshot: () => state,
       // A6 command-agnostic committed-record view. Sorting by stable ID makes

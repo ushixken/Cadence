@@ -84,6 +84,5 @@ layer ownership.
 
 A7 deliberately defers Layers UI, active-layer commands, visibility/lock/freeze
 behavior, colors, linetypes, lineweights, plot styles, nested layers, selection,
-snapping, persistence, DXF, new drawing commands, renderer redesign, and global
+snapping, persistence (added later by A8), DXF, new drawing commands, renderer redesign, and global
 Undo/Redo bindings.
-
