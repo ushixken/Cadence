@@ -1,6 +1,6 @@
 # Stage 1 behavior regression suite
 
-Run `npm test` with Node.js 22 or newer. No npm dependencies or installation are needed. Stage 1 established 40 passing cases. Later suites protect the document boundary, transaction/history core, A5 Line draft migration, A6 read side, A7 layer/property transactions, A8 persistence, A9 units, and A10 topology references; see `docs/architecture/stages/`.
+Run `npm test` with Node.js 22 or newer. No npm dependencies or installation are needed. Stage 1 established 40 passing cases. Later suites protect the document boundary, transaction/history core, A5 Line draft migration, A6 read side, A7 layer/property transactions, A8 persistence, A9 units, A10 topology references, and the A11 scale/recovery baseline; see `docs/architecture/stages/`.
 
 There was no package.json, npm script, installed test stack, or existing test suite when Stage 1 began. Node's built-in test runner and VM provide the smallest dependency-free setup for these classic browser scripts. No production source files were changed.
 
@@ -13,7 +13,7 @@ There was no package.json, npm script, installed test stack, or existing test su
 - `rendering/scale.test.cjs`: 5,000-record authoritative enumeration, stable ordering, scene projection, and Canvas2D consumption baseline.
 - `rendering/read-side.test.cjs`: authoritative document projection, Undo/Redo and external publication rendering, immutable deterministic enumeration, unsupported records, and the shared backend scene contract.
 - `document/layers.test.cjs`: layer invariants and immutable reads, atomic lifecycle/property edits, deletion policy, exact history, stale/rollback behavior, branching, and A6 rendering continuity.
-- `document/persistence.test.cjs`: deterministic versioned payloads, exact round trips, fresh clean load state, pinned-save acknowledgment, corruption rejection, transient-state exclusion, and loaded-record rendering.
+- `document/persistence.test.cjs`: deterministic closed-v1 payloads, exact lossless round trips, fresh clean load state, pinned-save acknowledgment, corruption/unknown-field rejection, transient-state exclusion, and loaded-record rendering.
 - `document/units.test.cjs`: canonical units, conversions and formatting, transactional metadata changes, exact Undo/Redo, geometry/ID invariance, and persistence validation.
 - `document/references.test.cjs`: immutable object/endpoint references, malformed and mismatched targets, current-state edit/history/deletion resolution, and persistence compatibility.
 - `helpers/browser.cjs`: isolated browser/event/canvas stubs and deterministic animation-frame flushing.
@@ -45,9 +45,11 @@ Synchronous rendering exceptions are contained and enter the same one-at-a-time 
 - DPR is injected and backing-store sizing verified; physical display sharpness needs a browser check.
 - The suite verifies submitted screen-space geometry/preview arrays and redraw replacement, not actual displayed pixels.
 - Real WebGPURenderer GPU calls are not executed; factory control flow is stubbed. Hardware correctness and performance remain out of scope.
-- No persistence system exists here; draft/preview separation is tested against authoritative geometry, not a saved file.
+- A8 persistence tests verify that Line draft and preview state are excluded from saved files; browser file-picker UI remains outside this harness.
 
-Before architecture migration, manually smoke-test in a browser: suggestion launch, A–B–C then Enter, another session then Escape, middle/Space pan during Line, wheel and Ctrl-drag zoom, resize, and input-field focus. Do not interpret the VM suite as a completed browser smoke test.
+Before exposing the architecture through user-facing CAD workflows, manually smoke-test in a browser: suggestion launch, A–B–C then Enter, another session then Escape, middle/Space pan during Line, wheel and Ctrl-drag zoom, resize, renderer fallback, and input-field focus. Do not interpret the VM suite as a completed browser smoke test.
+
+- The recovery suite proves context-exclusive replacement, stale-notification suppression, controlled fallback-construction failure, and A11A's bounded terminal outcome when a successfully constructed Canvas2D fallback throws while rendering.
 
 ## Architecture context
 

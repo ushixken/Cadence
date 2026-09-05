@@ -62,6 +62,33 @@ test('writer copies inputs, preserves Number precision and cancellation never re
   assert.notEqual(next.id, first.id); assert.notEqual(next.start.featureId, first.start.featureId);
   assert.notEqual(next.id, b.read('unusedDraft.id'));
 });
+test('an imported ID is reserved and skipped by subsequent allocation', async () => {
+  const b = await browser();
+  const importedId = `id_${'00'.repeat(16)}`;
+  b.context.crypto = { getRandomValues(bytes) {
+    const value = b.context.__allocationByte++;
+    bytes.fill(value);
+    return bytes;
+  } };
+  b.context.__allocationByte = 0;
+  b.context.__importedId = importedId;
+  b.run(`
+    const importedLayerId = 'id_${'ff'.repeat(16)}';
+    const importedStore = window.CaderactDocument.createStore({ document: {
+      id: __importedId, name: 'Imported', formatVersion: 1, units: { length: 'mm' },
+      geometry: { objects: {} },
+      layers: { [importedLayerId]: { id: importedLayerId, name: 'Default', visible: true, locked: false } },
+      defaultLayerId: importedLayerId, currentLayerId: importedLayerId,
+    } });
+    const importedLine = importedStore.recordGateway.createLine({ x: 0, y: 0 }, { x: 1, y: 1 });
+    window.__importedAllocation = { stateId: importedStore.controller.currentStateId, line: importedLine };
+  `);
+  const allocated = b.read('window.__importedAllocation');
+  assert.notEqual(allocated.stateId, importedId);
+  assert.notEqual(allocated.line.id, importedId);
+  assert.notEqual(allocated.line.start.featureId, importedId);
+  assert.notEqual(allocated.line.end.featureId, importedId);
+});
 test('session Escape preserves earlier IDs and records exactly', async () => {
   const b = await fixture(); b.key('Enter'); const before = b.window.caderactDocument.lines();
   b.launch(); b.point(100, 100); b.point(200, 200);
@@ -99,4 +126,45 @@ test('invalid writer input leaves authoritative state unchanged', async () => {
   const outcome = b.run('recordGateway.createAll([recordGateway.createLine({x:NaN,y:0},{x:1,y:2})])');
   assert.equal(outcome.status, 'validation-failed');
   assert.equal(b.window.caderactDocument.snapshot(), before);
+});
+test('unknown Line fields are rejected atomically on create and replace', async () => {
+  const b = await browser();
+  b.run(`
+    window.__canonicalLine=recordGateway.createLine({x:0,y:0},{x:10,y:10});
+    window.__beforeUnknownCreate={document:modelReader.snapshot(),revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo,dirty:documentController.isDirty};
+    window.__unknownCreate=recordGateway.createAll([{...window.__canonicalLine,unexpected:'not-v1'}]);
+  `);
+  assert.equal(b.read('window.__unknownCreate.status'), 'validation-failed');
+  assert.equal(b.run('modelReader.snapshot()===window.__beforeUnknownCreate.document'), true);
+  assert.deepEqual(b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo,dirty:documentController.isDirty})'),
+    b.read('({revision:window.__beforeUnknownCreate.revision,stateId:window.__beforeUnknownCreate.stateId,history:window.__beforeUnknownCreate.history,dirty:window.__beforeUnknownCreate.dirty})'));
+
+  const symbolOutcome = b.run(`(() => {
+    const symbol=Symbol('unknown');
+    return recordGateway.createAll([{...window.__canonicalLine,[symbol]:'not-v1'}]);
+  })()`);
+  assert.equal(symbolOutcome.status, 'validation-failed');
+  assert.equal(b.run('modelReader.snapshot()===window.__beforeUnknownCreate.document'), true);
+
+  b.run(`
+    recordGateway.createAll([window.__canonicalLine]);
+    window.__beforeUnknownReplace={document:modelReader.snapshot(),revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo,dirty:documentController.isDirty};
+    window.__unknownReplace=recordGateway.replace(window.__canonicalLine.id,{...window.__canonicalLine,unexpected:'not-v1'});
+  `);
+  assert.equal(b.read('window.__unknownReplace.status'), 'validation-failed');
+  assert.equal(b.run('modelReader.snapshot()===window.__beforeUnknownReplace.document'), true);
+  assert.deepEqual(b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo,dirty:documentController.isDirty})'),
+    b.read('({revision:window.__beforeUnknownReplace.revision,stateId:window.__beforeUnknownReplace.stateId,history:window.__beforeUnknownReplace.history,dirty:window.__beforeUnknownReplace.dirty})'));
+});
+test('unknown nested endpoint fields are rejected atomically', async () => {
+  const b = await browser();
+  b.run(`
+    const canonical=recordGateway.createLine({x:0,y:0},{x:1,y:1});
+    window.__nestedBefore=modelReader.snapshot();
+    window.__nestedOutcome=recordGateway.createAll([{...canonical,start:{...canonical.start,unexpected:true}}]);
+  `);
+  assert.equal(b.read('window.__nestedOutcome.status'), 'validation-failed');
+  assert.equal(b.run('modelReader.snapshot()===window.__nestedBefore'), true);
+  assert.equal(b.read('documentController.currentRevision'), 0);
+  assert.deepEqual(b.read('documentController.historyInfo'), { entryCount: 0, cursor: 0 });
 });

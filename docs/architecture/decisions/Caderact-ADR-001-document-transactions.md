@@ -1,6 +1,6 @@
 # ADR-001 — Document mutation, transactions, history, and identity
 
-Status: Accepted by the user; architecture decision, not implemented. Stage 1 behavior-regression testing is authorized separately.
+Status: Accepted by the user. Its 2D foundation has been implemented incrementally through A1–A11; later capabilities in this ADR remain proposals, and the stage documents record intentional scope refinements and current implementation status.
 Date: 5 September 2026.
 Scope: Caderact's single-user 2D document foundation. No repository changes, production code, renderer redesign, collaboration implementation, or 3D design.
 

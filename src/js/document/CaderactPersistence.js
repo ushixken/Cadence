@@ -4,6 +4,10 @@
   const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value)
 
   function invalid(message) { throw new Error(`Invalid Caderact file: ${message}`) }
+  function rejectUnknown(value, allowedFields, label) {
+    const unknown = window.CaderactDocument.unknownFields(value, allowedFields)
+    if (unknown.length) invalid(`${label} contains unknown field${unknown.length === 1 ? "" : "s"} ${unknown.join(", ")}`)
+  }
   function sortById(values) { return Array.from(values).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) }
   function canonicalLayer(layer) {
     return { id: layer.id, name: layer.name, visible: layer.visible, locked: layer.locked }
@@ -40,9 +44,14 @@
     let payload
     try { payload = JSON.parse(serialized) } catch { invalid("malformed JSON") }
     if (!isRecord(payload)) invalid("root must be an object")
+    const fields = window.CaderactDocument.V1_FIELDS
+    rejectUnknown(payload, fields.fileEnvelope, "root")
     if (payload.fileVersion !== FILE_VERSION) invalid(`unsupported fileVersion ${String(payload.fileVersion)}`)
     const source = payload.document
     if (!isRecord(source)) invalid("missing document")
+    rejectUnknown(source, fields.persistedDocument, "document")
+    if (!isRecord(source.units)) invalid("units must be an object")
+    rejectUnknown(source.units, fields.units, "units")
     if (!Array.isArray(source.layers)) invalid("layers must be an array")
     if (!Array.isArray(source.records)) invalid("records must be an array")
 
@@ -50,6 +59,14 @@
       const entries = [], ids = new Set()
       for (const item of items) {
         if (!isRecord(item)) invalid(`${label} entry must be an object`)
+        if (label === "layer") rejectUnknown(item, fields.layer, "layer entry")
+        if (label === "record") {
+          if (item.type !== "line") invalid(`unsupported record type ${String(item.type)}`)
+          rejectUnknown(item, fields.line, "Line record")
+          if (!isRecord(item.start) || !isRecord(item.end)) invalid("Line endpoints must be objects")
+          rejectUnknown(item.start, fields.endpoint, "Line start")
+          rejectUnknown(item.end, fields.endpoint, "Line end")
+        }
         if (typeof item.id !== "string" || item.id.trim() === "") invalid(`${label} entry is missing an ID`)
         if (ids.has(item.id)) invalid(`duplicate ${label} ID ${item.id}`)
         ids.add(item.id); entries.push([item.id, canonicalize(item)])

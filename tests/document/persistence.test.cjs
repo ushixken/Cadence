@@ -89,6 +89,39 @@ test('invalid, corrupt, and incompatible payloads are rejected without touching 
   assert.deepEqual(b.read('({document:modelReader.snapshot(),revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo})'), before);
 });
 
+test('closed v1 persistence rejects unknown fields in every durable shape atomically', async () => {
+  const b = await populated();
+  const before = b.read('({document:modelReader.snapshot(),revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo})');
+  const valid = JSON.parse(b.run('window.CaderactPersistence.serializeDocument(modelReader.snapshot())'));
+  const additions = [
+    payload => { payload.unexpected = true; },
+    payload => { payload.document.unexpected = true; },
+    payload => { payload.document.units.unexpected = true; },
+    payload => { payload.document.layers[0].unexpected = true; },
+    payload => { payload.document.records[0].unexpected = true; },
+    payload => { payload.document.records[0].start.unexpected = true; },
+    payload => { payload.document.records[0].end.unexpected = true; },
+  ];
+  for (const addUnknown of additions) {
+    const payload = structuredClone(valid); addUnknown(payload);
+    const source = JSON.stringify(payload);
+    assert.throws(() => b.run(`window.CaderactPersistence.loadStore(${JSON.stringify(source)})`), /unknown field/);
+  }
+  assert.deepEqual(b.read('({document:modelReader.snapshot(),revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo})'), before);
+});
+
+test('validator and persistence share the canonical lossless v1 Line shape', async () => {
+  const b = await populated();
+  const before = b.run('window.CaderactPersistence.serializeDocument(modelReader.snapshot())');
+  assert.deepEqual(b.read('window.CaderactDocument.validateDocument(modelReader.snapshot())'), []);
+  const payload = JSON.parse(before), line = payload.document.records[0];
+  assert.deepEqual(Object.keys(line), b.read('window.CaderactDocument.V1_FIELDS.line'));
+  assert.deepEqual(Object.keys(line.start), b.read('window.CaderactDocument.V1_FIELDS.endpoint'));
+  b.context.__losslessSource = before;
+  b.run('window.__losslessStore=window.CaderactPersistence.loadStore(__losslessSource)');
+  assert.equal(b.run('window.CaderactPersistence.serializeDocument(window.__losslessStore.reader.snapshot())'), before);
+});
+
 test('transient Line draft and preview are not serialized', async () => {
   const b = await browser();
   b.launch(); b.point(400, 300); b.point(450, 300); b.point(500, 250, 'pointermove');

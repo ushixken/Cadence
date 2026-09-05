@@ -51,8 +51,10 @@ For device loss or a synchronous render exception, the viewport:
 6. applies current CSS dimensions and DPR; and
 7. requests a new scene from the current A6 authoritative read side.
 
-Only one recovery promise may run at a time. Repeated failures replace the
-single current canvas rather than appending canvases or render loops.
+Only one recovery promise may run at a time. Stale renderer notifications do
+not append canvases or duplicate bindings. A11A closes the remaining repeated
+fallback-render failure gap: a Canvas2D runtime failure now enters the terminal
+controlled `failed` state without another replacement or automatic retry.
 
 ## Preserved state and failure behavior
 
@@ -91,4 +93,3 @@ Deferred beyond A11: spatial indexes, dirty regions, incremental scene diffs,
 GPU geometry caches, chunking, level of detail, workers, WASM, benchmark suites,
 automatic retry/backoff UI, renderer status UI, hardware WebGPU fault injection,
 and 3D rendering.
-

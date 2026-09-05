@@ -116,3 +116,36 @@ test('Canvas2D creation failure produces a controlled failed viewport state', as
   });
   assert.equal(b.run('renderer'), null);
 });
+
+test('Canvas2D runtime failure is terminal and cannot restart recovery', async () => {
+  const b = await browser();
+  b.launch(); b.point(400, 300); b.point(450, 250); b.point(500, 200, 'pointermove');
+  b.point(200, 150, 'wheel', { deltaY: -20 }); b.flush();
+  const before = b.read('({camera:{...camera},document:modelReader.snapshot(),history:documentController.historyInfo,draft:lineDraft.draftSegments(),preview:lineDraft.preview()})');
+  let renderCalls = 0, destroyCalls = 0, factoryCalls = 0;
+  const fallback = {
+    kind: 'canvas2d', resize() {},
+    render() { renderCalls += 1; throw new Error('persistent Canvas2D render failure'); },
+    destroy() { destroyCalls += 1; },
+  };
+  b.window.createCaderactRenderer = async () => { factoryCalls += 1; return fallback; };
+
+  b.fakeRenderer.onDeviceLost(); await settle();
+  assert.equal(b.run('window.caderactViewport.getRendererState().status'), 'fallback-active');
+  assert.equal(b.run('window.caderactViewport.getRendererState().canvasReplacements'), 1);
+  assert.equal(b.flushOne(), true);
+
+  assert.deepEqual(b.read('window.caderactViewport.getRendererState()'), {
+    status: 'failed', error: 'persistent Canvas2D render failure', canvasReplacements: 1,
+  });
+  assert.equal(factoryCalls, 1); assert.equal(renderCalls, 1); assert.equal(destroyCalls, 1);
+  assert.deepEqual(b.observerStats, { observeCount: 2, disconnectCount: 1 });
+  assert.equal(b.canvas.listeners.pointerdown.length, 2);
+  assert.equal(b.canvas.listeners.pointermove.length, 2);
+
+  b.run('requestRender()'); fallback.onDeviceLost(); await settle();
+  assert.equal(b.flushOne(), false);
+  assert.equal(factoryCalls, 1); assert.equal(renderCalls, 1); assert.equal(destroyCalls, 1);
+  assert.equal(b.run('window.caderactViewport.getRendererState().canvasReplacements'), 1);
+  assert.deepEqual(b.read('({camera:{...camera},document:modelReader.snapshot(),history:documentController.historyInfo,draft:lineDraft.draftSegments(),preview:lineDraft.preview()})'), before);
+});

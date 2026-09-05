@@ -96,14 +96,12 @@ test('the authoritative before value cannot be forged by the caller', async () =
   tx1.create('rec_e', original);
   tx1.publish();
   const tx2 = b.run(`documentController.beginTransaction()`);
-  // Caller cannot pass a "before"; the API only accepts the new record.
-  // A bogus "before"-looking field on the payload is irrelevant to the real before.
-  const spoofed = b.run(recordExpr('rec_e', layerId, 3, 3, 4, 4, 'fe1', 'fe2'));
-  spoofed.before = { x: -999 };
-  tx2.replace('rec_e', spoofed);
+  // Caller supplies only the canonical replacement; the transaction derives
+  // the authoritative before-value from its own base document.
+  tx2.replace('rec_e', b.run(recordExpr('rec_e', layerId, 3, 3, 4, 4, 'fe1', 'fe2')));
   const outcome = tx2.publish();
   assert.equal(outcome.changes[0].before.start.x, 1);
-  assert.equal(outcome.changes[0].before.before, undefined);
+  assert.equal(outcome.changes[0].after.start.x, 3);
 });
 
 // ===================== CREATE / REPLACE / REMOVE PRECONDITIONS =====================

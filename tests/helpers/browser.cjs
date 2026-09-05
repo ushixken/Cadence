@@ -66,9 +66,10 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const fakeRenderer = { render: scene => renders.push(scene), resize: (...args) => sizes.push(args) };
   window.createCaderactRenderer = async () => fakeRenderer;
   let observedResize;
+  const observerStats = { observeCount: 0, disconnectCount: 0 };
   const context = vm.createContext({ window, document, crypto: require('node:crypto').webcrypto, navigator: { gpu }, HTMLElement: Element,
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
-    ResizeObserver: class { constructor(fn) { this.fn = fn; } observe() { observedResize = this.fn; } disconnect() { if (observedResize === this.fn) observedResize = undefined; } },
+    ResizeObserver: class { constructor(fn) { this.fn = fn; } observe() { observerStats.observeCount += 1; observedResize = this.fn; } disconnect() { observerStats.disconnectCount += 1; if (observedResize === this.fn) observedResize = undefined; } },
     requestAnimationFrame: fn => frames.push(fn), console: { info() {}, warn() {} },
   });
   const run = expression => vm.runInContext(expression, context);
@@ -94,7 +95,8 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
       defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...props };
     target.dispatchEvent(event); return event;
   };
-  return { window, document, get canvas() { return canvas; }, input, suggestions, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls,
+  return { window, document, get canvas() { return canvas; }, input, suggestions, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
+    flushOne() { const frame = frames.shift(); if (frame) frame(); return Boolean(frame); },
     flush() { while (frames.length) frames.shift()(); },
     read(expression) { return JSON.parse(run(`JSON.stringify(${expression})`)); },
     resize(width, height, dpr = 1) { bounds = { ...bounds, width, height }; window.devicePixelRatio = dpr; observedResize?.(); },

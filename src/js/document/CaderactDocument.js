@@ -4,9 +4,32 @@
   const has = (table, key) => Object.prototype.hasOwnProperty.call(table, key)
   const normalizeLayerName = value => typeof value === "string" ? value.trim() : ""
   const layerNameKey = value => normalizeLayerName(value).toLowerCase()
+  const fields = values => Object.freeze(values)
+  const V1_FIELDS = Object.freeze({
+    fileEnvelope: fields(["fileVersion", "document"]),
+    persistedDocument: fields(["id", "name", "formatVersion", "units", "defaultLayerId", "currentLayerId", "layers", "records"]),
+    document: fields(["id", "name", "formatVersion", "units", "geometry", "layers", "defaultLayerId", "currentLayerId"]),
+    geometry: fields(["objects"]),
+    units: fields(["length"]),
+    layer: fields(["id", "name", "visible", "locked"]),
+    line: fields(["id", "type", "layerId", "start", "end"]),
+    endpoint: fields(["x", "y", "featureId"]),
+  })
+  function unknownFields(value, allowedFields) {
+    if (!isRecord(value)) return []
+    const allowed = new Set(allowedFields)
+    return Reflect.ownKeys(value)
+      .filter(key => Object.prototype.propertyIsEnumerable.call(value, key) && !allowed.has(key))
+      .map(String)
+      .sort()
+  }
 
   function validateDocument(value) {
     const errors = [], ids = new Set()
+    function closedShape(candidate, allowedFields, label) {
+      const unknown = unknownFields(candidate, allowedFields)
+      if (unknown.length) errors.push(`${label}: unknown field${unknown.length === 1 ? "" : "s"} ${unknown.join(", ")}`)
+    }
     function identity(id, label) {
       if (typeof id !== "string" || id.trim() === "") errors.push(`${label}: missing ID`)
       else if (ids.has(id)) errors.push(`${label}: duplicate ID ${id}`)
@@ -16,15 +39,19 @@
       if (!isRecord(value) || !Number.isFinite(value.x) || !Number.isFinite(value.y)) errors.push(`${label}: invalid finite point`)
     }
     if (!isRecord(value)) return ["Invalid document"]
+    closedShape(value, V1_FIELDS.document, "document")
     identity(value.id, "document")
     if (value.formatVersion !== 1) errors.push("Unsupported formatVersion")
     if (typeof value.name !== "string") errors.push("Invalid document name")
+    closedShape(value.units, V1_FIELDS.units, "document units")
     if (!isRecord(value.units) || !window.CaderactUnits.isSupportedLengthUnit(value.units.length)) errors.push("Invalid document length unit")
+    closedShape(value.geometry, V1_FIELDS.geometry, "document geometry")
     const layers = value.layers, objects = value.geometry?.objects
     const layerNames = new Set()
     if (!isRecord(layers)) errors.push("Invalid layer table")
     else for (const [key, layer] of Object.entries(layers)) {
       if (!isRecord(layer)) { errors.push("Invalid layer"); continue }
+      closedShape(layer, V1_FIELDS.layer, "layer")
       identity(layer.id, "layer")
       if (key !== layer.id) errors.push("Layer key/ID mismatch")
       const normalizedName = normalizeLayerName(layer.name), nameKey = layerNameKey(layer.name)
@@ -37,11 +64,14 @@
     if (!isRecord(objects)) errors.push("Invalid object table")
     else for (const [key, line] of Object.entries(objects)) {
       if (!isRecord(line)) { errors.push("Invalid object"); continue }
+      closedShape(line, V1_FIELDS.line, "Line")
       identity(line.id, "object")
       if (key !== line.id) errors.push("Object key/ID mismatch")
       if (line.type !== "line") errors.push("Unsupported object type")
       if (typeof line.layerId !== "string" || !isRecord(layers) || !has(layers, line.layerId)) errors.push("Invalid layer reference")
       point(line.start, "Line start"); point(line.end, "Line end")
+      closedShape(line.start, V1_FIELDS.endpoint, "Line start")
+      closedShape(line.end, V1_FIELDS.endpoint, "Line end")
       identity(line.start?.featureId, "start feature")
       identity(line.end?.featureId, "end feature")
     }
@@ -214,5 +244,5 @@
     })
     return Object.freeze({ reader, recordGateway, layerGateway, unitGateway, controller })
   }
-  window.CaderactDocument = Object.freeze({ createStore, validateDocument })
+  window.CaderactDocument = Object.freeze({ createStore, validateDocument, V1_FIELDS, unknownFields })
 })()

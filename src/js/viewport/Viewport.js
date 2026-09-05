@@ -59,8 +59,13 @@ function requestRender() {
     if (!activeRenderer) return
     try { activeRenderer.render(createScene()) }
     catch (error) {
-      console.warn("Caderact renderer failed; attempting recovery", error)
-      recoverRenderer(activeRenderer)
+      if (rendererStatus === "fallback-active" || activeRenderer.kind === "canvas2d") {
+        console.warn("Caderact Canvas2D fallback failed; rendering disabled", error)
+        failRenderer(error, activeRenderer)
+      } else {
+        console.warn("Caderact renderer failed; attempting recovery", error)
+        recoverRenderer(activeRenderer)
+      }
     }
   })
 }
@@ -184,14 +189,17 @@ function replaceCanvas() {
 
 function installRenderer(createdRenderer) {
   renderer = createdRenderer
-  rendererStatus = "ready"
+  rendererStatus = createdRenderer.kind === "canvas2d" ? "fallback-active" : "ready"
   rendererError = null
   createdRenderer.onDeviceLost = () => recoverRenderer(createdRenderer)
   resizeCanvas()
 }
 
-function failRenderer(error) {
-  renderer = null
+function failRenderer(error, failedRenderer = null) {
+  if (failedRenderer && renderer === failedRenderer) {
+    renderer = null
+    failedRenderer.destroy?.()
+  } else if (!failedRenderer) renderer = null
   rendererStatus = "failed"
   rendererError = error?.message || String(error)
   console.warn("Caderact renderer unavailable", error)
