@@ -8,11 +8,12 @@ const viewportSettings = {
   yAxisColor: "#3b7658", geometryColor: "#e8edf4", previewColor: "rgba(232, 237, 244, 0.65)",
 }
 const camera = { panX: 0, panY: 0, zoom: viewportSettings.initialZoom }
-const completedLines = []
+const { reader: modelReader, legacyLineWriter } = window.CaderactDocument.createStore()
+window.caderactDocument = modelReader
 let viewportWidth = 0, viewportHeight = 0, renderer = null, isInitialized = false, isRenderScheduled = false
 let isSpacePressed = false, navigationMode = null, activePointerId = null
 let previousPointerX = 0, previousPointerY = 0, zoomAnchorX = 0, zoomAnchorY = 0
-let activeCommand = null, pendingLineStart = null, previewLineEnd = null, lineSessionStartIndex = null
+let activeCommand = null, pendingLineStart = null, previewLineEnd = null, lineSessionIds = null
 
 function worldToScreen(x, y) { return { x: camera.panX + x * camera.zoom, y: camera.panY - y * camera.zoom } }
 function screenToWorld(x, y) { return { x: (x - camera.panX) / camera.zoom, y: (camera.panY - y) / camera.zoom } }
@@ -66,7 +67,7 @@ function createScene() {
   const origin = worldToScreen(0, 0)
   if (origin.y >= 0 && origin.y <= viewportHeight && right >= 0 && left <= viewportWidth) addSegment(xAxis, Math.max(0, left), alignToPhysicalPixel(origin.y, scale), Math.min(viewportWidth, right), alignToPhysicalPixel(origin.y, scale))
   if (origin.x >= 0 && origin.x <= viewportWidth && bottom >= 0 && top <= viewportHeight) addSegment(yAxis, alignToPhysicalPixel(origin.x, scale), Math.max(0, top), alignToPhysicalPixel(origin.x, scale), Math.min(viewportHeight, bottom))
-  for (const line of completedLines) { const a = worldToScreen(line.start.x, line.start.y), b = worldToScreen(line.end.x, line.end.y); addSegment(geometry, a.x, a.y, b.x, b.y) }
+  for (const line of modelReader.lines()) { const a = worldToScreen(line.start.x, line.start.y), b = worldToScreen(line.end.x, line.end.y); addSegment(geometry, a.x, a.y, b.x, b.y) }
   if (activeCommand === "line" && pendingLineStart && previewLineEnd) {
     const a = worldToScreen(pendingLineStart.x, pendingLineStart.y), b = worldToScreen(previewLineEnd.x, previewLineEnd.y); addSegment(preview, a.x, a.y, b.x, b.y)
   }
@@ -83,17 +84,17 @@ function requestRender() {
 }
 function updateCommandFeedback(message) { document.dispatchEvent(new CustomEvent("caderact:command-feedback", { detail: { message } })) }
 function startLineCommand() {
-  activeCommand = "line"; pendingLineStart = null; previewLineEnd = null; lineSessionStartIndex = completedLines.length
+  activeCommand = "line"; pendingLineStart = null; previewLineEnd = null; lineSessionIds = []
   updateCommandFeedback("Line: Specify first point"); requestRender()
 }
 function finishActiveCommand() {
   if (activeCommand === null) return false
-  activeCommand = null; pendingLineStart = null; previewLineEnd = null; lineSessionStartIndex = null
+  activeCommand = null; pendingLineStart = null; previewLineEnd = null; lineSessionIds = null
   updateCommandFeedback("Type a command..."); requestRender(); return true
 }
 function cancelActiveCommand() {
   if (activeCommand === null) return false
-  if (activeCommand === "line" && lineSessionStartIndex !== null) completedLines.splice(lineSessionStartIndex)
+  if (activeCommand === "line" && lineSessionIds !== null) legacyLineWriter.remove(lineSessionIds)
   return finishActiveCommand()
 }
 window.caderactViewport = { startLineCommand, finishActiveCommand, cancelActiveCommand }
@@ -117,7 +118,7 @@ canvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0 || navigationMode !== null || activeCommand !== "line") return
   const point = getCanvasPoint(event), worldPoint = screenToWorld(point.x, point.y)
   if (pendingLineStart === null) { pendingLineStart = worldPoint; previewLineEnd = worldPoint; updateCommandFeedback("Line: Specify next point") }
-  else { completedLines.push({ start: pendingLineStart, end: worldPoint }); pendingLineStart = worldPoint; previewLineEnd = worldPoint }
+  else { lineSessionIds.push(legacyLineWriter.add(pendingLineStart, worldPoint)); pendingLineStart = worldPoint; previewLineEnd = worldPoint }
   requestRender()
 })
 canvas.addEventListener("pointermove", (event) => {

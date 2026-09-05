@@ -1,0 +1,8 @@
+{
+  "name": "caderact",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/commands/*.test.cjs tests/viewport/*.test.cjs tests/rendering/*.test.cjs tests/document/*.test.cjs"
+  },
+  "engines": { "node": ">=22" }
+}
