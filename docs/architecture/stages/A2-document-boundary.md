@@ -22,6 +22,9 @@ Coordinates are JavaScript Numbers in world space. Endpoints are copied on inser
 
 IDs use 128 random bits from Web Crypto, encoded as opaque strings. A store retains allocated IDs after removal and checks collisions before allocation. IDs are unrelated to coordinates, render positions, or collection ordering. Records retain their IDs on reads; cancelled IDs are not intentionally recycled. No ID rewriting policy or Undo implementation is introduced.
 
+A10 later formalized object and endpoint references using these existing record
+and feature IDs; it did not add replacement endpoint identities.
+
 ## Temporary compatibility path
 
 Before: pointer clicks → `completedLines.push` → scene projection; Escape truncated a suffix.

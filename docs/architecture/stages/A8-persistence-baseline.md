@@ -96,6 +96,10 @@ no guessing, partial import, or migration fallback. `document.formatVersion`
 is independently validated by the document schema. Future versions must add an
 explicit migration policy before acceptance.
 
+A10 adds JSON-compatible detached reference values but no document reference
+registry or schema field, so it does not change this file version. Existing
+record and endpoint feature IDs already round-trip exactly.
+
 ## Deferred work
 
 Deferred beyond A8: Save/Open UI, file pickers, active-store swapping commands,
