@@ -1,6 +1,11 @@
 # Stage 2 — Document + stable IDs
 
-The viewport creates one store through `CaderactDocument.createStore()`. Its closure owns the current document. `window.caderactDocument` exposes only `snapshot()` and `lines()`; both return frozen read-only data. There is no second writable geometry array.
+The viewport creates one store through `CaderactDocument.createStore()`, whose
+closure owns the current document. At A2 completion,
+`window.caderactDocument` exposed `snapshot()` and `lines()` as frozen
+read-only data, with no second writable geometry array. A6 later added the
+command-agnostic `records()` rendering view while preserving that single-owner
+boundary.
 
 ## Schema version 1
 

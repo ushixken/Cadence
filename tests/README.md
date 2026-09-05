@@ -10,6 +10,7 @@ There was no package.json, npm script, installed test stack, or existing test su
 - `commands/line.test.cjs`: transient Line drafts, live preview, one-transaction completion, cancellation, Step Undo, failure retention, and clean restart.
 - `viewport/navigation.test.cjs`: real coordinate functions, pan, wheel/drag zoom anchors, navigation termination, resize and DPR through the real Canvas2D renderer.
 - `rendering/boundary.test.cjs`: scene ordering, buffer isolation, renderer exception, early fallback, and known late-fallback defect.
+- `rendering/read-side.test.cjs`: authoritative document projection, Undo/Redo and external publication rendering, immutable deterministic enumeration, unsupported records, and the shared backend scene contract.
 - `helpers/browser.cjs`: isolated browser/event/canvas stubs and deterministic animation-frame flushing.
 
 The harness executes production files in a fresh VM for each test. It reads existing lexical state for assertions instead of adding test-only production exports. Mathematical tests call the actual production functions, not reimplemented formulas.

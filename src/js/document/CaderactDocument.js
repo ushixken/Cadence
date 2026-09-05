@@ -78,7 +78,12 @@
     })
     const reader = Object.freeze({
       snapshot: () => state,
-      lines: () => Object.freeze(Object.values(state.geometry.objects)),
+      // A6 command-agnostic committed-record view. Sorting by stable ID makes
+      // enumeration independent of object-table insertion/reconstruction order.
+      records: () => Object.freeze(Object.values(state.geometry.objects).sort((a, b) => a.id.localeCompare(b.id))),
+      // Compatibility query for current Line-oriented callers; render code uses
+      // records() and performs its own supported-type projection.
+      lines: () => Object.freeze(Object.values(state.geometry.objects).filter(record => record.type === "line")),
     })
     // Schema-aware, command-agnostic record gateway. Commands may construct
     // immutable records before publication, while atomic creation remains

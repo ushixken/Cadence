@@ -38,7 +38,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   viewportSettings,
   camera: viewportCamera,
   getViewportSize: () => ({ width: viewportWidth, height: viewportHeight }),
-  getLines: () => modelReader.lines(),
+  getRecords: () => modelReader.records(),
   getDraftLines: () => activeCommand === "line" && lineDraft ? lineDraft.draftSegments() : [],
   getPreview: () => activeCommand === "line" && lineDraft ? lineDraft.preview() : null,
 })

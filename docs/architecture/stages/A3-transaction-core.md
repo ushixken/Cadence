@@ -187,8 +187,8 @@ mutating anything.
 
 `publish()` returns one of: `committed`, `no-op`, `stale`, or
 `validation-failed`. `rollback()` returns `rolled-back`. Ordinary transaction
-control flow never requires parsing a thrown error's message. `CaderactDocument.js`'s
-`legacyLineWriter` does convert a `validation-failed` outcome into a thrown
+control flow never requires parsing a thrown error's message. At A3 completion,
+`CaderactDocument.js`'s `legacyLineWriter` converted a `validation-failed` outcome into a thrown
 `Error` at that specific call site (preserving the exact pre-A3 behavior the
 Stage 2 tests already assert on, e.g. matching `/finite point/`), but that is
 a choice made by that transitional caller, not something the controller
@@ -197,9 +197,9 @@ the lease, or operating on an already-closed transaction) still throw.
 
 ## Transitional Line integration
 
-`CaderactDocument.js`'s `legacyLineWriter.add`/`remove` (still the only
-persistent-write surface the viewport uses) now route through the
-controller instead of hand-rolling their own `publish`:
+At A3 completion, `CaderactDocument.js`'s
+`legacyLineWriter.add`/`remove` routed through the controller instead of
+hand-rolling their own `publish`:
 
 - `add(start, end)` opens one transaction, stages a single `create`, and
   publishes it immediately — so, as before A3, each accepted Line segment
@@ -207,6 +207,9 @@ controller instead of hand-rolling their own `publish`:
   still produces multiple committed writes, not one).
 - `remove(ids)` opens one transaction, stages a `remove` for every ID in the
   session (e.g. on Escape), and publishes them together atomically.
+
+A5 subsequently replaced this transitional writer with command-local Line
+drafts and one final `recordGateway.createAll()` publication.
 
 This is explicitly **not** A5's final design of one whole-session private
 draft published by a single transaction on Enter — that migration is deferred

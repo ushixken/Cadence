@@ -1,5 +1,5 @@
 (() => {
-  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getLines, getDraftLines = () => [], getPreview }) {
+  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getRecords, getDraftLines = () => [], getPreview }) {
     function getAdaptiveGridSpacing() {
       const required = viewportSettings.minimumGridSpacingPixels / camera.state.zoom
       const magnitude = 10 ** Math.floor(Math.log10(required))
@@ -75,9 +75,12 @@
         addSegment(yAxis, alignToPhysicalPixel(origin.x, scale), Math.max(0, top), alignToPhysicalPixel(origin.x, scale), Math.min(viewportHeight, bottom))
       }
 
-      for (const line of getLines()) {
-        const a = camera.worldToScreen(line.start.x, line.start.y)
-        const b = camera.worldToScreen(line.end.x, line.end.y)
+      // A6 persistent projection: query the authoritative document read-side on
+      // every scene build. Unknown record types are skipped deterministically.
+      for (const record of getRecords()) {
+        if (record?.type !== "line") continue
+        const a = camera.worldToScreen(record.start.x, record.start.y)
+        const b = camera.worldToScreen(record.end.x, record.end.y)
         addSegment(geometry, a.x, a.y, b.x, b.y)
       }
 
