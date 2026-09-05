@@ -98,6 +98,27 @@ canvas.is-navigating {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
+.command-suggestion {
+  display: block;
+  width: 100%;
+  padding: 8px 11px;
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+  color: var(--secondaryText);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.command-suggestion:hover,
+.command-suggestion.is-selected {
+  background-color: #1c3348;
+  color: var(--mainText);
+}
+
 .footer-tools {
   gap: 7px;
 }
