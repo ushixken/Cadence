@@ -1,0 +1,205 @@
+/* Caderact Help — documentation site layout.
+   Uses shared design tokens from base.css only. Not coupled to
+   editor-page.css, menu-bar.css, or home-page.css. */
+
+body {
+  color: var(--mainText);
+}
+
+.help-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Header */
+.help-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--sideBar);
+  border-bottom: 1px solid var(--borders);
+}
+
+.help-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: var(--mainText);
+}
+
+.help-brand img {
+  width: 1.5rem;
+}
+
+.help-brand-name {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.help-brand-sub {
+  color: var(--secondaryText);
+  font-weight: 400;
+}
+
+.help-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  max-width: 420px;
+  padding: 0.4rem 0.7rem;
+  background-color: #172738;
+  border: 1px solid var(--borders);
+  border-radius: var(--borderRadius);
+  color: var(--secondaryText);
+}
+
+.help-search-icon {
+  flex-shrink: 0;
+}
+
+.help-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--secondaryText);
+  font: inherit;
+  outline: none;
+}
+
+.help-search-input::placeholder {
+  color: var(--secondaryText);
+}
+
+.help-search-input:disabled {
+  cursor: not-allowed;
+}
+
+.help-back {
+  margin-left: auto;
+  color: var(--secondaryText);
+  text-decoration: none;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.help-back:hover {
+  color: var(--mainText);
+}
+
+/* Body layout */
+.help-body {
+  display: flex;
+  flex: 1;
+}
+
+/* Sidebar */
+.help-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  padding: 1.5rem 0.75rem;
+  background-color: var(--sideBar);
+  border-right: 1px solid var(--borders);
+}
+
+.help-nav-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.help-nav-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--borderRadius);
+  color: var(--secondaryText);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+a.help-nav-link:hover {
+  background-color: var(--hoverButton);
+  color: var(--mainText);
+}
+
+.help-nav-link.is-current {
+  background-color: var(--activeButton);
+  color: var(--mainText);
+  font-weight: 600;
+}
+
+.help-nav-link.is-upcoming {
+  color: #5c6572;
+  cursor: default;
+}
+
+.help-nav-tag {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--borders);
+  border-radius: 999px;
+  color: var(--secondaryText);
+}
+
+/* Main content */
+.help-content {
+  flex: 1;
+  max-width: 720px;
+  padding: 2.5rem 2rem;
+  user-select: text;
+}
+
+.help-content h1 {
+  font-size: 1.75rem;
+  margin-bottom: 1rem;
+}
+
+.help-content h2 {
+  font-size: 1.15rem;
+  color: var(--mainText);
+  margin-top: 2rem;
+  margin-bottom: 0.6rem;
+}
+
+.help-content p {
+  color: var(--secondaryText);
+  line-height: 1.6;
+  margin-bottom: 0.75rem;
+}
+
+.help-intro {
+  font-size: 1.05rem;
+  color: var(--mainText);
+}
+
+/* Responsive foundation: stack sidebar above content below ~800px so a
+   future mobile layout isn't blocked, without building a full mobile
+   experience during H1. */
+@media (max-width: 800px) {
+  .help-body {
+    flex-direction: column;
+  }
+
+  .help-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--borders);
+  }
+
+  .help-nav-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .help-search {
+    max-width: none;
+  }
+}

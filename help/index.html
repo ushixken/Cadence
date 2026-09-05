@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Caderact Help</title>
+
+    <link rel="stylesheet" href="/src/css/base.css" />
+    <link rel="stylesheet" href="/help/css/help.css" />
+  </head>
+  <body>
+    <div class="help-page">
+      <header class="help-header">
+        <a class="help-brand" href="/index.html">
+          <img src="/assets/branding/caderact-logo.svg" alt="Caderact logo" />
+          <span class="help-brand-name"
+            >Caderact <span class="help-brand-sub">Help</span></span
+          >
+        </a>
+
+        <div class="help-search" role="search">
+          <svg
+            class="help-search-icon"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle
+              cx="11"
+              cy="11"
+              r="7"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <line
+              x1="21"
+              y1="21"
+              x2="16.65"
+              y2="16.65"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+          <input
+            type="search"
+            class="help-search-input"
+            placeholder="Search — coming soon"
+            aria-label="Search documentation (coming soon)"
+            disabled
+          />
+        </div>
+
+        <a class="help-back" href="/index.html">Back to Caderact</a>
+      </header>
+
+      <div class="help-body">
+        <nav class="help-sidebar" aria-label="Documentation sections">
+          <ul class="help-nav-list">
+            <li>
+              <a
+                class="help-nav-link is-current"
+                href="/help/index.html"
+                aria-current="page"
+                >Getting Started</a
+              >
+            </li>
+            <li>
+              <span class="help-nav-link is-upcoming"
+                >Workspace <span class="help-nav-tag">Coming soon</span></span
+              >
+            </li>
+            <li>
+              <span class="help-nav-link is-upcoming"
+                >Commands <span class="help-nav-tag">Coming soon</span></span
+              >
+            </li>
+            <li>
+              <span class="help-nav-link is-upcoming"
+                >Drafting <span class="help-nav-tag">Coming soon</span></span
+              >
+            </li>
+            <li>
+              <span class="help-nav-link is-upcoming"
+                >Reference <span class="help-nav-tag">Coming soon</span></span
+              >
+            </li>
+            <li>
+              <span class="help-nav-link is-upcoming"
+                >Troubleshooting
+                <span class="help-nav-tag">Coming soon</span></span
+              >
+            </li>
+          </ul>
+        </nav>
+
+        <main class="help-content">
+          <h1>Caderact Help</h1>
+          <p class="help-intro">
+            Caderact Help is the official user documentation for Caderact, a
+            browser-based CAD/BIM application.
+          </p>
+
+          <h2>How this documentation is organized</h2>
+          <p>
+            Documentation is grouped into sections that will grow as Caderact
+            does: Getting Started, Workspace, Commands, Drafting, Reference, and
+            Troubleshooting. A section only contains published pages once the
+            corresponding Caderact functionality has been implemented, tested,
+            and accepted. Sections without content yet are shown as upcoming
+            rather than left unlisted, so this Help site is always honest about
+            what's here today and what's still on the way.
+          </p>
+
+          <h2>Documentation grows with Caderact</h2>
+          <p>
+            As commands and features stabilize, their documentation is added
+            here. Functionality that's still under active development —
+            including current in-progress work on the Line command — is
+            intentionally left undocumented until it's finished and accepted, so
+            this Help site never describes behavior Caderact doesn't actually
+            have yet.
+          </p>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
