@@ -9,6 +9,7 @@ There was no package.json, npm script, installed test stack, or existing test su
 - `commands/input.test.cjs`: U1 registry-backed name/alias/prefix launch, trimming/case, Enter/Space/click exactly-once dispatch, deterministic unknown-command feedback, active-session relaunch protection, Tab completion, printable-key routing, and field/modifier guards.
 - `commands/line.test.cjs`: router-owned Line lifecycle, transient drafts, live preview, one-transaction completion, cancellation, Step Undo, failure retention, and active-session preservation.
 - `commands/arc.test.cjs`: D7 three-point Arc geometry/draft/input, degeneracy, snapping/topology, atomic history, persistence, selection, recovery, and repeat lifecycle.
+- `commands/polygon.test.cjs`: D8 bounded side-count/default input, regular inscribed geometry, transient preview/snapping, atomic Line publication, history, recovery, selection/grips reuse, and repeat lifecycle.
 - `commands/history.test.cjs`: U2 document Undo/Redo shortcuts, command-local Step Undo priority, focus/browser safety, authoritative button availability, single-fire traversal, and Redo branch discard.
 - `commands/feedback-autocomplete.test.cjs`: U5 router-derived prompts, timed feedback/history, ranked fuzzy discovery, safe match highlighting, and explicit-selection execution safety.
 - `commands/layers-ui.test.cjs`: U6 authoritative layer list/actions, current/default identity, A4 history, command safety, U5 feedback, and U3 session rebinding.

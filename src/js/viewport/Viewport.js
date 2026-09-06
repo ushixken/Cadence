@@ -290,6 +290,43 @@ function createArcCommandSession({setPrompt=()=>{}}={}){
     get prompt(){return prompt}})
 }
 
+function createPolygonCommandSession({setPrompt=()=>{}}={}){
+  const draft=window.CaderactPolygonDraftSession.createSession({createSegment:recordGateway.createLine,commitSegments:recordGateway.createAll})
+  let prompt="Polygon: Enter number of sides <4>"
+  function updatePrompt(message){prompt=message;setPrompt(message)}
+  function presentPoint(outcome,point=null){
+    requestRender()
+    if(outcome.status==="center-accepted"){updatePrompt("Polygon: Specify radius point");return Object.freeze({status:"input-accepted",command:"Polygon",kind:"point",point,outcome})}
+    if(outcome.status==="polygon-committed"){clearSnap();return Object.freeze({status:"command-completed",command:"Polygon",outcome})}
+    if(outcome.status==="zero-radius"){updatePrompt("Polygon: Radius point must differ from center");return Object.freeze({status:"invalid-input",reason:"zero-radius",command:"Polygon",message:"Polygon radius must be greater than zero",outcome})}
+    if(outcome.status==="commit-failed"){updatePrompt("Polygon: Unable to commit; draft preserved");return Object.freeze({status:"invalid-input",reason:"commit-failed",command:"Polygon",outcome})}
+    return Object.freeze({status:"invalid-input",reason:"side-count-required",command:"Polygon",message:"Enter the number of sides first",outcome})
+  }
+  function handlePointerDown(point){return presentPoint(draft.acceptPoint(point),point)}
+  function handlePointerMove(point){draft.updatePointer(point);requestRender()}
+  function handlePointerLeave(){draft.clearPointer();clearSnap();requestRender()}
+  function handleInput(input){
+    clearSnap()
+    if(!draft.hasSideCount){
+      const parsed=draft.acceptSideCount(input)
+      if(!parsed.valid){updatePrompt("Polygon: Enter an integer number of sides from 3 to 1024 <4>");return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Polygon",message:"Polygon side count must be an integer from 3 to 1024"})}
+      updatePrompt("Polygon: Specify center of polygon");requestRender()
+      return Object.freeze({status:"input-accepted",command:"Polygon",kind:"option",sideCount:parsed.value,usedDefault:parsed.usedDefault})
+    }
+    const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor:draft.center})
+    if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Polygon",message:"Enter a point as x,y"})
+    const point=Object.freeze({x:parsed.x,y:parsed.y});return presentPoint(draft.acceptPoint(point),point)
+  }
+  function finish(){clearSnap();draft.finish();requestRender();return Object.freeze({status:"command-completed",command:"Polygon"})}
+  function cancel(){clearSnap();draft.cancel();requestRender();return Object.freeze({status:"command-cancelled",command:"Polygon"})}
+  function getSnapCandidates(){return draft.acceptedPoints().map((point,index)=>Object.freeze({kind:"draft-point",point,
+    stableKey:`polygon-draft:${index}`,reference:Object.freeze({kind:"draft-point",index})}))}
+  requestRender()
+  return Object.freeze({name:"Polygon",draft,finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,
+    getPreviewLines:draft.previewEdges,getDraftPoints:draft.acceptedPoints,getSnapCandidates,hasPointerPreview:()=>draft.hasCenter,
+    get acceptsEmptyInput(){return !draft.hasSideCount},get prompt(){return prompt}})
+}
+
 function createRectangleCommandSession({ setPrompt = () => {} } = {}) {
   const draft = window.CaderactRectangleDraftSession.createSession({
     createSegment: recordGateway.createLine,
@@ -558,7 +595,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createCircleCommandSession, createArcCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createCircleCommandSession, createArcCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()

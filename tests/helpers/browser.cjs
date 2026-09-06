@@ -114,6 +114,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const run = expression => vm.runInContext(expression, context);
   const load = file => vm.runInContext(fs.readFileSync(path.join(__dirname, '../../', file), 'utf8'), context, { filename: file });
   load('src/js/geometry/ArcGeometry.js');
+  load('src/js/geometry/PolygonGeometry.js');
   load('src/js/rendering/CircleTessellation.js');
   if (realRenderer) {
     for (const name of ['Renderer', 'Canvas2DRenderer', 'createCaderactRenderer']) load(`src/js/rendering/${name}.js`);
@@ -135,6 +136,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/PolylineDraftSession.js');
   load('src/js/editor/CircleDraftSession.js');
   load('src/js/editor/ArcDraftSession.js');
+  load('src/js/editor/PolygonDraftSession.js');
   load('src/js/editor/PointInput.js');
   load('src/js/editor/SnapResolver.js');
   load('src/js/editor/SelectionManager.js');

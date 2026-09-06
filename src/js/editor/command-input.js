@@ -14,6 +14,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Circle", aliases: ["C"], repeatable: true, activate: context => window.caderactViewport.createCircleCommandSession(context) },
   { name: "Line", aliases: ["L"], repeatable: true, activate: context => window.caderactViewport.createLineCommandSession(context) },
   { name: "Polyline", aliases: ["Pline", "PL"], repeatable: true, activate: context => window.caderactViewport.createPolylineCommandSession(context) },
+  { name: "Polygon", aliases: ["Pol"], repeatable: true, activate: context => window.caderactViewport.createPolygonCommandSession(context) },
   { name: "Rectangle", aliases: ["Rect"], repeatable: true, activate: context => window.caderactViewport.createRectangleCommandSession(context) },
 ])
 const commandRouter = window.CaderactCommandRouter.createRouter({ registry: commandRegistry, setPrompt: setCommandHint })
@@ -130,6 +131,10 @@ commandInput.addEventListener("keydown", (event) => {
       const outcome = commandRouter.submitActiveInput(commandInput.value)
       commandInput.value = ""
       hideSuggestions()
+      if (outcome.status === "command-completed") commandInput.blur()
+    } else if (commandRouter.activeSession?.acceptsEmptyInput) {
+      const outcome = commandRouter.submitActiveInput("")
+      commandInput.value = ""; hideSuggestions()
       if (outcome.status === "command-completed") commandInput.blur()
     } else {
       applyCommandResult(commandRouter.finishActive()); resetCommandInput()
