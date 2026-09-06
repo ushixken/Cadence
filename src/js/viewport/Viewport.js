@@ -253,6 +253,87 @@ function createRectangleCommandSession({ setPrompt = () => {} } = {}) {
   })
 }
 
+function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
+  const draft = window.CaderactPolylineDraftSession.createSession({
+    createSegment: recordGateway.createLine,
+    commitSegments: recordGateway.createAll,
+  })
+  let prompt = "Polyline: Specify first point"
+  function updatePrompt(message) { prompt = message; setPrompt(message) }
+  function presentPointOutcome(outcome, point = null) {
+    requestRender()
+    if (outcome.status === "first-point" || outcome.status === "segment-added") {
+      updatePrompt("Polyline: Specify next point or Close")
+      return Object.freeze({ status: "input-accepted", command: "Polyline", kind: "point", point, outcome })
+    }
+    updatePrompt("Polyline: Next point must differ from the current point")
+    return Object.freeze({ status: "invalid-input", reason: "repeated-point", command: "Polyline",
+      message: "Polyline cannot create a zero-length segment", outcome })
+  }
+  function presentPublication(outcome) {
+    requestRender()
+    if (outcome.status === "polyline-committed" || outcome.status === "polyline-closed" || outcome.status === "no-op") {
+      clearSnap()
+      return Object.freeze({ status: "command-completed", command: "Polyline", outcome })
+    }
+    if (outcome.status === "close-unavailable") {
+      updatePrompt("Polyline: Close requires at least one segment")
+      return Object.freeze({ status: "invalid-input", reason: "close-unavailable", command: "Polyline",
+        message: "Close requires at least two accepted points", outcome })
+    }
+    updatePrompt("Polyline: Unable to commit; draft preserved")
+    return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Polyline", outcome })
+  }
+  function handlePointerDown(point) { return presentPointOutcome(draft.acceptPoint(point), point) }
+  function handlePointerMove(point) { draft.updatePointer(point); requestRender() }
+  function handlePointerLeave() { draft.clearPointer(); clearSnap(); requestRender() }
+  function handleInput(input) {
+    clearSnap()
+    if (typeof input === "string" && input.trim().toLowerCase() === "close") return presentPublication(draft.close())
+    const parsed = window.CaderactPointInput.parseAndResolve(input, {
+      currentUnit: modelReader.units().length,
+      anchor: draft.currentPoint,
+    })
+    if (parsed.status !== "point-resolved") {
+      const messages = {
+        "invalid-coordinate": "Enter a point as x,y or Close", "invalid-number": "Coordinate values must be finite numbers",
+        "unsupported-unit": `Unsupported unit${parsed.unit ? `: ${parsed.unit}` : ""}`,
+        "relative-point-without-anchor": "Relative point requires a previous point",
+      }
+      return Object.freeze({ status: "invalid-input", reason: parsed.reason, command: "Polyline",
+        message: messages[parsed.reason] || "Invalid coordinate" })
+    }
+    const point = Object.freeze({ x: parsed.x, y: parsed.y })
+    return presentPointOutcome(draft.acceptPoint(point), point)
+  }
+  function finish() { return presentPublication(draft.finish()) }
+  function cancel() {
+    clearSnap(); draft.cancel(); requestRender()
+    return Object.freeze({ status: "command-cancelled", command: "Polyline" })
+  }
+  function stepUndo() {
+    clearSnap()
+    const outcome = draft.stepUndo()
+    updatePrompt(draft.hasFirstPoint ? "Polyline: Specify next point or Close" : "Polyline: Specify first point")
+    requestRender()
+    return outcome
+  }
+  function getSnapCandidates() {
+    return draft.acceptedPoints().map((point, index) => Object.freeze({
+      kind: "draft-point", point, stableKey: `polyline-draft:${index}`,
+      reference: Object.freeze({ kind: "draft-point", index }),
+    }))
+  }
+  function getPreviewLines() { const preview = draft.preview(); return preview ? [preview] : [] }
+  requestRender()
+  return Object.freeze({
+    name: "Polyline", draft, finish, cancel, stepUndo, handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
+    getDraftLines: draft.draftSegments, getPreview: draft.preview, getPreviewLines,
+    getDraftPoints: draft.acceptedPoints, getSnapCandidates, hasPointerPreview: () => draft.hasFirstPoint,
+    get prompt() { return prompt },
+  })
+}
+
 function startLineCommand() {
   return window.caderactCommandRouter?.execute("Line") || Object.freeze({ status: "invalid-input", reason: "router-unavailable" })
 }
@@ -371,7 +452,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createRectangleCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()

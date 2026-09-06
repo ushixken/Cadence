@@ -61,7 +61,11 @@ test('raw fuzzy input cannot execute, while explicit keyboard selection launches
   const b=await browser();let starts=0;const start=b.window.caderactViewport.createLineCommandSession;
   b.window.caderactViewport.createLineCommandSession=()=>{starts++;return start()};
   b.launch('ie');assert.equal(starts,0);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null);
-  b.input.value='ie';b.emit(b.input,'input');b.key('ArrowDown',b.input);b.key('Enter',b.input);
+  b.input.value='ie';b.emit(b.input,'input');
+  const matches=b.read('window.caderactCommandRegistry.search("ie").map(result=>result.command.name)');
+  const lineIndex=matches.indexOf('Line'),steps=lineIndex===0?matches.length:lineIndex;
+  for(let index=0;index<steps;index++)b.key('ArrowDown',b.input);
+  b.key('Enter',b.input);
   assert.equal(starts,1);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Line');
 });
 

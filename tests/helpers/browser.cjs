@@ -130,6 +130,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/viewport/InteractionVisuals.js');
   load('src/js/editor/LineDraftSession.js');
   load('src/js/editor/RectangleDraftSession.js');
+  load('src/js/editor/PolylineDraftSession.js');
   load('src/js/editor/PointInput.js');
   load('src/js/editor/SnapResolver.js');
   load('src/js/editor/SelectionManager.js');
