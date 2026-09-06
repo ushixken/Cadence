@@ -1,5 +1,5 @@
 (() => {
-  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getPreviewLines = null, getDraftPoints = () => [], getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null }) {
+  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getPreviewLines = null, getCirclePreview = () => null, getDraftPoints = () => [], getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null }) {
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
     const MAX_GRID_LINES_PER_AXIS = 512
@@ -58,6 +58,7 @@
       const extent = viewportSettings.gridExtent
       const minorGrid = [], majorGrid = [], boundary = [], xAxis = [], yAxis = [], geometry = [], acceptedDraft = [], nextPreview = [], snapMarker = [], selection = []
       const idleGrips = [], hoverGrips = [], activeGrips = []
+      const committedCircles = [], previewCircles = [], selectedCircles = []
       const topLeft = camera.screenToWorld(0, 0)
       const bottomRight = camera.screenToWorld(viewportWidth, viewportHeight)
       const minX = Math.max(-extent, topLeft.x), maxX = Math.min(extent, bottomRight.x)
@@ -111,11 +112,19 @@
       // every scene build. Unknown record types are skipped deterministically.
       const records = getRecords(), selectedIds = new Set(getSelectedIds()), gripPreview = getGripPreview()
       for (const record of records) {
-        if (record?.type !== "line") continue
-        const a = camera.worldToScreen(record.start.x, record.start.y)
-        const b = camera.worldToScreen(record.end.x, record.end.y)
-        addSegment(geometry, a.x, a.y, b.x, b.y)
-        if(selectedIds.has(record.id))addSegment(selection,a.x,a.y,b.x,b.y)
+        if (record?.type === "line") {
+          const a = camera.worldToScreen(record.start.x, record.start.y)
+          const b = camera.worldToScreen(record.end.x, record.end.y)
+          addSegment(geometry, a.x, a.y, b.x, b.y)
+          if(selectedIds.has(record.id))addSegment(selection,a.x,a.y,b.x,b.y)
+        } else if (record?.type === "circle") {
+          const center = camera.worldToScreen(record.center.x, record.center.y)
+          const edge = camera.worldToScreen(record.center.x + record.radius, record.center.y)
+          const circle = Object.freeze({ recordId: record.id, center: Object.freeze({ x: center.x, y: center.y }),
+            radius: Math.hypot(edge.x - center.x, edge.y - center.y) })
+          committedCircles.push(circle)
+          if (selectedIds.has(record.id)) selectedCircles.push(circle)
+        }
       }
 
       // Accepted draft geometry and the next-segment rubber band deliberately
@@ -132,6 +141,14 @@
         const a = camera.worldToScreen(activePreview.start.x, activePreview.start.y)
         const b = camera.worldToScreen(activePreview.end.x, activePreview.end.y)
         addSegment(nextPreview, a.x, a.y, b.x, b.y)
+      }
+
+      const circlePreview = getCirclePreview()
+      if (circlePreview && Number.isFinite(circlePreview.radius) && circlePreview.radius > 0) {
+        const center = camera.worldToScreen(circlePreview.center.x, circlePreview.center.y)
+        const edge = camera.worldToScreen(circlePreview.center.x + circlePreview.radius, circlePreview.center.y)
+        previewCircles.push(Object.freeze({ center: Object.freeze({ x: center.x, y: center.y }),
+          radius: Math.hypot(edge.x - center.x, edge.y - center.y) }))
       }
 
       if (gripPreview) {
@@ -201,6 +218,25 @@
 
       // The ordered groups are a renderer input, never authoritative geometry.
       const combinedMajorGrid = majorGrid.concat(boundary)
+      const lineGroups = [
+        lineGroup(viewportSettings.gridColor, minorGrid),
+        lineGroup(viewportSettings.majorGridColor || viewportSettings.gridBoundaryColor, combinedMajorGrid),
+        lineGroup(viewportSettings.xAxisColor, xAxis),
+        lineGroup(viewportSettings.yAxisColor, yAxis),
+        lineGroup(viewportSettings.geometryColor, geometry),
+        lineGroup(viewportSettings.acceptedDraftColor || viewportSettings.geometryColor, acceptedDraft),
+        lineGroup(viewportSettings.previewColor, nextPreview),
+        {...lineGroup(viewportSettings.selectionColor || viewportSettings.geometryColor, selection),lineWidth:2},
+        lineGroup(viewportSettings.gripColor || viewportSettings.geometryColor, idleGrips),
+        lineGroup(viewportSettings.gripHoverColor || viewportSettings.snapMarkerColor, hoverGrips),
+        lineGroup(viewportSettings.gripActiveColor || viewportSettings.selectionColor, activeGrips),
+        lineGroup(viewportSettings.draftPointColor || viewportSettings.geometryColor, draftPoints),
+        lineGroup(viewportSettings.snapMarkerColor || viewportSettings.previewColor, snapMarker),
+      ]
+      const circleGroups = lineGroups.map((group, index) => Object.freeze({
+        color: group.color, colorData: group.colorData, lineWidth: group.lineWidth,
+        circles: Object.freeze(index === 4 ? committedCircles : index === 6 ? previewCircles : index === 7 ? selectedCircles : []),
+      }))
       return {
         width: viewportWidth, height: viewportHeight, deviceScale: scale,
         backgroundColor: viewportSettings.backgroundColor,
@@ -218,21 +254,10 @@
         gripOverlay: Object.freeze({ grips: Object.freeze(projectedGrips), idleSegments: new Float32Array(idleGrips),
           hoverSegments: new Float32Array(hoverGrips), activeSegments: new Float32Array(activeGrips) }),
         draftPointOverlay: Object.freeze({ points: Object.freeze(projectedDraftPoints), segments: new Float32Array(draftPoints) }),
-        lineGroups: [
-          lineGroup(viewportSettings.gridColor, minorGrid),
-          lineGroup(viewportSettings.majorGridColor || viewportSettings.gridBoundaryColor, combinedMajorGrid),
-          lineGroup(viewportSettings.xAxisColor, xAxis),
-          lineGroup(viewportSettings.yAxisColor, yAxis),
-          lineGroup(viewportSettings.geometryColor, geometry),
-          lineGroup(viewportSettings.acceptedDraftColor || viewportSettings.geometryColor, acceptedDraft),
-          lineGroup(viewportSettings.previewColor, nextPreview),
-          {...lineGroup(viewportSettings.selectionColor || viewportSettings.geometryColor, selection),lineWidth:2},
-          lineGroup(viewportSettings.gripColor || viewportSettings.geometryColor, idleGrips),
-          lineGroup(viewportSettings.gripHoverColor || viewportSettings.snapMarkerColor, hoverGrips),
-          lineGroup(viewportSettings.gripActiveColor || viewportSettings.selectionColor, activeGrips),
-          lineGroup(viewportSettings.draftPointColor || viewportSettings.geometryColor, draftPoints),
-          lineGroup(viewportSettings.snapMarkerColor || viewportSettings.previewColor, snapMarker),
-        ],
+        circleOverlay: Object.freeze({ committed: Object.freeze(committedCircles), preview: Object.freeze(previewCircles),
+          selected: Object.freeze(selectedCircles) }),
+        lineGroups, circleGroups,
+        drawGroups: Object.freeze(lineGroups.map((lineGroup, index) => Object.freeze({ lineGroup, circleGroup: circleGroups[index] }))),
       }
     }
 

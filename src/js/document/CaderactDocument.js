@@ -14,6 +14,8 @@
     layer: fields(["id", "name", "visible", "locked"]),
     line: fields(["id", "type", "layerId", "start", "end"]),
     endpoint: fields(["x", "y", "featureId"]),
+    circle: fields(["id", "type", "layerId", "center", "radius"]),
+    coordinate: fields(["x", "y"]),
   })
   function unknownFields(value, allowedFields) {
     if (!isRecord(value)) return []
@@ -62,18 +64,24 @@
     if (typeof value.defaultLayerId !== "string" || !isRecord(layers) || !has(layers, value.defaultLayerId)) errors.push("Invalid defaultLayerId")
     if (typeof value.currentLayerId !== "string" || !isRecord(layers) || !has(layers, value.currentLayerId)) errors.push("Invalid currentLayerId")
     if (!isRecord(objects)) errors.push("Invalid object table")
-    else for (const [key, line] of Object.entries(objects)) {
-      if (!isRecord(line)) { errors.push("Invalid object"); continue }
-      closedShape(line, V1_FIELDS.line, "Line")
-      identity(line.id, "object")
-      if (key !== line.id) errors.push("Object key/ID mismatch")
-      if (line.type !== "line") errors.push("Unsupported object type")
-      if (typeof line.layerId !== "string" || !isRecord(layers) || !has(layers, line.layerId)) errors.push("Invalid layer reference")
-      point(line.start, "Line start"); point(line.end, "Line end")
-      closedShape(line.start, V1_FIELDS.endpoint, "Line start")
-      closedShape(line.end, V1_FIELDS.endpoint, "Line end")
-      identity(line.start?.featureId, "start feature")
-      identity(line.end?.featureId, "end feature")
+    else for (const [key, record] of Object.entries(objects)) {
+      if (!isRecord(record)) { errors.push("Invalid object"); continue }
+      identity(record.id, "object")
+      if (key !== record.id) errors.push("Object key/ID mismatch")
+      if (typeof record.layerId !== "string" || !isRecord(layers) || !has(layers, record.layerId)) errors.push("Invalid layer reference")
+      if (record.type === "line") {
+        closedShape(record, V1_FIELDS.line, "Line")
+        point(record.start, "Line start"); point(record.end, "Line end")
+        closedShape(record.start, V1_FIELDS.endpoint, "Line start")
+        closedShape(record.end, V1_FIELDS.endpoint, "Line end")
+        identity(record.start?.featureId, "start feature")
+        identity(record.end?.featureId, "end feature")
+      } else if (record.type === "circle") {
+        closedShape(record, V1_FIELDS.circle, "Circle")
+        point(record.center, "Circle center")
+        closedShape(record.center, V1_FIELDS.coordinate, "Circle center")
+        if (!Number.isFinite(record.radius) || record.radius <= 0) errors.push("Circle: radius must be finite and greater than zero")
+      } else errors.push("Unsupported object type")
     }
     return errors
   }
@@ -109,8 +117,10 @@
       for (const layer of Object.values(candidate.layers)) allocated.add(layer.id)
       for (const record of Object.values(candidate.geometry.objects)) {
         allocated.add(record.id)
-        allocated.add(record.start.featureId)
-        allocated.add(record.end.featureId)
+        if (record.type === "line") {
+          allocated.add(record.start.featureId)
+          allocated.add(record.end.featureId)
+        }
       }
       state = freeze(candidate)
     } else {
@@ -173,6 +183,11 @@
         return freeze({ id: newId(), type: "line", layerId: state.currentLayerId,
           start: { x: start?.x, y: start?.y, featureId: newId() },
           end: { x: end?.x, y: end?.y, featureId: newId() },
+        })
+      },
+      createCircle(center, radius) {
+        return freeze({ id: newId(), type: "circle", layerId: state.currentLayerId,
+          center: { x: center?.x, y: center?.y }, radius,
         })
       },
       createAll(records) {

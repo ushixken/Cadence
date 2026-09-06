@@ -22,6 +22,29 @@
     return hits.length ? result("hit",{hit:true,recordId:hits[0].recordId,distancePx:hits[0].distancePx}) : result("miss",{hit:false})
   }
 
+  function hitTestRecords({ screenPoint, records = [], worldToScreen, tolerancePx = DEFAULT_HIT_TOLERANCE_PX }) {
+    if (!Number.isFinite(screenPoint?.x) || !Number.isFinite(screenPoint?.y) || typeof worldToScreen !== "function") {
+      return result("invalid-hit-test")
+    }
+    const hits = []
+    for (const record of Array.from(records).sort((a, b) => a.id.localeCompare(b.id))) {
+      if (record?.type === "line") {
+        const hit = hitTestLines({ screenPoint, records: [record], worldToScreen, tolerancePx })
+        if (hit.hit) hits.push({ recordId: record.id, distancePx: hit.distancePx })
+      } else if (record?.type === "circle") {
+        const center = worldToScreen(record.center.x, record.center.y)
+        const radiusPoint = worldToScreen(record.center.x + record.radius, record.center.y)
+        const radiusPx = Math.hypot(radiusPoint.x - center.x, radiusPoint.y - center.y)
+        const distancePx = Math.abs(Math.hypot(screenPoint.x - center.x, screenPoint.y - center.y) - radiusPx)
+        if ([center.x, center.y, radiusPx, distancePx].every(Number.isFinite) && distancePx <= tolerancePx) {
+          hits.push({ recordId: record.id, distancePx })
+        }
+      }
+    }
+    hits.sort((a,b)=>a.distancePx-b.distancePx||a.recordId.localeCompare(b.recordId))
+    return hits.length ? result("hit",{hit:true,recordId:hits[0].recordId,distancePx:hits[0].distancePx}) : result("miss",{hit:false})
+  }
+
   function createSelection() {
     const selected = new Set(), listeners = new Set()
     const snapshot = () => Object.freeze(Array.from(selected).sort())
@@ -52,5 +75,5 @@
     function subscribe(listener){if(typeof listener!=="function")throw new Error("Selection listener must be a function");listeners.add(listener);return()=>listeners.delete(listener)}
     return Object.freeze({selectOnly,toggle,clear,has:id=>selected.has(id),selectedIds:snapshot,pruneAgainstDocument,subscribe})
   }
-  window.CaderactSelection=Object.freeze({createSelection,hitTestLines,DEFAULT_HIT_TOLERANCE_PX})
+  window.CaderactSelection=Object.freeze({createSelection,hitTestLines,hitTestRecords,DEFAULT_HIT_TOLERANCE_PX})
 })()

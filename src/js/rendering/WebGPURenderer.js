@@ -66,14 +66,24 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
   }
 
   render(scene) {
+    const drawGroups = scene.drawGroups || scene.lineGroups.map(lineGroup => ({ lineGroup, circleGroup: null }))
+    const batches = []
     let vertexCount = 0
-    for (const group of scene.lineGroups) vertexCount += (group.segments.length / 4) * 2
+    for (const { lineGroup, circleGroup } of drawGroups) {
+      batches.push({ segments: lineGroup.segments, color: lineGroup.colorData })
+      vertexCount += (lineGroup.segments.length / 4) * 2
+      for (const circle of circleGroup?.circles || []) {
+        const segments = window.CaderactCircleTessellation.createSegments(circle)
+        batches.push({ segments, color: circleGroup.colorData })
+        vertexCount += (segments.length / 4) * 2
+      }
+    }
     const data = new Float32Array(vertexCount * 6)
     let offset = 0
-    for (const group of scene.lineGroups) {
-      const color = group.colorData
-      for (let index = 0; index < group.segments.length; index += 4) {
-        data.set([group.segments[index], group.segments[index + 1], ...color, group.segments[index + 2], group.segments[index + 3], ...color], offset)
+    for (const batch of batches) {
+      for (let index = 0; index < batch.segments.length; index += 4) {
+        data.set([batch.segments[index], batch.segments[index + 1], ...batch.color,
+          batch.segments[index + 2], batch.segments[index + 3], ...batch.color], offset)
         offset += 12
       }
     }

@@ -13,12 +13,16 @@
     return { id: layer.id, name: layer.name, visible: layer.visible, locked: layer.locked }
   }
   function canonicalRecord(record) {
-    if (record.type !== "line") return { id: record.id, type: record.type }
-    return {
+    if (record.type === "line") return {
       id: record.id, type: record.type, layerId: record.layerId,
       start: { x: record.start?.x, y: record.start?.y, featureId: record.start?.featureId },
       end: { x: record.end?.x, y: record.end?.y, featureId: record.end?.featureId },
     }
+    if (record.type === "circle") return {
+      id: record.id, type: record.type, layerId: record.layerId,
+      center: { x: record.center?.x, y: record.center?.y }, radius: record.radius,
+    }
+    return { id: record.id, type: record.type }
   }
   function payloadFor(document) {
     const errors = window.CaderactDocument.validateDocument(document)
@@ -61,11 +65,16 @@
         if (!isRecord(item)) invalid(`${label} entry must be an object`)
         if (label === "layer") rejectUnknown(item, fields.layer, "layer entry")
         if (label === "record") {
-          if (item.type !== "line") invalid(`unsupported record type ${String(item.type)}`)
-          rejectUnknown(item, fields.line, "Line record")
-          if (!isRecord(item.start) || !isRecord(item.end)) invalid("Line endpoints must be objects")
-          rejectUnknown(item.start, fields.endpoint, "Line start")
-          rejectUnknown(item.end, fields.endpoint, "Line end")
+          if (item.type === "line") {
+            rejectUnknown(item, fields.line, "Line record")
+            if (!isRecord(item.start) || !isRecord(item.end)) invalid("Line endpoints must be objects")
+            rejectUnknown(item.start, fields.endpoint, "Line start")
+            rejectUnknown(item.end, fields.endpoint, "Line end")
+          } else if (item.type === "circle") {
+            rejectUnknown(item, fields.circle, "Circle record")
+            if (!isRecord(item.center)) invalid("Circle center must be an object")
+            rejectUnknown(item.center, fields.coordinate, "Circle center")
+          } else invalid(`unsupported record type ${String(item.type)}`)
         }
         if (typeof item.id !== "string" || item.id.trim() === "") invalid(`${label} entry is missing an ID`)
         if (ids.has(item.id)) invalid(`duplicate ${label} ID ${item.id}`)

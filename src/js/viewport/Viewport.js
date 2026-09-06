@@ -71,6 +71,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getRecords: () => modelReader.records(),
   getDraftLines: () => getActiveCommandSession()?.getDraftLines?.() || [],
   getPreviewLines: () => getActiveCommandSession()?.getPreviewLines?.() || [],
+  getCirclePreview: () => getActiveCommandSession()?.getCirclePreview?.() || null,
   getDraftPoints: () => getActiveCommandSession()?.getDraftPoints?.() || [],
   getSnapResult: () => activeSnapResult,
   getSelectedIds: selection.selectedIds,
@@ -180,6 +181,75 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     getDraftLines: draft.draftSegments, getPreview: draft.preview, getPreviewLines,
     getDraftPoints: draft.acceptedPoints,
     getSnapCandidates, hasPointerPreview,
+    get prompt() { return prompt },
+  })
+}
+
+function createCircleCommandSession({ setPrompt = () => {} } = {}) {
+  const draft = window.CaderactCircleDraftSession.createSession({
+    createCircle: recordGateway.createCircle,
+    commitRecords: recordGateway.createAll,
+  })
+  let prompt = "Circle: Specify center point"
+  function updatePrompt(message) { prompt = message; setPrompt(message) }
+  function presentOutcome(outcome, point = null) {
+    requestRender()
+    if (outcome.status === "center-accepted") {
+      updatePrompt("Circle: Specify radius point")
+      return Object.freeze({ status: "input-accepted", command: "Circle", kind: "point", point, outcome })
+    }
+    if (outcome.status === "circle-committed") {
+      clearSnap()
+      return Object.freeze({ status: "command-completed", command: "Circle", outcome })
+    }
+    if (outcome.status === "zero-radius") {
+      updatePrompt("Circle: Radius point must differ from center")
+      return Object.freeze({ status: "invalid-input", reason: "zero-radius", command: "Circle",
+        message: "Circle radius must be greater than zero", outcome })
+    }
+    updatePrompt("Circle: Unable to commit; draft preserved")
+    return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Circle", outcome })
+  }
+  function handlePointerDown(point) { return presentOutcome(draft.acceptPoint(point), point) }
+  function handlePointerMove(point) { draft.updatePointer(point); requestRender() }
+  function handlePointerLeave() { draft.clearPointer(); clearSnap(); requestRender() }
+  function handleInput(input) {
+    clearSnap()
+    const parsed = window.CaderactPointInput.parseAndResolve(input, {
+      currentUnit: modelReader.units().length,
+      anchor: draft.center,
+    })
+    if (parsed.status !== "point-resolved") {
+      const messages = {
+        "invalid-coordinate": "Enter a point as x,y", "invalid-number": "Coordinate values must be finite numbers",
+        "unsupported-unit": `Unsupported unit${parsed.unit ? `: ${parsed.unit}` : ""}`,
+        "relative-point-without-anchor": "Relative point requires a previous point",
+      }
+      return Object.freeze({ status: "invalid-input", reason: parsed.reason, command: "Circle",
+        message: messages[parsed.reason] || "Invalid coordinate" })
+    }
+    const point = Object.freeze({ x: parsed.x, y: parsed.y })
+    return presentOutcome(draft.acceptPoint(point), point)
+  }
+  function finish() {
+    clearSnap(); draft.finish(); requestRender()
+    return Object.freeze({ status: "command-completed", command: "Circle" })
+  }
+  function cancel() {
+    clearSnap(); draft.cancel(); requestRender()
+    return Object.freeze({ status: "command-cancelled", command: "Circle" })
+  }
+  function getSnapCandidates() {
+    return draft.acceptedPoints().map((point, index) => Object.freeze({
+      kind: "draft-point", point, stableKey: `circle-draft:${index}`,
+      reference: Object.freeze({ kind: "draft-point", index }),
+    }))
+  }
+  requestRender()
+  return Object.freeze({
+    name: "Circle", draft, finish, cancel, handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
+    getCirclePreview: draft.preview, getDraftPoints: draft.acceptedPoints, getSnapCandidates,
+    hasPointerPreview: () => draft.hasCenter,
     get prompt() { return prompt },
   })
 }
@@ -452,7 +522,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createCircleCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()
@@ -522,7 +592,7 @@ function onViewportPointerDown(event) {
     clearSnap()
     return
   }
-  const hit = window.CaderactSelection.hitTestLines({screenPoint:point,records:modelReader.records(),worldToScreen})
+  const hit = window.CaderactSelection.hitTestRecords({screenPoint:point,records:modelReader.records(),worldToScreen})
   const toggle = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey)
   if (hit.hit) toggle ? selection.toggle(hit.recordId) : selection.selectOnly(hit.recordId)
   else if (!toggle) selection.clear()
