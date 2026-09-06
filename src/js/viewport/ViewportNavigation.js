@@ -1,11 +1,22 @@
 (() => {
-  function bindViewportNavigation({ canvas, camera, viewportSettings, getCanvasPoint, requestRender, onStateChange = () => {} }) {
+  const SPACE_HOLD_THRESHOLD_MS = 220
+
+  function bindViewportNavigation({ canvas, camera, viewportSettings, getCanvasPoint, requestRender, onStateChange = () => {}, onSpaceTap = () => {} }) {
     let isSpacePressed = false
+    let spaceInteraction = null
     let navigationMode = null
     let activePointerId = null
     let previousPointerX = 0, previousPointerY = 0, zoomAnchorX = 0, zoomAnchorY = 0
 
     function publishState() { onStateChange(Object.freeze({ navigationMode, isSpacePressed })) }
+
+    function isEditable(target) {
+      return Boolean(target?.isContentEditable || target?.matches?.("input, textarea, select"))
+    }
+
+    function consumeSpaceForNavigation() {
+      if (spaceInteraction) spaceInteraction.consumed = true
+    }
 
     function stopNavigation(event) {
       if (event && activePointerId !== null && event.pointerId !== activePointerId) return
@@ -19,6 +30,7 @@
       const isSpaceDrag = event.button === 0 && isSpacePressed
       const isMiddleMouseDrag = event.button === 1
       if (!isSpaceDrag && !isMiddleMouseDrag) return
+      if (isSpaceDrag) consumeSpaceForNavigation()
       const point = getCanvasPoint(event)
       navigationMode = event.ctrlKey ? "zoom" : "pan"
       activePointerId = event.pointerId
@@ -66,22 +78,38 @@
     const onPointerLeave = () => canvas.classList.remove("is-hovered")
 
     function onKeyDown(event) {
-      if (event.code !== "Space" || !canvas.classList.contains("is-hovered")) return
+      if (event.code !== "Space" || !canvas.classList.contains("is-hovered") || event.defaultPrevented || isEditable(event.target)) return
+      if (event.repeat) { event.preventDefault(); return }
+      if (isSpacePressed) { event.preventDefault(); return }
       isSpacePressed = true
+      const interaction = { consumed: false, held: false,
+        modified: Boolean(event.ctrlKey || event.altKey || event.metaKey || event.shiftKey), timer: null }
+      interaction.timer = setTimeout(() => {
+        if (spaceInteraction === interaction && isSpacePressed) interaction.held = true
+      }, SPACE_HOLD_THRESHOLD_MS)
+      spaceInteraction = interaction
       canvas.classList.add("is-navigation-ready")
       publishState()
       event.preventDefault()
     }
 
     function onKeyUp(event) {
-      if (event.code !== "Space") return
+      if (event.code !== "Space" || !isSpacePressed) return
+      const interaction = spaceInteraction
+      if (interaction?.timer != null) clearTimeout(interaction.timer)
       isSpacePressed = false
+      spaceInteraction = null
       canvas.classList.remove("is-navigation-ready")
       stopNavigation()
+      if (interaction && !interaction.consumed && !interaction.held && !interaction.modified &&
+          !event.defaultPrevented && !isEditable(event.target)) onSpaceTap(event)
+      event.preventDefault()
     }
 
     function onBlur() {
       isSpacePressed = false
+      if (spaceInteraction?.timer != null) clearTimeout(spaceInteraction.timer)
+      spaceInteraction = null
       canvas.classList.remove("is-navigation-ready")
       stopNavigation()
     }
@@ -99,7 +127,7 @@
     window.addEventListener("blur", onBlur)
 
     function dispose() {
-      stopNavigation()
+      onBlur()
       canvas.removeEventListener("pointerdown", onPointerDown)
       canvas.removeEventListener("pointermove", onPointerMove)
       canvas.removeEventListener("pointerup", stopNavigation)
@@ -116,9 +144,11 @@
     return Object.freeze({
       isActive: () => navigationMode !== null,
       getMode: () => navigationMode,
+      getSpaceState: () => Object.freeze({ isDown: isSpacePressed, consumed: spaceInteraction?.consumed || false,
+        held: spaceInteraction?.held || false }),
       dispose,
     })
   }
 
-  window.CaderactViewportNavigation = Object.freeze({ bindViewportNavigation })
+  window.CaderactViewportNavigation = Object.freeze({ bindViewportNavigation, SPACE_HOLD_THRESHOLD_MS })
 })()

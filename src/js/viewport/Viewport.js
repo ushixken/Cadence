@@ -682,6 +682,10 @@ function bindCanvas(nextCanvas) {
   navigation = window.CaderactViewportNavigation.bindViewportNavigation({
     canvas, camera: viewportCamera, viewportSettings, getCanvasPoint, requestRender,
     onStateChange: state => interactionVisuals.setNavigating(state.navigationMode !== null || state.isSpacePressed),
+    onSpaceTap: () => {
+      const router = window.caderactCommandRouter
+      if (router && !router.isActive) router.repeatLastCommand()
+    },
   })
   canvas.addEventListener("pointerdown", onViewportPointerDown)
   canvas.addEventListener("pointerenter", onViewportPointerEnter)

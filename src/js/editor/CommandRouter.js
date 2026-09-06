@@ -7,6 +7,7 @@
       throw new Error("Command router requires a registry")
     }
     let activeSession = null
+    let lastRepeatableCommand = null
     let lastResult = result("invalid-input", { reason: "no-command" })
     const listeners = new Set()
 
@@ -42,6 +43,7 @@
         return publish(result("invalid-input", { reason: "invalid-command-session", command: definition.name }))
       }
       activeSession = session
+      if (definition.repeatable) lastRepeatableCommand = definition.name
       showSessionPrompt()
       return publish(result("command-started", { command: definition.name }))
     }
@@ -86,13 +88,21 @@
       const session = activeSession
       return acceptSessionOutcome(session, session.handlePointerDown(point, context))
     }
+    function repeatLastCommand() {
+      if (activeSession) return publish(result("repeat-unavailable", { reason: "active-command", command: activeSession.name }))
+      if (!lastRepeatableCommand) return publish(result("repeat-unavailable", { reason: "no-repeatable-command" }))
+      const definition = registry.resolve(lastRepeatableCommand)
+      if (!definition || !definition.repeatable) return publish(result("repeat-unavailable", { reason: "command-unavailable" }))
+      return activate(definition)
+    }
 
     return Object.freeze({
-      execute, activate, finishActive, cancelActive, submitActiveInput, submitActivePointer, subscribe,
+      execute, activate, finishActive, cancelActive, submitActiveInput, submitActivePointer, repeatLastCommand, subscribe,
       get activeSession() { return activeSession },
       get activeCommand() { return activeSession?.name || null },
       get currentPrompt() { return activeSession?.prompt || "Type a command..." },
       get lastResult() { return lastResult },
+      get lastRepeatableCommand() { return lastRepeatableCommand },
       get isActive() { return activeSession !== null },
     })
   }

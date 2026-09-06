@@ -38,7 +38,7 @@
       }
       const name = source.name.trim()
       const aliases = Object.freeze(Array.from(source.aliases || [], alias => String(alias).trim()).filter(Boolean))
-      const definition = Object.freeze({ name, aliases, activate: source.activate })
+      const definition = Object.freeze({ name, aliases, repeatable: source.repeatable === true, activate: source.activate })
       for (const candidate of [name, ...aliases]) {
         const key = normalize(candidate)
         if (names.has(key)) throw new Error(`Duplicate command name or alias ${candidate}`)

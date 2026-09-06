@@ -10,10 +10,10 @@ function setCommandHint(message) {
 }
 
 const commandRegistry = window.CaderactCommandRegistry.createRegistry([
-  { name: "Circle", aliases: ["C"], activate: context => window.caderactViewport.createCircleCommandSession(context) },
-  { name: "Line", aliases: ["L"], activate: context => window.caderactViewport.createLineCommandSession(context) },
-  { name: "Polyline", aliases: ["Pline", "PL"], activate: context => window.caderactViewport.createPolylineCommandSession(context) },
-  { name: "Rectangle", aliases: ["Rect"], activate: context => window.caderactViewport.createRectangleCommandSession(context) },
+  { name: "Circle", aliases: ["C"], repeatable: true, activate: context => window.caderactViewport.createCircleCommandSession(context) },
+  { name: "Line", aliases: ["L"], repeatable: true, activate: context => window.caderactViewport.createLineCommandSession(context) },
+  { name: "Polyline", aliases: ["Pline", "PL"], repeatable: true, activate: context => window.caderactViewport.createPolylineCommandSession(context) },
+  { name: "Rectangle", aliases: ["Rect"], repeatable: true, activate: context => window.caderactViewport.createRectangleCommandSession(context) },
 ])
 const commandRouter = window.CaderactCommandRouter.createRouter({ registry: commandRegistry, setPrompt: setCommandHint })
 window.caderactCommandRegistry = commandRegistry
