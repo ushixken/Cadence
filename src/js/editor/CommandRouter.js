@@ -25,6 +25,13 @@
     function showSessionPrompt() {
       setPrompt(activeSession?.prompt || "Type a command...")
     }
+    function acceptSessionOutcome(session, outcome) {
+      if (outcome.status === "command-completed" && activeSession === session) {
+        activeSession = null
+        setPrompt("Type a command...")
+      } else showSessionPrompt()
+      return publish(outcome)
+    }
     function activate(definition) {
       if (activeSession) return publish(result("command-active", { command: activeSession.name }))
       let session
@@ -53,11 +60,7 @@
       if (!activeSession) return publish(result("invalid-input", { reason: "no-active-command" }))
       const session = activeSession
       const outcome = session.finish()
-      if (outcome.status === "command-completed") {
-        activeSession = null
-        setPrompt("Type a command...")
-      } else showSessionPrompt()
-      return publish(outcome)
+      return acceptSessionOutcome(session, outcome)
     }
     function cancelActive() {
       if (!activeSession) return publish(result("invalid-input", { reason: "no-active-command" }))
@@ -72,11 +75,20 @@
       if (typeof activeSession.handleInput !== "function") {
         return publish(result("invalid-input", { reason: "command-does-not-accept-input", command: activeSession.name }))
       }
-      return publish(activeSession.handleInput(input, context))
+      const session = activeSession
+      return acceptSessionOutcome(session, session.handleInput(input, context))
+    }
+    function submitActivePointer(point, context = {}) {
+      if (!activeSession) return publish(result("invalid-input", { reason: "no-active-command" }))
+      if (typeof activeSession.handlePointerDown !== "function") {
+        return publish(result("invalid-input", { reason: "command-does-not-accept-pointer", command: activeSession.name }))
+      }
+      const session = activeSession
+      return acceptSessionOutcome(session, session.handlePointerDown(point, context))
     }
 
     return Object.freeze({
-      execute, activate, finishActive, cancelActive, submitActiveInput, subscribe,
+      execute, activate, finishActive, cancelActive, submitActiveInput, submitActivePointer, subscribe,
       get activeSession() { return activeSession },
       get activeCommand() { return activeSession?.name || null },
       get currentPrompt() { return activeSession?.prompt || "Type a command..." },

@@ -70,7 +70,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getDocumentUnit: () => modelReader.units().length,
   getRecords: () => modelReader.records(),
   getDraftLines: () => getActiveCommandSession()?.getDraftLines?.() || [],
-  getPreview: () => getActiveCommandSession()?.getPreview?.() || null,
+  getPreviewLines: () => getActiveCommandSession()?.getPreviewLines?.() || [],
   getDraftPoints: () => getActiveCommandSession()?.getDraftPoints?.() || [],
   getSnapResult: () => activeSnapResult,
   getSelectedIds: selection.selectedIds,
@@ -171,14 +171,84 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     }))
   }
   function hasPointerPreview() { return draft.hasFirstPoint }
+  function getPreviewLines() { const preview = draft.preview(); return preview ? [preview] : [] }
 
   requestRender()
   return Object.freeze({
     name: "Line", draft, finish, cancel, stepUndo,
     handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
-    getDraftLines: draft.draftSegments, getPreview: draft.preview,
+    getDraftLines: draft.draftSegments, getPreview: draft.preview, getPreviewLines,
     getDraftPoints: draft.acceptedPoints,
     getSnapCandidates, hasPointerPreview,
+    get prompt() { return prompt },
+  })
+}
+
+function createRectangleCommandSession({ setPrompt = () => {} } = {}) {
+  const draft = window.CaderactRectangleDraftSession.createSession({
+    createSegment: recordGateway.createLine,
+    commitSegments: recordGateway.createAll,
+  })
+  let prompt = "Rectangle: Specify first corner"
+  function updatePrompt(message) { prompt = message; setPrompt(message) }
+  function presentOutcome(outcome) {
+    requestRender()
+    if (outcome.status === "first-corner") {
+      updatePrompt("Rectangle: Specify opposite corner")
+      return Object.freeze({ status: "input-accepted", command: "Rectangle", kind: "point", outcome })
+    }
+    if (outcome.status === "rectangle-committed") {
+      clearSnap()
+      return Object.freeze({ status: "command-completed", command: "Rectangle", outcome })
+    }
+    if (outcome.status === "degenerate-rectangle") {
+      updatePrompt("Rectangle: Opposite corner must change both X and Y")
+      return Object.freeze({ status: "invalid-input", reason: "degenerate-rectangle", command: "Rectangle",
+        message: "Rectangle requires non-zero width and height", outcome })
+    }
+    updatePrompt("Rectangle: Unable to commit; draft preserved")
+    return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Rectangle", outcome })
+  }
+  function handlePointerDown(point) { return presentOutcome(draft.acceptPoint(point)) }
+  function handlePointerMove(point) { draft.updatePointer(point); requestRender() }
+  function handlePointerLeave() { draft.clearPointer(); clearSnap(); requestRender() }
+  function handleInput(input) {
+    clearSnap()
+    const parsed = window.CaderactPointInput.parseAndResolve(input, {
+      currentUnit: modelReader.units().length,
+      anchor: draft.firstCorner,
+    })
+    if (parsed.status !== "point-resolved") {
+      const messages = {
+        "invalid-coordinate": "Enter a point as x,y", "invalid-number": "Coordinate values must be finite numbers",
+        "unsupported-unit": `Unsupported unit${parsed.unit ? `: ${parsed.unit}` : ""}`,
+        "relative-point-without-anchor": "Relative point requires a previous point",
+      }
+      return Object.freeze({ status: "invalid-input", reason: parsed.reason, command: "Rectangle",
+        message: messages[parsed.reason] || "Invalid coordinate" })
+    }
+    const point = Object.freeze({ x: parsed.x, y: parsed.y })
+    return presentOutcome(draft.acceptPoint(point))
+  }
+  function finish() {
+    clearSnap(); draft.finish(); requestRender()
+    return Object.freeze({ status: "command-completed", command: "Rectangle" })
+  }
+  function cancel() {
+    clearSnap(); draft.cancel(); requestRender()
+    return Object.freeze({ status: "command-cancelled", command: "Rectangle" })
+  }
+  function getSnapCandidates() {
+    return draft.acceptedPoints().map((point, index) => Object.freeze({
+      kind: "draft-point", point, stableKey: `rectangle-draft:${index}`,
+      reference: Object.freeze({ kind: "draft-point", index }),
+    }))
+  }
+  requestRender()
+  return Object.freeze({
+    name: "Rectangle", draft, finish, cancel, handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
+    getPreviewLines: draft.previewEdges, getDraftPoints: draft.acceptedPoints, getSnapCandidates,
+    hasPointerPreview: () => draft.hasFirstCorner,
     get prompt() { return prompt },
   })
 }
@@ -301,7 +371,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createRectangleCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()
@@ -362,7 +432,7 @@ function onViewportPointerDown(event) {
       transientCandidates: getCommandSnapCandidates(session),
       bypass,
     })
-    session.handlePointerDown(snap.point)
+    window.caderactCommandRouter.submitActivePointer(snap.point)
     return
   }
   const gripOutcome = grips.begin(point, event.pointerId)

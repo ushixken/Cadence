@@ -11,6 +11,7 @@ function setCommandHint(message) {
 
 const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Line", aliases: ["L"], activate: context => window.caderactViewport.createLineCommandSession(context) },
+  { name: "Rectangle", aliases: ["Rect"], activate: context => window.caderactViewport.createRectangleCommandSession(context) },
 ])
 const commandRouter = window.CaderactCommandRouter.createRouter({ registry: commandRegistry, setPrompt: setCommandHint })
 window.caderactCommandRegistry = commandRegistry
@@ -123,9 +124,10 @@ commandInput.addEventListener("keydown", (event) => {
   if (commandRouter.isActive && event.key === "Enter") {
     event.preventDefault()
     if (commandInput.value.trim() !== "") {
-      commandRouter.submitActiveInput(commandInput.value)
+      const outcome = commandRouter.submitActiveInput(commandInput.value)
       commandInput.value = ""
       hideSuggestions()
+      if (outcome.status === "command-completed") commandInput.blur()
     } else {
       applyCommandResult(commandRouter.finishActive()); resetCommandInput()
     }

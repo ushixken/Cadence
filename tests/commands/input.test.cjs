@@ -33,9 +33,12 @@ test('unknown command returns deterministic feedback without document mutation',
 });
 test('registry is the single deterministic autocomplete and routing source', async () => {
   const b = await browser();
-  assert.deepEqual(b.read('window.caderactCommandRegistry.commands().map(command=>({name:command.name,aliases:command.aliases}))'), [{ name: 'Line', aliases: ['L'] }]);
+  assert.deepEqual(b.read('window.caderactCommandRegistry.commands().map(command=>({name:command.name,aliases:command.aliases}))'), [
+    { name: 'Line', aliases: ['L'] }, { name: 'Rectangle', aliases: ['Rect'] },
+  ]);
   assert.deepEqual(b.read('window.caderactCommandRegistry.matches("Li").map(command=>command.name)'), ['Line']);
   assert.equal(b.run('window.caderactCommandRegistry.resolve("l").name'), 'Line');
+  assert.equal(b.run('window.caderactCommandRegistry.resolve("rect").name'), 'Rectangle');
 });
 test('an active Line cannot be relaunched through command routing', async () => {
   const b = await browser(); b.launch(); b.point(100, 100); b.point(150, 150);

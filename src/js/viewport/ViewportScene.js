@@ -1,5 +1,5 @@
 (() => {
-  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getDraftPoints = () => [], getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null }) {
+  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getPreviewLines = null, getDraftPoints = () => [], getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null }) {
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
     const MAX_GRID_LINES_PER_AXIS = 512
@@ -126,8 +126,9 @@
         addSegment(acceptedDraft, a.x, a.y, b.x, b.y)
       }
 
-      const activePreview = getPreview()
-      if (activePreview) {
+      const legacyPreview = getPreview()
+      const activePreviews = getPreviewLines ? getPreviewLines() : legacyPreview ? [legacyPreview] : []
+      for (const activePreview of activePreviews) {
         const a = camera.worldToScreen(activePreview.start.x, activePreview.start.y)
         const b = camera.worldToScreen(activePreview.end.x, activePreview.end.y)
         addSegment(nextPreview, a.x, a.y, b.x, b.y)
