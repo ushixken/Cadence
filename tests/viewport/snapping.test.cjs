@@ -4,9 +4,9 @@ const {browser}=require('../helpers/browser.cjs');
 
 function typed(b,value){b.input.value=value;b.emit(b.input,'input');b.key('Enter',b.input)}
 function installRecord(b,record){b.window.__snapRecord=record}
-function resolve(b,{raw,zoom=1,panX=0,panY=0,spacing=10,records='[window.__snapRecord]',enabled='{}'}){
+function resolve(b,{raw,zoom=1,panX=0,panY=0,spacing=10,records='[window.__snapRecord]',enabled='{}',transientCandidates='[]'}){
   return b.read(`window.CaderactSnapResolver.createResolver().resolve({rawWorldPoint:${JSON.stringify(raw)},
-    worldToScreen:(x,y)=>({x:${panX}+x*${zoom},y:${panY}-y*${zoom}}),records:${records},gridSpacing:${spacing},enabled:${enabled}})`)
+    worldToScreen:(x,y)=>({x:${panX}+x*${zoom},y:${panY}-y*${zoom}}),records:${records},transientCandidates:${transientCandidates},gridSpacing:${spacing},enabled:${enabled}})`)
 }
 const record={id:'line_b',type:'line',layerId:'layer',start:{x:-10,y:-20,featureId:'feature_start'},end:{x:30,y:40,featureId:'feature_end'}};
 
@@ -47,6 +47,28 @@ test('enabled snap modes exclude only grid candidates',async()=>{
   assert.equal(resolve(b,{raw:{x:-10,y:-20},spacing:10,enabled:modes}).kind,'endpoint');
   assert.equal(resolve(b,{raw:{x:10,y:10},spacing:10,enabled:modes}).kind,'midpoint');
   assert.equal(resolve(b,{raw:{x:10.1,y:10.1},spacing:10,records:'[]',enabled:'{endpoint:true,midpoint:true,grid:true}'}).kind,'grid');
+});
+
+test('command transient candidates use the shared resolver and Grid OFF leaves Draft Point enabled',async()=>{
+  const b=await browser();
+  const candidates='[{kind:"draft-point",point:{x:7,y:9},stableKey:"draft:0",reference:{kind:"draft-point",index:0}}]';
+  const snap=resolve(b,{raw:{x:7.1,y:9.1},records:'[]',spacing:1,enabled:'{endpoint:true,midpoint:true,grid:false}',transientCandidates:candidates});
+  assert.equal(snap.kind,'draft-point');assert.deepEqual(snap.point,{x:7,y:9});assert.deepEqual(snap.reference,{kind:'draft-point',index:0});
+});
+
+test('Endpoint, Draft Point, Midpoint, and Grid markers have distinct centered geometry',async()=>{
+  const b=await browser(), shapes=new Map();
+  for(const kind of ['endpoint','draft-point','midpoint','grid']){
+    b.run(`activeSnapResult=Object.freeze({snapped:true,kind:${JSON.stringify(kind)},point:Object.freeze({x:0,y:0})})`);
+    const marker=b.run('createScene().snapOverlay'), segments=Array.from(marker.segments);
+    assert.equal(marker.point.x,400);assert.equal(marker.point.y,300);
+    const xs=[],ys=[];
+    for(let i=0;i<segments.length;i+=4){xs.push(segments[i],segments[i+2]);ys.push(segments[i+1],segments[i+3]);}
+    assert.equal(Math.min(...xs)+Math.max(...xs),800,`${kind} must balance horizontally`);
+    assert.equal(Math.min(...ys)+Math.max(...ys),600,`${kind} must balance vertically`);
+    shapes.set(kind,JSON.stringify(segments));
+  }
+  assert.equal(new Set(shapes.values()).size,4);
 });
 
 test('Grid marker uses exact projection and symmetric fixed screen-space hash geometry',async()=>{
@@ -100,6 +122,34 @@ test('nearest distance dominates and endpoint priority resolves close collisions
   const forward=resolve(b,{raw:{x:0,y:0},records:'[window.__snapRecord,{...window.__snapRecord,id:"a",start:{...window.__snapRecord.start,featureId:"a1"},end:{...window.__snapRecord.end,featureId:"a2"}}]'});
   const reverse=resolve(b,{raw:{x:0,y:0},records:'[{...window.__snapRecord,id:"a",start:{...window.__snapRecord.start,featureId:"a1"},end:{...window.__snapRecord.end,featureId:"a2"}},window.__snapRecord]'});
   assert.deepEqual(forward,reverse);
+});
+
+test('crowded near ties are selected from one nearest-distance window without comparator cycles',async()=>{
+  const b=await browser();
+  b.window.__crowded=[
+    {id:'endpoint',type:'line',start:{x:1.2,y:0,featureId:'e1'},end:{x:100,y:0,featureId:'e2'}},
+    {id:'midpoint',type:'line',start:{x:-19.4,y:0,featureId:'m1'},end:{x:20.6,y:0,featureId:'m2'}},
+  ];
+  const forward=resolve(b,{raw:{x:0,y:0},records:'window.__crowded',spacing:10});
+  const reverse=resolve(b,{raw:{x:0,y:0},records:'[...window.__crowded].reverse()',spacing:10});
+  assert.equal(forward.kind,'midpoint');assert.ok(Math.abs(forward.distancePx-.6)<1e-12);
+  assert.deepEqual(reverse,forward);
+});
+
+test('real pointer path bypasses and immediately reacquires every supported snap kind with Shift',async()=>{
+  const b=await browser();
+  b.run('recordGateway.createAll([recordGateway.createLine({x:20,y:20},{x:40,y:20})])');
+  b.launch();typed(b,'7,7');
+  for(const target of [
+    {screen:[500,200],kind:'endpoint'},
+    {screen:[550,200],kind:'midpoint'},
+    {screen:[450,250],kind:'grid'},
+    {screen:[435,265],kind:'draft-point'},
+  ]){
+    b.point(...target.screen,'pointermove');assert.equal(b.read('activeSnapResult.kind'),target.kind);
+    b.key('Shift',b.document,{code:'ShiftLeft'});assert.equal(b.read('activeSnapResult.snapped'),false);
+    b.emit(b.document,'keyup',{key:'Shift',code:'ShiftLeft'});assert.equal(b.read('activeSnapResult.kind'),target.kind);
+  }
 });
 
 test('10 CSS-pixel tolerance stays stable across zoom and DPR and extreme zoom remains finite',async()=>{

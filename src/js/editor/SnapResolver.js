@@ -6,7 +6,7 @@
   const freezePoint = point => Object.freeze({ x: point.x, y: point.y })
 
   function createResolver({ tolerancePx = DEFAULT_TOLERANCE_PX, priorityWindowPx = PRIORITY_WINDOW_PX } = {}) {
-    function resolve({ rawWorldPoint, worldToScreen, records = [], draftPoints = [], gridSpacing, enabled = {}, excludedFeatureIds = [] }) {
+    function resolve({ rawWorldPoint, worldToScreen, records = [], transientCandidates = [], draftPoints = [], gridSpacing, enabled = {}, excludedFeatureIds = [] }) {
       const rawPoint = freezePoint(rawWorldPoint)
       if (!Number.isFinite(rawPoint.x) || !Number.isFinite(rawPoint.y) || typeof worldToScreen !== "function") {
         return Object.freeze({ snapped: false, point: rawPoint })
@@ -34,21 +34,32 @@
           y: record.start.y + (record.end.y - record.start.y) / 2 }
         add("midpoint", midpoint, `midpoint:${record.id}`)
       }
+      const commandCandidates = Array.from(transientCandidates)
+      // Keep the D2 draftPoints input compatible while commands migrate to the
+      // generic transient-candidate contract.
       for (let i = 0; i < draftPoints.length; i++) {
-        const dp = draftPoints[i]
-        if (!dp || !Number.isFinite(dp.x) || !Number.isFinite(dp.y)) continue
-        add("draft-point", dp, `draft-point:${i}`, Object.freeze({ kind: "draft-point", index: i }))
+        commandCandidates.push({ kind: "draft-point", point: draftPoints[i], stableKey: `draft-point:${i}`,
+          reference: Object.freeze({ kind: "draft-point", index: i }) })
+      }
+      for (let i = 0; i < commandCandidates.length; i++) {
+        const candidate = commandCandidates[i]
+        if (!candidate || priorities[candidate.kind] === undefined) continue
+        add(candidate.kind, candidate.point, candidate.stableKey || `transient:${candidate.kind}:${i}`,
+          candidate.reference || null)
       }
       if (Number.isFinite(gridSpacing) && gridSpacing > 0) {
         add("grid", { x: Math.round(rawPoint.x / gridSpacing) * gridSpacing,
           y: Math.round(rawPoint.y / gridSpacing) * gridSpacing }, "grid")
       }
-      candidates.sort((a, b) => {
-        const distanceDifference = a.distancePx - b.distancePx
-        if (Math.abs(distanceDifference) > priorityWindowPx) return distanceDifference
-        return priorities[a.kind] - priorities[b.kind] || distanceDifference || a.stableKey.localeCompare(b.stableKey)
-      })
-      const winner = candidates[0]
+      candidates.sort((a, b) => a.distancePx - b.distancePx
+        || priorities[a.kind] - priorities[b.kind]
+        || a.stableKey.localeCompare(b.stableKey))
+      const nearestDistance = candidates[0]?.distancePx
+      const nearTieCandidates = candidates.filter(candidate => candidate.distancePx <= nearestDistance + priorityWindowPx)
+      nearTieCandidates.sort((a, b) => priorities[a.kind] - priorities[b.kind]
+        || a.distancePx - b.distancePx
+        || a.stableKey.localeCompare(b.stableKey))
+      const winner = nearTieCandidates[0]
       if (!winner) return Object.freeze({ snapped: false, point: rawPoint })
       return Object.freeze({ snapped: true, kind: winner.kind, point: winner.point,
         distancePx: winner.distancePx, reference: winner.reference })

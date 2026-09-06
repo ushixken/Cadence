@@ -143,11 +143,16 @@
       let snapOverlay = null
       if (snap?.snapped && Number.isFinite(snap.point?.x) && Number.isFinite(snap.point?.y)) {
         const center = camera.worldToScreen(snap.point.x, snap.point.y), size = 5
-        if (snap.kind === "endpoint" || snap.kind === "draft-point") {
+        if (snap.kind === "endpoint") {
           addSegment(snapMarker, center.x-size, center.y-size, center.x+size, center.y-size)
           addSegment(snapMarker, center.x+size, center.y-size, center.x+size, center.y+size)
           addSegment(snapMarker, center.x+size, center.y+size, center.x-size, center.y+size)
           addSegment(snapMarker, center.x-size, center.y+size, center.x-size, center.y-size)
+        } else if (snap.kind === "draft-point") {
+          addSegment(snapMarker, center.x, center.y-size, center.x+size, center.y)
+          addSegment(snapMarker, center.x+size, center.y, center.x, center.y+size)
+          addSegment(snapMarker, center.x, center.y+size, center.x-size, center.y)
+          addSegment(snapMarker, center.x-size, center.y, center.x, center.y-size)
         } else if (snap.kind === "midpoint") {
           addSegment(snapMarker, center.x, center.y-size, center.x+size, center.y+size)
           addSegment(snapMarker, center.x+size, center.y+size, center.x-size, center.y+size)

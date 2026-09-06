@@ -164,6 +164,13 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     requestRender()
     return outcome
   }
+  function getSnapCandidates() {
+    return draft.acceptedPoints().map((point, index) => Object.freeze({
+      kind: "draft-point", point, stableKey: `line-draft:${index}`,
+      reference: Object.freeze({ kind: "draft-point", index }),
+    }))
+  }
+  function hasPointerPreview() { return draft.hasFirstPoint }
 
   requestRender()
   return Object.freeze({
@@ -171,6 +178,7 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
     getDraftLines: draft.draftSegments, getPreview: draft.preview,
     getDraftPoints: draft.acceptedPoints,
+    getSnapCandidates, hasPointerPreview,
     get prompt() { return prompt },
   })
 }
@@ -215,10 +223,12 @@ function subscribeSnapModes(listener) {
 
 function clearSnap() { activeSnapResult = null; interactionVisuals.setSnapAcquired(false) }
 
-function resolvePointerSnap(point, { excludedFeatureIds = [], draftPoints = [], bypass = false } = {}) {
+function resolvePointerSnap(point, { excludedFeatureIds = [], transientCandidates = [], bypass = false } = {}) {
   if (Array.isArray(arguments[1])) {
     excludedFeatureIds = arguments[1]
-    draftPoints = arguments[2] || []
+    transientCandidates = (arguments[2] || []).map((candidate, index) => ({
+      kind: "draft-point", point: candidate, stableKey: `legacy-draft:${index}`,
+    }))
     bypass = Boolean(arguments[3])
   }
   if (bypass) {
@@ -231,7 +241,7 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], draftPoints = [], 
     rawWorldPoint: point,
     worldToScreen,
     records: modelReader.records(),
-    draftPoints,
+    transientCandidates,
     gridSpacing: sceneBuilder.getAdaptiveGridSpacing(),
     enabled: snapModes,
     excludedFeatureIds,
@@ -314,9 +324,12 @@ function resizeCanvas() {
 let lastKnownPointerScreen = null
 let isShiftBypassed = false
 
-function getLineDraftSnapCandidates(session) {
-  if (session?.name !== "Line") return []
-  return session.draft?.acceptedPoints?.() || []
+function getCommandSnapCandidates(session) {
+  return session?.getSnapCandidates?.() || []
+}
+
+function hasCommandPointerPreview(session) {
+  return session?.hasPointerPreview?.() || false
 }
 
 function updateSnapAtPointer({ bypass = isShiftBypassed } = {}) {
@@ -330,8 +343,8 @@ function updateSnapAtPointer({ bypass = isShiftBypassed } = {}) {
     requestRender()
     return
   }
-  if (session?.handlePointerMove && session.draft?.hasFirstPoint && !navigation.isActive()) {
-    const snap = resolvePointerSnap(worldPoint, { draftPoints: getLineDraftSnapCandidates(session), bypass })
+  if (session?.handlePointerMove && hasCommandPointerPreview(session) && !navigation.isActive()) {
+    const snap = resolvePointerSnap(worldPoint, { transientCandidates: getCommandSnapCandidates(session), bypass })
     interactionVisuals.setSnapAcquired(snap.snapped)
     session.handlePointerMove(snap.point)
     requestRender()
@@ -346,7 +359,7 @@ function onViewportPointerDown(event) {
   const bypass = Boolean(event.shiftKey)
   if (session?.handlePointerDown) {
     const snap = resolvePointerSnap(screenToWorld(point.x, point.y), {
-      draftPoints: getLineDraftSnapCandidates(session),
+      transientCandidates: getCommandSnapCandidates(session),
       bypass,
     })
     session.handlePointerDown(snap.point)
@@ -382,9 +395,9 @@ function onCommandPointerMove(event) {
     return
   }
   if (!session) grips.updateHover(point)
-  if (!session?.handlePointerMove || !session.draft?.hasFirstPoint || navigation.isActive()) return
+  if (!session?.handlePointerMove || !hasCommandPointerPreview(session) || navigation.isActive()) return
   const snap = resolvePointerSnap(screenToWorld(point.x, point.y), {
-    draftPoints: getLineDraftSnapCandidates(session),
+    transientCandidates: getCommandSnapCandidates(session),
     bypass,
   })
   interactionVisuals.setSnapAcquired(snap.snapped)
