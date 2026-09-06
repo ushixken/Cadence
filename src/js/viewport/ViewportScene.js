@@ -1,5 +1,5 @@
 (() => {
-  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview, getSnapResult = () => null, getSelectedIds = () => [] }) {
+  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null }) {
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
     const MAX_GRID_LINES_PER_AXIS = 512
@@ -57,6 +57,7 @@
       const scale = window.devicePixelRatio || 1
       const extent = viewportSettings.gridExtent
       const minorGrid = [], majorGrid = [], boundary = [], xAxis = [], yAxis = [], geometry = [], preview = [], snapMarker = [], selection = []
+      const idleGrips = [], hoverGrips = [], activeGrips = []
       const topLeft = camera.screenToWorld(0, 0)
       const bottomRight = camera.screenToWorld(viewportWidth, viewportHeight)
       const minX = Math.max(-extent, topLeft.x), maxX = Math.min(extent, bottomRight.x)
@@ -108,7 +109,7 @@
 
       // A6 persistent projection: query the authoritative document read-side on
       // every scene build. Unknown record types are skipped deterministically.
-      const records = getRecords(), selectedIds = new Set(getSelectedIds())
+      const records = getRecords(), selectedIds = new Set(getSelectedIds()), gripPreview = getGripPreview()
       for (const record of records) {
         if (record?.type !== "line") continue
         const a = camera.worldToScreen(record.start.x, record.start.y)
@@ -129,6 +130,12 @@
       if (activePreview) {
         const a = camera.worldToScreen(activePreview.start.x, activePreview.start.y)
         const b = camera.worldToScreen(activePreview.end.x, activePreview.end.y)
+        addSegment(preview, a.x, a.y, b.x, b.y)
+      }
+
+      if (gripPreview) {
+        const a = camera.worldToScreen(gripPreview.start.x, gripPreview.start.y)
+        const b = camera.worldToScreen(gripPreview.end.x, gripPreview.end.y)
         addSegment(preview, a.x, a.y, b.x, b.y)
       }
 
@@ -156,6 +163,19 @@
           label: snap.kind[0].toUpperCase()+snap.kind.slice(1), segments: new Float32Array(snapMarker) })
       }
 
+      const projectedGrips = []
+      for (const grip of getGrips()) {
+        const center = camera.worldToScreen(grip.point.x, grip.point.y)
+        const size = grip.state === "idle" ? 3 : 4
+        const target = grip.state === "active" ? activeGrips : grip.state === "hover" ? hoverGrips : idleGrips
+        addSegment(target, center.x-size, center.y-size, center.x+size, center.y-size)
+        addSegment(target, center.x+size, center.y-size, center.x+size, center.y+size)
+        addSegment(target, center.x+size, center.y+size, center.x-size, center.y+size)
+        addSegment(target, center.x-size, center.y+size, center.x-size, center.y-size)
+        projectedGrips.push(Object.freeze({ recordId: grip.recordId, featureId: grip.featureId,
+          kind: grip.kind, state: grip.state, point: Object.freeze({ x: center.x, y: center.y }) }))
+      }
+
       // The ordered groups are a renderer input, never authoritative geometry.
       const combinedMajorGrid = majorGrid.concat(boundary)
       return {
@@ -170,6 +190,8 @@
         }),
         snapOverlay,
         selectionOverlay: Object.freeze({recordIds:Object.freeze(Array.from(selectedIds).sort()),segments:new Float32Array(selection)}),
+        gripOverlay: Object.freeze({ grips: Object.freeze(projectedGrips), idleSegments: new Float32Array(idleGrips),
+          hoverSegments: new Float32Array(hoverGrips), activeSegments: new Float32Array(activeGrips) }),
         lineGroups: [
           lineGroup(viewportSettings.gridColor, minorGrid),
           lineGroup(viewportSettings.majorGridColor || viewportSettings.gridBoundaryColor, combinedMajorGrid),
@@ -179,6 +201,9 @@
           lineGroup(viewportSettings.previewColor, preview),
           lineGroup(viewportSettings.snapMarkerColor || viewportSettings.previewColor, snapMarker),
           {...lineGroup(viewportSettings.selectionColor || viewportSettings.geometryColor, selection),lineWidth:2},
+          lineGroup(viewportSettings.gripColor || viewportSettings.geometryColor, idleGrips),
+          lineGroup(viewportSettings.gripHoverColor || viewportSettings.snapMarkerColor, hoverGrips),
+          lineGroup(viewportSettings.gripActiveColor || viewportSettings.selectionColor, activeGrips),
         ],
       }
     }

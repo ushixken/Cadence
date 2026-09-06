@@ -50,6 +50,8 @@ Synchronous rendering exceptions are contained and enter the same one-at-a-time 
 
 ## Limits and manual follow-up
 
+UX2 coverage derives stable endpoint grips from selected Lines, verifies exact CSS-space projection and symmetric renderer-neutral geometry, exercises grip-first hit routing, transient snapped preview, single-transaction publication, no-op/cancel/abort behavior, history traversal, multi-selection, active-command exclusion, and deletion reconciliation. Browser smoke testing should additionally confirm pointer capture and the idle/hover/active colors on Canvas2D and WebGPU.
+
 - No real DOM, browser event default actions, CSS layout, pointer-capture implementation, IME, text composition, visual snapshots, or GPU shader execution is exercised.
 - Editable-field tests cover printable typing. Current global Enter/Escape handling occurs before the editable-field guard, so those keys can finish/cancel an active Line from another field. This is documented, not silently fixed or presented as protected field-specific behavior.
 - Repeated keyboard events and Ctrl/Alt/Meta shortcuts while already inside command input are not comprehensively covered; modifier tests target global printable routing.

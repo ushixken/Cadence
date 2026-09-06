@@ -7,6 +7,7 @@ const viewportSettings = {
   backgroundColor: "#182633", gridColor: "rgba(167, 175, 187, 0.28)",
   majorGridColor: "rgba(167, 175, 187, 0.45)", gridBoundaryColor: "rgba(167, 175, 187, 0.55)", xAxisColor: "#984b51",
   yAxisColor: "#3b7658", geometryColor: "#e8edf4", previewColor: "rgba(232, 237, 244, 0.65)", snapMarkerColor: "#f2cf72", selectionColor: "#63b7e6",
+  gripColor: "#e8edf4", gripHoverColor: "#f2cf72", gripActiveColor: "#63b7e6",
 }
 
 const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettings.initialZoom)
@@ -26,8 +27,13 @@ const viewportHost = canvas.parentElement || canvas.parent
 const interactionVisuals = window.CaderactInteractionVisuals.createController({ host: viewportHost })
 const snapResolver = window.CaderactSnapResolver.createResolver()
 const selection = window.CaderactSelection.createSelection()
+const grips = window.CaderactGrips.createManager({
+  getRecords: () => modelReader.records(), getSelectedIds: selection.selectedIds, worldToScreen,
+  replaceRecord: (id, record) => recordGateway.replace(id, record), requestRender,
+})
 let selectionHistoryUnsubscribe = null
 window.caderactSelection = selection
+window.caderactGrips = grips
 
 function getActiveCommandSession() {
   return window.caderactCommandRouter?.activeSession || null
@@ -65,6 +71,8 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getPreview: () => getActiveCommandSession()?.getPreview?.() || null,
   getSnapResult: () => activeSnapResult,
   getSelectedIds: selection.selectedIds,
+  getGrips: () => getActiveCommandSession() ? [] : grips.displayGrips(),
+  getGripPreview: grips.previewRecord,
 })
 
 function createScene() {
@@ -203,18 +211,20 @@ function subscribeSnapModes(listener) {
 
 function clearSnap() { activeSnapResult = null; interactionVisuals.setSnapAcquired(false) }
 
-function resolvePointerSnap(point) {
+function resolvePointerSnap(point, excludedFeatureIds = []) {
   activeSnapResult = snapResolver.resolve({
     rawWorldPoint: point,
     worldToScreen,
     records: modelReader.records(),
     gridSpacing: sceneBuilder.getAdaptiveGridSpacing(),
     enabled: snapModes,
+    excludedFeatureIds,
   })
   return activeSnapResult
 }
 
 function resetForDocumentReplacement() {
+  cancelGripEdit()
   interactionVisuals.leave()
   setGridSnapEnabled(true)
   camera.zoom = viewportSettings.initialZoom
@@ -231,20 +241,41 @@ documentSession.subscribe(({ store }) => {
   unitGateway = store.unitGateway
   documentController = store.controller
   selection.clear()
+  cancelGripEdit()
   bindSelectionDocument()
 })
 
 function bindSelectionDocument() {
   selectionHistoryUnsubscribe?.()
-  selectionHistoryUnsubscribe = documentController.subscribeHistory(() => selection.pruneAgainstDocument(modelReader.records()))
+  selectionHistoryUnsubscribe = documentController.subscribeHistory(() => {
+    const capturedPointerId = grips.active?.pointerId
+    selection.pruneAgainstDocument(modelReader.records())
+    grips.reconcile()
+    if (!grips.isActive) releaseGripPointerCapture(capturedPointerId)
+  })
 }
 selection.subscribe(requestRender)
 bindSelectionDocument()
 
-function setCommandActive(active) { interactionVisuals.setMode(active ? "point" : "select") }
+function setCommandActive(active) {
+  if (active) cancelGripEdit()
+  interactionVisuals.setMode(active ? "point" : "select")
+}
 function getInteractionVisualState() { return interactionVisuals.snapshot() }
+function releaseGripPointerCapture(pointerId) {
+  if (pointerId === undefined) return
+  if (typeof canvas.hasPointerCapture === "function" && !canvas.hasPointerCapture(pointerId)) return
+  canvas.releasePointerCapture?.(pointerId)
+}
+function cancelGripEdit() {
+  const pointerId = grips.active?.pointerId
+  clearSnap()
+  const outcome = grips.cancel()
+  releaseGripPointerCapture(pointerId)
+  return outcome
+}
 
-window.caderactViewport = { createLineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()
@@ -273,6 +304,12 @@ function onViewportPointerDown(event) {
     session.handlePointerDown(snap.point)
     return
   }
+  const gripOutcome = grips.begin(point, event.pointerId)
+  if (gripOutcome.status === "grip-edit-started") {
+    canvas.setPointerCapture?.(event.pointerId)
+    clearSnap()
+    return
+  }
   const hit = window.CaderactSelection.hitTestLines({screenPoint:point,records:modelReader.records(),worldToScreen})
   const toggle = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey)
   if (hit.hit) toggle ? selection.toggle(hit.recordId) : selection.selectOnly(hit.recordId)
@@ -284,6 +321,13 @@ function onCommandPointerMove(event) {
   interactionVisuals.setMode(getActiveCommandSession() ? "point" : "select")
   interactionVisuals.move(getViewportPoint(event))
   const session = getActiveCommandSession()
+  if (grips.isActive) {
+    const snap = resolvePointerSnap(screenToWorld(point.x, point.y), [grips.active.grip.featureId])
+    interactionVisuals.setSnapAcquired(snap.snapped)
+    grips.update(snap.point)
+    return
+  }
+  if (!session) grips.updateHover(point)
   if (!session?.handlePointerMove || !session.draft?.hasFirstPoint || navigation.isActive()) return
   const snap = resolvePointerSnap(screenToWorld(point.x, point.y))
   interactionVisuals.setSnapAcquired(snap.snapped)
@@ -298,7 +342,24 @@ function onViewportPointerEnter(event) {
 function onCommandPointerLeave() {
   interactionVisuals.leave()
   clearSnap()
+  if (grips.isActive) cancelGripEdit()
+  else grips.updateHover({ x: Number.POSITIVE_INFINITY, y: Number.POSITIVE_INFINITY })
   getActiveCommandSession()?.handlePointerLeave?.()
+}
+
+function onViewportPointerUp(event) {
+  if (!grips.isActive || grips.active.pointerId !== event.pointerId) return
+  const point = getCanvasPoint(event)
+  const snap = resolvePointerSnap(screenToWorld(point.x, point.y), [grips.active.grip.featureId])
+  grips.update(snap.point)
+  grips.finish()
+  clearSnap()
+  releaseGripPointerCapture(event.pointerId)
+}
+
+function onViewportPointerCancel(event) {
+  if (!grips.isActive || grips.active.pointerId !== event.pointerId) return
+  grips.cancel(); clearSnap(); releaseGripPointerCapture(event.pointerId)
 }
 
 function bindCanvas(nextCanvas) {
@@ -313,6 +374,9 @@ function bindCanvas(nextCanvas) {
   canvas.addEventListener("pointerenter", onViewportPointerEnter)
   canvas.addEventListener("pointermove", onCommandPointerMove)
   canvas.addEventListener("pointerleave", onCommandPointerLeave)
+  canvas.addEventListener("pointerup", onViewportPointerUp)
+  canvas.addEventListener("pointercancel", onViewportPointerCancel)
+  canvas.addEventListener("lostpointercapture", onViewportPointerCancel)
   resizeObserver = new ResizeObserver(resizeCanvas)
   resizeObserver.observe(canvas)
 }
@@ -337,6 +401,7 @@ function failRenderer(error, failedRenderer = null) {
     renderer = null
     failedRenderer.destroy?.()
   } else if (!failedRenderer) renderer = null
+  cancelGripEdit()
   rendererStatus = "failed"
   interactionVisuals.setAvailable(false)
   rendererError = error?.message || String(error)
@@ -348,6 +413,7 @@ function recoverRenderer(failedRenderer) {
   if (failedRenderer !== renderer) return Promise.resolve(Object.freeze({ status: "stale-recovery" }))
   if (recoveryPromise) return recoveryPromise
   renderer = null
+  cancelGripEdit()
   rendererStatus = "recovering"
   failedRenderer.destroy?.()
   recoveryPromise = (async () => {

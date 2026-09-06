@@ -67,12 +67,13 @@ test('active Line owns clicks and snapping while selection stays unchanged, then
   b.launch();b.point(400,300);b.key('Escape');b.point(700,500);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);
 });
 
-test('selected committed Line gets only a renderer-neutral segment highlight without grips',async()=>{
+test('selected committed Line keeps its renderer-neutral highlight and exposes endpoint grips',async()=>{
   const b=await browser();const id=line(b,{x:-20,y:0},{x:20,y:0});b.flush();
   assert.equal(b.renders.at(-1).selectionOverlay.segments.length,0);assert.equal(b.renders.at(-1).lineGroups[7].segments.length,0);
   b.point(400,300);b.flush();const scene=b.renders.at(-1);
   assert.deepEqual(Array.from(scene.selectionOverlay.recordIds),[id]);assert.equal(scene.selectionOverlay.segments.length,4);
   assert.deepEqual(Array.from(scene.lineGroups[7].segments),Array.from(scene.selectionOverlay.segments));assert.equal(scene.lineGroups[7].lineWidth,2);
+  assert.equal(scene.gripOverlay.grips.length,2);assert.equal(scene.lineGroups[8].segments.length,32);
 });
 
 test('history prunes missing selections, preserves valid IDs, and New/Open clear session selection',async()=>{

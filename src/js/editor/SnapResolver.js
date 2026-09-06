@@ -6,7 +6,7 @@
   const freezePoint = point => Object.freeze({ x: point.x, y: point.y })
 
   function createResolver({ tolerancePx = DEFAULT_TOLERANCE_PX, priorityWindowPx = PRIORITY_WINDOW_PX } = {}) {
-    function resolve({ rawWorldPoint, worldToScreen, records = [], gridSpacing, enabled = {} }) {
+    function resolve({ rawWorldPoint, worldToScreen, records = [], gridSpacing, enabled = {}, excludedFeatureIds = [] }) {
       const rawPoint = freezePoint(rawWorldPoint)
       if (!Number.isFinite(rawPoint.x) || !Number.isFinite(rawPoint.y) || typeof worldToScreen !== "function") {
         return Object.freeze({ snapped: false, point: rawPoint })
@@ -14,6 +14,7 @@
       const rawScreen = worldToScreen(rawPoint.x, rawPoint.y)
       if (!Number.isFinite(rawScreen.x) || !Number.isFinite(rawScreen.y)) return Object.freeze({ snapped: false, point: rawPoint })
       const candidates = []
+      const excluded = new Set(excludedFeatureIds)
       function add(kind, point, stableKey, reference = null) {
         if (enabled[kind] === false || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return
         const screen = worldToScreen(point.x, point.y)
@@ -25,6 +26,7 @@
       const ordered = Array.from(records).filter(record => record?.type === "line").sort((a, b) => a.id.localeCompare(b.id))
       for (const record of ordered) {
         for (const endpoint of [record.start, record.end].sort((a, b) => a.featureId.localeCompare(b.featureId))) {
+          if (excluded.has(endpoint.featureId)) continue
           add("endpoint", endpoint, `endpoint:${record.id}:${endpoint.featureId}`,
             window.CaderactReferences.createEndpointReference(record.id, endpoint.featureId))
         }

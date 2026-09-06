@@ -48,6 +48,8 @@ class Element {
   focus() { this.owner.activeElement = this; }
   blur() { this.owner.activeElement = null; }
   setPointerCapture(id) { this.capturedPointer = id; }
+  hasPointerCapture(id) { return this.capturedPointer === id; }
+  releasePointerCapture(id) { if (this.capturedPointer === id) this.capturedPointer = undefined; }
 }
 
 async function browser({ commands = true, realRenderer = false, gpu } = {}) {
@@ -130,6 +132,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/PointInput.js');
   load('src/js/editor/SnapResolver.js');
   load('src/js/editor/SelectionManager.js');
+  load('src/js/editor/GripManager.js');
   load('src/js/editor/CommandRegistry.js');
   load('src/js/editor/CommandRouter.js');
   load('src/js/editor/CommandFeedback.js');

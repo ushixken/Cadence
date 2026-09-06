@@ -158,6 +158,9 @@ commandSuggestions.addEventListener("click", (event) => {
 })
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && window.caderactGrips?.isActive) {
+    window.caderactViewport.cancelGripEdit(); event.preventDefault(); return
+  }
   if (event.key === "Enter" && event.target !== commandInput && commandRouter.isActive) {
     const outcome = commandRouter.finishActive()
     event.preventDefault()
