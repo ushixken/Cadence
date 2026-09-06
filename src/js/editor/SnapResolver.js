@@ -2,11 +2,11 @@
 (() => {
   const DEFAULT_TOLERANCE_PX = 10
   const PRIORITY_WINDOW_PX = 0.75
-  const priorities = Object.freeze({ endpoint: 0, midpoint: 1, grid: 2 })
+  const priorities = Object.freeze({ endpoint: 0, "draft-point": 1, midpoint: 2, grid: 3 })
   const freezePoint = point => Object.freeze({ x: point.x, y: point.y })
 
   function createResolver({ tolerancePx = DEFAULT_TOLERANCE_PX, priorityWindowPx = PRIORITY_WINDOW_PX } = {}) {
-    function resolve({ rawWorldPoint, worldToScreen, records = [], gridSpacing, enabled = {}, excludedFeatureIds = [] }) {
+    function resolve({ rawWorldPoint, worldToScreen, records = [], draftPoints = [], gridSpacing, enabled = {}, excludedFeatureIds = [] }) {
       const rawPoint = freezePoint(rawWorldPoint)
       if (!Number.isFinite(rawPoint.x) || !Number.isFinite(rawPoint.y) || typeof worldToScreen !== "function") {
         return Object.freeze({ snapped: false, point: rawPoint })
@@ -33,6 +33,11 @@
         const midpoint = { x: record.start.x + (record.end.x - record.start.x) / 2,
           y: record.start.y + (record.end.y - record.start.y) / 2 }
         add("midpoint", midpoint, `midpoint:${record.id}`)
+      }
+      for (let i = 0; i < draftPoints.length; i++) {
+        const dp = draftPoints[i]
+        if (!dp || !Number.isFinite(dp.x) || !Number.isFinite(dp.y)) continue
+        add("draft-point", dp, `draft-point:${i}`, Object.freeze({ kind: "draft-point", index: i }))
       }
       if (Number.isFinite(gridSpacing) && gridSpacing > 0) {
         add("grid", { x: Math.round(rawPoint.x / gridSpacing) * gridSpacing,

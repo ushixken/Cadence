@@ -1,5 +1,5 @@
 (() => {
-  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null }) {
+  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getDraftPoints = () => [], getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null }) {
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
     const MAX_GRID_LINES_PER_AXIS = 512
@@ -56,7 +56,7 @@
       const { width: viewportWidth, height: viewportHeight } = getViewportSize()
       const scale = window.devicePixelRatio || 1
       const extent = viewportSettings.gridExtent
-      const minorGrid = [], majorGrid = [], boundary = [], xAxis = [], yAxis = [], geometry = [], preview = [], snapMarker = [], selection = []
+      const minorGrid = [], majorGrid = [], boundary = [], xAxis = [], yAxis = [], geometry = [], acceptedDraft = [], nextPreview = [], snapMarker = [], selection = []
       const idleGrips = [], hoverGrips = [], activeGrips = []
       const topLeft = camera.screenToWorld(0, 0)
       const bottomRight = camera.screenToWorld(viewportWidth, viewportHeight)
@@ -118,32 +118,32 @@
         if(selectedIds.has(record.id))addSegment(selection,a.x,a.y,b.x,b.y)
       }
 
-      // Accepted Line draft segments share the active-tool overlay group with
-      // the rubber band, but remain separate from authoritative geometry.
+      // Accepted draft geometry and the next-segment rubber band deliberately
+      // use independent buffers. Pointer movement can only rebuild nextPreview.
       for (const line of getDraftLines()) {
         const a = camera.worldToScreen(line.start.x, line.start.y)
         const b = camera.worldToScreen(line.end.x, line.end.y)
-        addSegment(preview, a.x, a.y, b.x, b.y)
+        addSegment(acceptedDraft, a.x, a.y, b.x, b.y)
       }
 
       const activePreview = getPreview()
       if (activePreview) {
         const a = camera.worldToScreen(activePreview.start.x, activePreview.start.y)
         const b = camera.worldToScreen(activePreview.end.x, activePreview.end.y)
-        addSegment(preview, a.x, a.y, b.x, b.y)
+        addSegment(nextPreview, a.x, a.y, b.x, b.y)
       }
 
       if (gripPreview) {
         const a = camera.worldToScreen(gripPreview.start.x, gripPreview.start.y)
         const b = camera.worldToScreen(gripPreview.end.x, gripPreview.end.y)
-        addSegment(preview, a.x, a.y, b.x, b.y)
+        addSegment(nextPreview, a.x, a.y, b.x, b.y)
       }
 
       const snap = getSnapResult()
       let snapOverlay = null
       if (snap?.snapped && Number.isFinite(snap.point?.x) && Number.isFinite(snap.point?.y)) {
         const center = camera.worldToScreen(snap.point.x, snap.point.y), size = 5
-        if (snap.kind === "endpoint") {
+        if (snap.kind === "endpoint" || snap.kind === "draft-point") {
           addSegment(snapMarker, center.x-size, center.y-size, center.x+size, center.y-size)
           addSegment(snapMarker, center.x+size, center.y-size, center.x+size, center.y+size)
           addSegment(snapMarker, center.x+size, center.y+size, center.x-size, center.y+size)
@@ -159,14 +159,16 @@
           addSegment(snapMarker, center.x-size, center.y-inset, center.x+size, center.y-inset)
           addSegment(snapMarker, center.x-size, center.y+inset, center.x+size, center.y+inset)
         }
+        const label = snap.kind === "draft-point" ? "Draft Point" : snap.kind[0].toUpperCase() + snap.kind.slice(1)
         snapOverlay = Object.freeze({ kind: snap.kind, point: Object.freeze({ x: center.x, y: center.y }),
-          label: snap.kind[0].toUpperCase()+snap.kind.slice(1), segments: new Float32Array(snapMarker) })
+          label, segments: new Float32Array(snapMarker) })
       }
 
+      const POINT_MARKER_HALF_SIZE = 3
       const projectedGrips = []
       for (const grip of getGrips()) {
         const center = camera.worldToScreen(grip.point.x, grip.point.y)
-        const size = grip.state === "idle" ? 3 : 4
+        const size = grip.state === "idle" ? POINT_MARKER_HALF_SIZE : 4
         const target = grip.state === "active" ? activeGrips : grip.state === "hover" ? hoverGrips : idleGrips
         addSegment(target, center.x-size, center.y-size, center.x+size, center.y-size)
         addSegment(target, center.x+size, center.y-size, center.x+size, center.y+size)
@@ -174,6 +176,21 @@
         addSegment(target, center.x-size, center.y+size, center.x-size, center.y-size)
         projectedGrips.push(Object.freeze({ recordId: grip.recordId, featureId: grip.featureId,
           kind: grip.kind, state: grip.state, point: Object.freeze({ x: center.x, y: center.y }) }))
+      }
+
+      const draftPoints = []
+      const projectedDraftPoints = []
+      for (const point of getDraftPoints()) {
+        if (!Number.isFinite(point?.x) || !Number.isFinite(point?.y)) continue
+        const center = camera.worldToScreen(point.x, point.y)
+        const size = POINT_MARKER_HALF_SIZE
+        addSegment(draftPoints, center.x - size, center.y - size, center.x + size, center.y - size)
+        addSegment(draftPoints, center.x + size, center.y - size, center.x + size, center.y + size)
+        addSegment(draftPoints, center.x + size, center.y + size, center.x - size, center.y + size)
+        addSegment(draftPoints, center.x - size, center.y + size, center.x - size, center.y - size)
+        projectedDraftPoints.push(Object.freeze({
+          point: Object.freeze({ x: center.x, y: center.y }),
+        }))
       }
 
       // The ordered groups are a renderer input, never authoritative geometry.
@@ -189,27 +206,33 @@
           boundarySegments: new Float32Array(boundary),
         }),
         snapOverlay,
+        acceptedDraftOverlay: Object.freeze({ segments: new Float32Array(acceptedDraft) }),
+        nextSegmentPreviewOverlay: Object.freeze({ segments: new Float32Array(nextPreview) }),
         selectionOverlay: Object.freeze({recordIds:Object.freeze(Array.from(selectedIds).sort()),segments:new Float32Array(selection)}),
         gripOverlay: Object.freeze({ grips: Object.freeze(projectedGrips), idleSegments: new Float32Array(idleGrips),
           hoverSegments: new Float32Array(hoverGrips), activeSegments: new Float32Array(activeGrips) }),
+        draftPointOverlay: Object.freeze({ points: Object.freeze(projectedDraftPoints), segments: new Float32Array(draftPoints) }),
         lineGroups: [
           lineGroup(viewportSettings.gridColor, minorGrid),
           lineGroup(viewportSettings.majorGridColor || viewportSettings.gridBoundaryColor, combinedMajorGrid),
           lineGroup(viewportSettings.xAxisColor, xAxis),
           lineGroup(viewportSettings.yAxisColor, yAxis),
           lineGroup(viewportSettings.geometryColor, geometry),
-          lineGroup(viewportSettings.previewColor, preview),
-          lineGroup(viewportSettings.snapMarkerColor || viewportSettings.previewColor, snapMarker),
+          lineGroup(viewportSettings.acceptedDraftColor || viewportSettings.geometryColor, acceptedDraft),
+          lineGroup(viewportSettings.previewColor, nextPreview),
           {...lineGroup(viewportSettings.selectionColor || viewportSettings.geometryColor, selection),lineWidth:2},
           lineGroup(viewportSettings.gripColor || viewportSettings.geometryColor, idleGrips),
           lineGroup(viewportSettings.gripHoverColor || viewportSettings.snapMarkerColor, hoverGrips),
           lineGroup(viewportSettings.gripActiveColor || viewportSettings.selectionColor, activeGrips),
+          lineGroup(viewportSettings.draftPointColor || viewportSettings.geometryColor, draftPoints),
+          lineGroup(viewportSettings.snapMarkerColor || viewportSettings.previewColor, snapMarker),
         ],
       }
     }
 
-    return Object.freeze({ createScene, getAdaptiveGridSpacing, GRID_STEPS, MAJOR_MULTIPLE, MAX_GRID_LINES_PER_AXIS })
+    return Object.freeze({ createScene, getAdaptiveGridSpacing, GRID_STEPS, MAJOR_MULTIPLE, MAX_GRID_LINES_PER_AXIS, POINT_MARKER_HALF_SIZE })
   }
 
-  window.CaderactViewportScene = Object.freeze({ createSceneBuilder })
+  const POINT_MARKER_HALF_SIZE = 3
+  window.CaderactViewportScene = Object.freeze({ createSceneBuilder, POINT_MARKER_HALF_SIZE })
 })()

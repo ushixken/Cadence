@@ -84,10 +84,10 @@ test('Grid Snap button toggles transient grid acquisition while endpoints, midpo
   assert.equal(b.emit(b.gridSnapButton,'mousedown').defaultPrevented,true);b.emit(b.gridSnapButton,'click');b.flush();
   assert.equal(b.gridSnapButton.classList.contains('is-active'),false);assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'false');
   assert.equal(b.renders.at(-1).grid.minorSegments.length+b.renders.at(-1).grid.majorSegments.length,gridSegments);
-  b.launch();typed(b,'0,0');b.point(403,303,'pointermove');assert.equal(b.read('activeSnapResult.snapped'),false);
+  b.launch();typed(b,'0,0');b.point(403,353,'pointermove');assert.equal(b.read('activeSnapResult.snapped'),false);
   b.point(450,250,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');
   b.point(500,250,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'midpoint');
-  b.emit(b.gridSnapButton,'click');b.point(403,303,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'grid');
+  b.emit(b.gridSnapButton,'click');b.point(403,353,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'grid');
   assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'true');assert.deepEqual(b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo,dirty:documentController.isDirty})'),before);
   b.key('Escape');b.emit(b.gridSnapButton,'click');b.run('window.caderactViewport.resetForDocumentReplacement()');
   assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'true');
@@ -117,7 +117,7 @@ test('Line preview and click use exact snapped point and transient marker clears
   const persistentBefore=b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo})');
   b.launch();b.point(400,300);b.point(471,215,'pointermove');b.flush();
   assert.equal(b.read('activeSnapResult.kind'),'endpoint');assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.preview().end'),{x:13,y:17});
-  assert.equal(b.renders.at(-1).snapOverlay.kind,'endpoint');assert.equal(b.renders.at(-1).lineGroups[6].segments.length,16);
+  assert.equal(b.renders.at(-1).snapOverlay.kind,'endpoint');assert.equal(b.renders.at(-1).lineGroups[12].segments.length,16);
   assert.deepEqual(b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo})'),persistentBefore);
   b.point(490,240,'pointermove');b.flush();assert.equal(b.read('activeSnapResult.snapped'),false);assert.equal(b.renders.at(-1).snapOverlay,null);
   b.point(471,215,'pointerdown');assert.deepEqual(b.read('(({x,y})=>({x,y}))(window.caderactCommandRouter.activeSession.draft.draftSegments()[0].end)'),{x:13,y:17});
@@ -136,7 +136,7 @@ test('Escape clears markers, typed coordinates bypass snapping, and mixed input 
 test('authoritative Undo/New state immediately changes available endpoint candidates without permanent dots',async()=>{
   const b=await browser();b.launch();typed(b,'13,17');typed(b,'33,17');b.key('Enter',b.input);b.flush();
   b.run('window.__snapFile=window.CaderactPersistence.serializeDocument(modelReader.snapshot())');
-  assert.equal(b.renders.at(-1).lineGroups[6].segments.length,0);
+  assert.equal(b.renders.at(-1).lineGroups[12].segments.length,0);
   b.launch();b.point(400,300);b.point(471,215,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');b.key('Escape');
   b.run('window.caderactHistory.undo()');b.launch();b.point(400,300);b.point(471,215,'pointermove');assert.notEqual(b.read('activeSnapResult')?.kind,'endpoint');b.key('Escape');
   b.run('window.caderactHistory.redo()');b.launch();b.point(400,300);b.point(471,215,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');b.key('Escape');

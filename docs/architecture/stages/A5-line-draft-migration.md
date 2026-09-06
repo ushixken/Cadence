@@ -63,6 +63,54 @@ the draft endpoint back to that segment's start. Repeated calls walk back to
 the first point; a further call returns `no-step`. Persistent document and A4
 history state are untouched.
 
+### Accepted Line Draft Point Markers
+
+During an active Line command, every accepted point (beginning with the first
+point) immediately displays a small temporary square point marker centered at its
+exact accepted coordinate.
+
+Key properties:
+- **Draft Source of Truth**: Point coordinates are queried directly from
+  `LineDraftSession.acceptedPoints()`. This method returns a frozen array of
+  deep-copied points `[P1, P2, ...]`, ensuring the draft session privately owns
+  its geometry state while remaining immutable to callers.
+- **Snap Parity**: Every point returned by `acceptedPoints()`, including the
+  latest point used as the rubber-band origin, is an equal-priority
+  `draft-point` snap candidate. Returning to that point may collapse the preview
+  to zero length. The existing Line draft model permits accepting that point as
+  a zero-length draft segment; it remains transient until normal Line finish.
+- **Draft-only Lifecycle**: Accepted point markers exist strictly for the duration
+  of the active draft. They update immediately when points are accepted or when
+  `stepUndoActiveCommand()` walks back points. On final publication (Enter) or
+  cancellation (Escape), all draft point markers are immediately discarded.
+- **Renderer-Neutral Overlay Contract**: Projected draft points are rendered in
+  the scene builder as `draftPointOverlay` (screen coordinates `point`) and placed
+  in `lineGroups` (index 11) using the configured `draftPointColor`.
+- **Distinction from UX2 Selection Grips**: Line draft point markers represent
+  in-progress vertex inputs for the uncommitted Line command. They are NOT UX2
+  selection grips: they do not route through `GripManager`, have no hover or drag
+  interactions, and are never exposed as selectable handles.
+- **Visual Vertex Continuity**: In Canvas 2D rendering where line segments are stroked
+  with butt caps, acute and obtuse angle vertices can display minor triangular
+  notches. The accepted point markers cover each joint precisely, matching
+  CAD/Rhino drafting behavior and eliminating perceived disconnections during drafting.
+
+### Fixed segments and next-segment preview
+
+The active Line scene exposes accepted geometry and pointer feedback as separate,
+renderer-neutral buffers. `acceptedDraftOverlay` contains only segments already
+accepted by `LineDraftSession`; pointer movement never changes this buffer's
+world inputs. `nextSegmentPreviewOverlay` contains only the rubber band from the
+latest accepted point to the current resolved pointer point (or the transient
+UX2 grip preview outside a Line command).
+
+After a click, the former preview becomes a fixed accepted segment and a new
+preview starts at the accepted endpoint. Draft markers remain above fixed
+segments, while the snap marker renders last so acquisition remains visible.
+Step Undo removes the latest fixed segment and marker and moves the preview
+origin to the preceding accepted point. Enter retains the existing single A5
+publication transaction; Escape discards all three transient representations.
+
 ## Final-commit failure
 
 Final publication remains atomic through the A3/A4 controller. A validation or

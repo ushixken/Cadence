@@ -145,6 +145,11 @@ commandInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && suggestionExplicitlySelected && matches[selectedSuggestionIndex]) {
       applyCommandResult(commandRouter.execute(matches[selectedSuggestionIndex].command.name))
     } else runCommandInput()
+  } else if (event.key === "Enter" && !commandRouter.isActive && commandInput.value.trim() === "") {
+    if (window.caderactSelection?.selectedIds().length > 0) {
+      event.preventDefault()
+      window.caderactSelection.clear()
+    }
   }
 })
 
@@ -172,8 +177,20 @@ document.addEventListener("keydown", (event) => {
       commandRouter.cancelActive(); event.preventDefault(); resetCommandInput(); commandInput.blur()
     } else if (!commandSuggestions.hidden || commandInput.value !== "") {
       event.preventDefault(); resetCommandInput(); commandInput.blur()
+    } else if (window.caderactSelection?.selectedIds().length > 0) {
+      event.preventDefault()
+      window.caderactSelection.clear()
     }
     return
+  }
+  if (event.key === "Enter" && event.target !== commandInput) {
+    if (!commandRouter.isActive && !isTypingInAnotherField(event.target)) {
+      if (window.caderactSelection?.selectedIds().length > 0) {
+        event.preventDefault()
+        window.caderactSelection.clear()
+        return
+      }
+    }
   }
 
   const isPrintableKey = event.key.length === 1 && event.code !== "Space"

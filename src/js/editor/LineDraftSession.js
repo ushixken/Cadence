@@ -55,8 +55,15 @@
       return Object.freeze({ status: "cancelled" })
     }
 
+    function acceptedPoints() {
+      if (currentPoint === null) return Object.freeze([])
+      const points = segments.map(segment => copyPoint(segment.start))
+      points.push(copyPoint(currentPoint))
+      return Object.freeze(points)
+    }
+
     return Object.freeze({
-      acceptPoint, updatePointer, clearPointer, preview, draftSegments,
+      acceptPoint, updatePointer, clearPointer, preview, draftSegments, acceptedPoints,
       stepUndo, finish, cancel,
       get segmentCount() { return segments.length },
       get hasFirstPoint() { return currentPoint !== null },

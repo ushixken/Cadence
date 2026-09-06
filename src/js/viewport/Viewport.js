@@ -8,6 +8,8 @@ const viewportSettings = {
   majorGridColor: "rgba(167, 175, 187, 0.45)", gridBoundaryColor: "rgba(167, 175, 187, 0.55)", xAxisColor: "#984b51",
   yAxisColor: "#3b7658", geometryColor: "#e8edf4", previewColor: "rgba(232, 237, 244, 0.65)", snapMarkerColor: "#f2cf72", selectionColor: "#63b7e6",
   gripColor: "#e8edf4", gripHoverColor: "#f2cf72", gripActiveColor: "#63b7e6",
+  draftPointColor: "#e8edf4",
+  acceptedDraftColor: "#e8edf4",
 }
 
 const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettings.initialZoom)
@@ -69,6 +71,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getRecords: () => modelReader.records(),
   getDraftLines: () => getActiveCommandSession()?.getDraftLines?.() || [],
   getPreview: () => getActiveCommandSession()?.getPreview?.() || null,
+  getDraftPoints: () => getActiveCommandSession()?.getDraftPoints?.() || [],
   getSnapResult: () => activeSnapResult,
   getSelectedIds: selection.selectedIds,
   getGrips: () => getActiveCommandSession() ? [] : grips.displayGrips(),
@@ -167,6 +170,7 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     name: "Line", draft, finish, cancel, stepUndo,
     handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
     getDraftLines: draft.draftSegments, getPreview: draft.preview,
+    getDraftPoints: draft.acceptedPoints,
     get prompt() { return prompt },
   })
 }
@@ -211,11 +215,23 @@ function subscribeSnapModes(listener) {
 
 function clearSnap() { activeSnapResult = null; interactionVisuals.setSnapAcquired(false) }
 
-function resolvePointerSnap(point, excludedFeatureIds = []) {
+function resolvePointerSnap(point, { excludedFeatureIds = [], draftPoints = [], bypass = false } = {}) {
+  if (Array.isArray(arguments[1])) {
+    excludedFeatureIds = arguments[1]
+    draftPoints = arguments[2] || []
+    bypass = Boolean(arguments[3])
+  }
+  if (bypass) {
+    clearSnap()
+    const rawPoint = Object.freeze({ x: point.x, y: point.y })
+    activeSnapResult = Object.freeze({ snapped: false, point: rawPoint })
+    return activeSnapResult
+  }
   activeSnapResult = snapResolver.resolve({
     rawWorldPoint: point,
     worldToScreen,
     records: modelReader.records(),
+    draftPoints,
     gridSpacing: sceneBuilder.getAdaptiveGridSpacing(),
     enabled: snapModes,
     excludedFeatureIds,
@@ -295,12 +311,44 @@ function resizeCanvas() {
   requestRender()
 }
 
+let lastKnownPointerScreen = null
+let isShiftBypassed = false
+
+function getLineDraftSnapCandidates(session) {
+  if (session?.name !== "Line") return []
+  return session.draft?.acceptedPoints?.() || []
+}
+
+function updateSnapAtPointer({ bypass = isShiftBypassed } = {}) {
+  if (!lastKnownPointerScreen) return
+  const session = getActiveCommandSession()
+  const worldPoint = screenToWorld(lastKnownPointerScreen.x, lastKnownPointerScreen.y)
+  if (grips.isActive) {
+    const snap = resolvePointerSnap(worldPoint, { excludedFeatureIds: [grips.active.grip.featureId], bypass })
+    interactionVisuals.setSnapAcquired(snap.snapped)
+    grips.update(snap.point)
+    requestRender()
+    return
+  }
+  if (session?.handlePointerMove && session.draft?.hasFirstPoint && !navigation.isActive()) {
+    const snap = resolvePointerSnap(worldPoint, { draftPoints: getLineDraftSnapCandidates(session), bypass })
+    interactionVisuals.setSnapAcquired(snap.snapped)
+    session.handlePointerMove(snap.point)
+    requestRender()
+  }
+}
+
 function onViewportPointerDown(event) {
   const session = getActiveCommandSession()
   if (event.button !== 0 || navigation.isActive()) return
   const point = getCanvasPoint(event)
+  lastKnownPointerScreen = point
+  const bypass = Boolean(event.shiftKey)
   if (session?.handlePointerDown) {
-    const snap = resolvePointerSnap(screenToWorld(point.x, point.y))
+    const snap = resolvePointerSnap(screenToWorld(point.x, point.y), {
+      draftPoints: getLineDraftSnapCandidates(session),
+      bypass,
+    })
     session.handlePointerDown(snap.point)
     return
   }
@@ -318,18 +366,27 @@ function onViewportPointerDown(event) {
 
 function onCommandPointerMove(event) {
   const point = getCanvasPoint(event)
+  lastKnownPointerScreen = point
+  const bypass = Boolean(event.shiftKey)
+  isShiftBypassed = bypass
   interactionVisuals.setMode(getActiveCommandSession() ? "point" : "select")
   interactionVisuals.move(getViewportPoint(event))
   const session = getActiveCommandSession()
   if (grips.isActive) {
-    const snap = resolvePointerSnap(screenToWorld(point.x, point.y), [grips.active.grip.featureId])
+    const snap = resolvePointerSnap(screenToWorld(point.x, point.y), {
+      excludedFeatureIds: [grips.active.grip.featureId],
+      bypass,
+    })
     interactionVisuals.setSnapAcquired(snap.snapped)
     grips.update(snap.point)
     return
   }
   if (!session) grips.updateHover(point)
   if (!session?.handlePointerMove || !session.draft?.hasFirstPoint || navigation.isActive()) return
-  const snap = resolvePointerSnap(screenToWorld(point.x, point.y))
+  const snap = resolvePointerSnap(screenToWorld(point.x, point.y), {
+    draftPoints: getLineDraftSnapCandidates(session),
+    bypass,
+  })
   interactionVisuals.setSnapAcquired(snap.snapped)
   session.handlePointerMove(snap.point)
 }
@@ -342,6 +399,7 @@ function onViewportPointerEnter(event) {
 function onCommandPointerLeave() {
   interactionVisuals.leave()
   clearSnap()
+  lastKnownPointerScreen = null
   if (grips.isActive) cancelGripEdit()
   else grips.updateHover({ x: Number.POSITIVE_INFINITY, y: Number.POSITIVE_INFINITY })
   getActiveCommandSession()?.handlePointerLeave?.()
@@ -350,7 +408,11 @@ function onCommandPointerLeave() {
 function onViewportPointerUp(event) {
   if (!grips.isActive || grips.active.pointerId !== event.pointerId) return
   const point = getCanvasPoint(event)
-  const snap = resolvePointerSnap(screenToWorld(point.x, point.y), [grips.active.grip.featureId])
+  lastKnownPointerScreen = point
+  const snap = resolvePointerSnap(screenToWorld(point.x, point.y), {
+    excludedFeatureIds: [grips.active.grip.featureId],
+    bypass: Boolean(event.shiftKey),
+  })
   grips.update(snap.point)
   grips.finish()
   clearSnap()
@@ -361,6 +423,23 @@ function onViewportPointerCancel(event) {
   if (!grips.isActive || grips.active.pointerId !== event.pointerId) return
   grips.cancel(); clearSnap(); releaseGripPointerCapture(event.pointerId)
 }
+
+function onDocumentKeyDown(event) {
+  if (event.key === "Shift" && !isShiftBypassed) {
+    isShiftBypassed = true
+    updateSnapAtPointer({ bypass: true })
+  }
+}
+
+function onDocumentKeyUp(event) {
+  if (event.key === "Shift" && isShiftBypassed) {
+    isShiftBypassed = false
+    updateSnapAtPointer({ bypass: false })
+  }
+}
+
+document.addEventListener("keydown", onDocumentKeyDown)
+document.addEventListener("keyup", onDocumentKeyUp)
 
 function bindCanvas(nextCanvas) {
   navigation?.dispose()

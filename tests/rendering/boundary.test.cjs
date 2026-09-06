@@ -6,13 +6,14 @@ test('viewport submits ordered scene groups; scene buffers cannot modify model',
   const b = await browser(); b.launch(); b.point(400, 300); b.point(450, 250); b.point(500, 200, 'pointermove'); b.flush();
   const scene = b.renders.at(-1); const lines = b.read('modelReader.lines().map(line => ({ start: { x: line.start.x, y: line.start.y }, end: { x: line.end.x, y: line.end.y } }))');
   assert.deepEqual(Array.from(scene.lineGroups, g => g.color), [
-    'rgba(167, 175, 187, 0.28)', 'rgba(167, 175, 187, 0.45)', '#984b51', '#3b7658', '#e8edf4', 'rgba(232, 237, 244, 0.65)', '#f2cf72', '#63b7e6', '#e8edf4', '#f2cf72', '#63b7e6',
+    'rgba(167, 175, 187, 0.28)', 'rgba(167, 175, 187, 0.45)', '#984b51', '#3b7658', '#e8edf4', '#e8edf4', 'rgba(232, 237, 244, 0.65)', '#63b7e6', '#e8edf4', '#f2cf72', '#63b7e6', '#e8edf4', '#f2cf72',
   ]);
-  assert.equal(scene.lineGroups[4].segments.length, 0); assert.equal(scene.lineGroups[5].segments.length, 8);
+  assert.equal(scene.lineGroups[4].segments.length, 0); assert.equal(scene.lineGroups[5].segments.length, 4); assert.equal(scene.lineGroups[6].segments.length, 4);
   scene.lineGroups[4].segments.fill(999); scene.lineGroups[5].segments.fill(999);
   assert.deepEqual(b.read('modelReader.lines().map(line => ({ start: { x: line.start.x, y: line.start.y }, end: { x: line.end.x, y: line.end.y } }))'), lines);
   b.run('requestRender()'); b.flush();
-  assert.deepEqual(Array.from(b.renders.at(-1).lineGroups[5].segments), [400, 300, 450, 250, 450, 250, 500, 200]);
+  assert.deepEqual(Array.from(b.renders.at(-1).lineGroups[5].segments), [400, 300, 450, 250]);
+  assert.deepEqual(Array.from(b.renders.at(-1).lineGroups[6].segments), [450, 250, 500, 200]);
 });
 test('render exception starts controlled recovery without mutating geometry', async () => {
   const b = await browser(); b.launch(); b.point(400, 300); b.point(450, 250);

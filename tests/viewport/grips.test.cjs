@@ -115,3 +115,72 @@ test('grip geometry stays symmetric in CSS space across fractional centers and D
     assert.equal(center.x,10.375);assert.equal(center.y,20.375);assert.equal((s[0]+s[2])/2,center.x);assert.equal((s[1]+s[9])/2,center.y);
   }
 });
+
+test('draft accepted-point markers and idle endpoint grips share exact visual width, height, and centers', async () => {
+  const b = await browser();
+  // Create committed line for grips
+  b.run('recordGateway.createAll([recordGateway.createLine({ x: 10, y: 20 }, { x: 30, y: 20 })])');
+  b.point(450, 200); // select the line -> grips appear
+  b.flush();
+
+  for (const [zoom, panX, panY, dpr] of [
+    [0.5, 200, 150, 1],
+    [1, 400, 300, 1],
+    [2.5, 420.5, 280.25, 1.25],
+    [5, -100, 50, 1.5],
+    [8, 500, -200, 2],
+  ]) {
+    b.run(`camera.zoom=${zoom};camera.panX=${panX};camera.panY=${panY};window.devicePixelRatio=${dpr}`);
+
+    // 1. Evaluate scene with committed selection grip matching (10, 20)
+    const gripScene = b.run('createScene()');
+    const grip = gripScene.gripOverlay.grips.find(g => Math.abs(g.point.x - (panX + 10 * zoom)) < 1e-4 && Math.abs(g.point.y - (panY - 20 * zoom)) < 1e-4);
+    const gripIndex = gripScene.gripOverlay.grips.indexOf(grip);
+    const gripSegments = Array.from(gripScene.gripOverlay.idleSegments.slice(gripIndex * 16, (gripIndex + 1) * 16));
+
+    // Grip bounding box
+    const gripXs = [gripSegments[0], gripSegments[2], gripSegments[4], gripSegments[6]];
+    const gripYs = [gripSegments[1], gripSegments[3], gripSegments[5], gripSegments[7]];
+    const gripWidth = Math.max(...gripXs) - Math.min(...gripXs);
+    const gripHeight = Math.max(...gripYs) - Math.min(...gripYs);
+    const gripCenterX = (Math.max(...gripXs) + Math.min(...gripXs)) / 2;
+    const gripCenterY = (Math.max(...gripYs) + Math.min(...gripYs)) / 2;
+
+    assert.equal(gripWidth, 6);
+    assert.equal(gripHeight, 6);
+    assert.equal(Math.abs(gripCenterX - grip.point.x) < 1e-4, true);
+    assert.equal(Math.abs(gripCenterY - grip.point.y) < 1e-4, true);
+
+    // 2. Clear selection, start Line draft at same world coordinate (10, 20)
+    b.run('window.caderactSelection.clear()');
+    b.launch();
+    b.run(`window.caderactCommandRouter.activeSession.draft.acceptPoint(Object.freeze({ x: 10, y: 20 }))`);
+    const draftScene = b.run('createScene()');
+    const draftPoint = draftScene.draftPointOverlay.points[0];
+    const draftSegments = Array.from(draftScene.draftPointOverlay.segments.slice(0, 16));
+
+    // Draft marker bounding box
+    const draftXs = [draftSegments[0], draftSegments[2], draftSegments[4], draftSegments[6]];
+    const draftYs = [draftSegments[1], draftSegments[3], draftSegments[5], draftSegments[7]];
+    const draftWidth = Math.max(...draftXs) - Math.min(...draftXs);
+    const draftHeight = Math.max(...draftYs) - Math.min(...draftYs);
+    const draftCenterX = (Math.max(...draftXs) + Math.min(...draftXs)) / 2;
+    const draftCenterY = (Math.max(...draftYs) + Math.min(...draftYs)) / 2;
+
+    // Direct comparison: draft marker size === idle grip size
+    assert.equal(draftWidth, gripWidth);
+    assert.equal(draftHeight, gripHeight);
+    assert.equal(draftWidth, 6);
+    assert.equal(draftHeight, 6);
+
+    // Direct comparison: centers remain exact
+    assert.equal(Math.abs(draftCenterX - gripCenterX) < 1e-4, true);
+    assert.equal(Math.abs(draftCenterY - gripCenterY) < 1e-4, true);
+    assert.equal(Math.abs(draftPoint.point.x - grip.point.x) < 1e-4, true);
+    assert.equal(Math.abs(draftPoint.point.y - grip.point.y) < 1e-4, true);
+
+    // Clean up draft and re-select line for next iteration
+    b.run('window.caderactCommandRouter.cancelActive()');
+    b.run('window.caderactSelection.selectOnly(modelReader.lines()[0].id)');
+  }
+});
