@@ -16,6 +16,7 @@ There was no package.json, npm script, installed test stack, or existing test su
 - `viewport/navigation.test.cjs`: real coordinate functions, pan, wheel/drag zoom anchors, navigation termination, resize and DPR through the real Canvas2D renderer.
 - `viewport/units-grid.test.cjs`: U4 authoritative footer units, history/session rebinding, adaptive 1/2/5 world grid, major/minor classification, anchoring, and extreme-zoom bounds.
 - `viewport/snapping.test.cjs`: D2 endpoint/midpoint/grid resolution, A10 references, screen tolerance, ranking, transient markers, Line integration, and authoritative-state refresh.
+- `viewport/selection.test.cjs`: D3 projected Line hit testing, stable-ID selection rules, command arbitration, transient highlighting, and history/session reconciliation.
 - `rendering/boundary.test.cjs`: scene ordering, buffer isolation, WebGPU-first creation, early fallback, context-exclusive canvas replacement, device-loss/render-exception recovery, and controlled total failure.
 - `rendering/scale.test.cjs`: 5,000-record authoritative enumeration, stable ordering, scene projection, and Canvas2D consumption baseline.
 - `rendering/read-side.test.cjs`: authoritative document projection, Undo/Redo and external publication rendering, immutable deterministic enumeration, unsupported records, and the shared backend scene contract.

@@ -1,5 +1,5 @@
 (() => {
-  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview, getSnapResult = () => null }) {
+  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview, getSnapResult = () => null, getSelectedIds = () => [] }) {
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
     const MAX_GRID_LINES_PER_AXIS = 512
@@ -41,7 +41,7 @@
       const { width: viewportWidth, height: viewportHeight } = getViewportSize()
       const scale = window.devicePixelRatio || 1
       const extent = viewportSettings.gridExtent
-      const minorGrid = [], majorGrid = [], boundary = [], xAxis = [], yAxis = [], geometry = [], preview = [], snapMarker = []
+      const minorGrid = [], majorGrid = [], boundary = [], xAxis = [], yAxis = [], geometry = [], preview = [], snapMarker = [], selection = []
       const topLeft = camera.screenToWorld(0, 0)
       const bottomRight = camera.screenToWorld(viewportWidth, viewportHeight)
       const minX = Math.max(-extent, topLeft.x), maxX = Math.min(extent, bottomRight.x)
@@ -93,11 +93,13 @@
 
       // A6 persistent projection: query the authoritative document read-side on
       // every scene build. Unknown record types are skipped deterministically.
-      for (const record of getRecords()) {
+      const records = getRecords(), selectedIds = new Set(getSelectedIds())
+      for (const record of records) {
         if (record?.type !== "line") continue
         const a = camera.worldToScreen(record.start.x, record.start.y)
         const b = camera.worldToScreen(record.end.x, record.end.y)
         addSegment(geometry, a.x, a.y, b.x, b.y)
+        if(selectedIds.has(record.id))addSegment(selection,a.x,a.y,b.x,b.y)
       }
 
       // Accepted Line draft segments share the active-tool overlay group with
@@ -149,6 +151,7 @@
           boundarySegments: new Float32Array(boundary),
         }),
         snapOverlay,
+        selectionOverlay: Object.freeze({recordIds:Object.freeze(Array.from(selectedIds).sort()),segments:new Float32Array(selection)}),
         lineGroups: [
           lineGroup(viewportSettings.gridColor, minorGrid),
           lineGroup(viewportSettings.majorGridColor || viewportSettings.gridBoundaryColor, combinedMajorGrid),
@@ -157,6 +160,7 @@
           lineGroup(viewportSettings.geometryColor, geometry),
           lineGroup(viewportSettings.previewColor, preview),
           lineGroup(viewportSettings.snapMarkerColor || viewportSettings.previewColor, snapMarker),
+          {...lineGroup(viewportSettings.selectionColor || viewportSettings.geometryColor, selection),lineWidth:2},
         ],
       }
     }

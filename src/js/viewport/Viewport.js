@@ -6,7 +6,7 @@ const viewportSettings = {
   initialZoom: 5, wheelZoomSensitivity: 0.0015, dragZoomSensitivity: 0.01,
   backgroundColor: "#182633", gridColor: "rgba(167, 175, 187, 0.28)",
   majorGridColor: "rgba(167, 175, 187, 0.45)", gridBoundaryColor: "rgba(167, 175, 187, 0.55)", xAxisColor: "#984b51",
-  yAxisColor: "#3b7658", geometryColor: "#e8edf4", previewColor: "rgba(232, 237, 244, 0.65)", snapMarkerColor: "#f2cf72",
+  yAxisColor: "#3b7658", geometryColor: "#e8edf4", previewColor: "rgba(232, 237, 244, 0.65)", snapMarkerColor: "#f2cf72", selectionColor: "#63b7e6",
 }
 
 const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettings.initialZoom)
@@ -21,6 +21,9 @@ let rendererStatus = "initializing", rendererError = null, recoveryPromise = nul
 let navigation = null, resizeObserver = null
 let activeSnapResult = null
 const snapResolver = window.CaderactSnapResolver.createResolver()
+const selection = window.CaderactSelection.createSelection()
+let selectionHistoryUnsubscribe = null
+window.caderactSelection = selection
 
 function getActiveCommandSession() {
   return window.caderactCommandRouter?.activeSession || null
@@ -52,6 +55,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getDraftLines: () => getActiveCommandSession()?.getDraftLines?.() || [],
   getPreview: () => getActiveCommandSession()?.getPreview?.() || null,
   getSnapResult: () => activeSnapResult,
+  getSelectedIds: selection.selectedIds,
 })
 
 function createScene() {
@@ -198,7 +202,16 @@ documentSession.subscribe(({ store }) => {
   layerGateway = store.layerGateway
   unitGateway = store.unitGateway
   documentController = store.controller
+  selection.clear()
+  bindSelectionDocument()
 })
+
+function bindSelectionDocument() {
+  selectionHistoryUnsubscribe?.()
+  selectionHistoryUnsubscribe = documentController.subscribeHistory(() => selection.pruneAgainstDocument(modelReader.records()))
+}
+selection.subscribe(requestRender)
+bindSelectionDocument()
 
 window.caderactViewport = { createLineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, getRendererState, refreshDocumentView, resetForDocumentReplacement }
 
@@ -219,12 +232,19 @@ function resizeCanvas() {
   requestRender()
 }
 
-function onCommandPointerDown(event) {
+function onViewportPointerDown(event) {
   const session = getActiveCommandSession()
-  if (event.button !== 0 || navigation.isActive() || !session?.handlePointerDown) return
+  if (event.button !== 0 || navigation.isActive()) return
   const point = getCanvasPoint(event)
-  const snap = resolvePointerSnap(screenToWorld(point.x, point.y))
-  session.handlePointerDown(snap.point)
+  if (session?.handlePointerDown) {
+    const snap = resolvePointerSnap(screenToWorld(point.x, point.y))
+    session.handlePointerDown(snap.point)
+    return
+  }
+  const hit = window.CaderactSelection.hitTestLines({screenPoint:point,records:modelReader.records(),worldToScreen})
+  const toggle = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey)
+  if (hit.hit) toggle ? selection.toggle(hit.recordId) : selection.selectOnly(hit.recordId)
+  else if (!toggle) selection.clear()
 }
 
 function onCommandPointerMove(event) {
@@ -247,7 +267,7 @@ function bindCanvas(nextCanvas) {
   navigation = window.CaderactViewportNavigation.bindViewportNavigation({
     canvas, camera: viewportCamera, viewportSettings, getCanvasPoint, requestRender,
   })
-  canvas.addEventListener("pointerdown", onCommandPointerDown)
+  canvas.addEventListener("pointerdown", onViewportPointerDown)
   canvas.addEventListener("pointermove", onCommandPointerMove)
   canvas.addEventListener("pointerleave", onCommandPointerLeave)
   resizeObserver = new ResizeObserver(resizeCanvas)
