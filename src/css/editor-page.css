@@ -7,6 +7,7 @@
 }
 
 .viewport {
+  position: relative;
   width: 100%;
   min-height: 0;
   flex: 1;
@@ -62,9 +63,7 @@ canvas {
   height: 100%;
   background-color: #182633;
   touch-action: none;
-  cursor:
-    url("/assets/cursors/cad-crosshair.svg") 16 16,
-    crosshair;
+  cursor: crosshair;
 }
 
 canvas.is-navigation-ready {
@@ -74,6 +73,23 @@ canvas.is-navigation-ready {
 canvas.is-navigating {
   cursor: grabbing;
 }
+
+.viewport.cad-cursor-enabled canvas:not(.is-navigation-ready):not(.is-navigating) { cursor: none; }
+.cad-cursor-overlay {
+  position: absolute; z-index: 4; display: none;
+  width: 32px; height: 32px; color: rgba(232, 237, 244, 0.9);
+  pointer-events: none; transform: translate(-50%, -50%); will-change: left, top;
+}
+.cad-cursor-overlay.is-visible { display: block; }
+.cad-cursor-arm { position: absolute; background: currentColor; }
+.cad-cursor-arm.is-left { top: 15.5px; left: 0px; width: 12.5px; height: 1px; }
+.cad-cursor-arm.is-right { top: 15.5px; left: 19.5px; width: 12.5px; height: 1px; }
+.cad-cursor-arm.is-top { top: 0px; left: 15.5px; width: 1px; height: 12.5px; }
+.cad-cursor-arm.is-bottom { top: 19.5px; left: 15.5px; width: 1px; height: 12.5px; }
+.cad-cursor-pickbox { position: absolute; top: 12.5px; left: 12.5px; box-sizing: border-box; width: 7px; height: 7px; border: 1px solid currentColor; }
+.cad-cursor-center { position: absolute; top: 15.5px; left: 15.5px; width: 1px; height: 1px; border-radius: 50%; background: currentColor; }
+.cad-cursor-overlay.is-point-command { color: #f3f6fa; }
+.cad-cursor-overlay.is-snap-acquired .cad-cursor-pickbox { border-color: #f2cf72; }
 
 .editor-footer {
   display: flex;

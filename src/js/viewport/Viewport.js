@@ -20,6 +20,10 @@ let renderer = null, isInitialized = false, isRenderScheduled = false
 let rendererStatus = "initializing", rendererError = null, recoveryPromise = null
 let navigation = null, resizeObserver = null
 let activeSnapResult = null
+let snapModes = Object.freeze({ endpoint: true, midpoint: true, grid: true })
+const snapModeListeners = new Set()
+const viewportHost = canvas.parentElement || canvas.parent
+const interactionVisuals = window.CaderactInteractionVisuals.createController({ host: viewportHost })
 const snapResolver = window.CaderactSnapResolver.createResolver()
 const selection = window.CaderactSelection.createSelection()
 let selectionHistoryUnsubscribe = null
@@ -43,6 +47,11 @@ function zoomAtScreenPoint(zoom, x, y) {
 
 function getCanvasPoint(event) {
   const bounds = canvas.getBoundingClientRect()
+  return { x: event.clientX - bounds.left, y: event.clientY - bounds.top }
+}
+
+function getViewportPoint(event) {
+  const bounds = viewportHost.getBoundingClientRect()
   return { x: event.clientX - bounds.left, y: event.clientY - bounds.top }
 }
 
@@ -176,7 +185,23 @@ function getRendererState() {
 
 function refreshDocumentView() { requestRender() }
 
-function clearSnap() { activeSnapResult = null }
+function setGridSnapEnabled(enabled) {
+  const next = Boolean(enabled)
+  if (snapModes.grid === next) return snapModes
+  snapModes = Object.freeze({ ...snapModes, grid: next })
+  for (const listener of snapModeListeners) listener(snapModes)
+  clearSnap()
+  requestRender()
+  return snapModes
+}
+
+function subscribeSnapModes(listener) {
+  snapModeListeners.add(listener)
+  listener(snapModes)
+  return () => snapModeListeners.delete(listener)
+}
+
+function clearSnap() { activeSnapResult = null; interactionVisuals.setSnapAcquired(false) }
 
 function resolvePointerSnap(point) {
   activeSnapResult = snapResolver.resolve({
@@ -184,11 +209,14 @@ function resolvePointerSnap(point) {
     worldToScreen,
     records: modelReader.records(),
     gridSpacing: sceneBuilder.getAdaptiveGridSpacing(),
+    enabled: snapModes,
   })
   return activeSnapResult
 }
 
 function resetForDocumentReplacement() {
+  interactionVisuals.leave()
+  setGridSnapEnabled(true)
   camera.zoom = viewportSettings.initialZoom
   camera.panX = viewportWidth / 2
   camera.panY = viewportHeight / 2
@@ -213,9 +241,13 @@ function bindSelectionDocument() {
 selection.subscribe(requestRender)
 bindSelectionDocument()
 
-window.caderactViewport = { createLineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, getRendererState, refreshDocumentView, resetForDocumentReplacement }
+function setCommandActive(active) { interactionVisuals.setMode(active ? "point" : "select") }
+function getInteractionVisualState() { return interactionVisuals.snapshot() }
+
+window.caderactViewport = { createLineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
+  interactionVisuals.leave()
   const bounds = canvas.getBoundingClientRect()
   const width = bounds.width, height = bounds.height
   if (!isInitialized) {
@@ -248,14 +280,23 @@ function onViewportPointerDown(event) {
 }
 
 function onCommandPointerMove(event) {
+  const point = getCanvasPoint(event)
+  interactionVisuals.setMode(getActiveCommandSession() ? "point" : "select")
+  interactionVisuals.move(getViewportPoint(event))
   const session = getActiveCommandSession()
   if (!session?.handlePointerMove || !session.draft?.hasFirstPoint || navigation.isActive()) return
-  const point = getCanvasPoint(event)
   const snap = resolvePointerSnap(screenToWorld(point.x, point.y))
+  interactionVisuals.setSnapAcquired(snap.snapped)
   session.handlePointerMove(snap.point)
 }
 
+function onViewportPointerEnter(event) {
+  interactionVisuals.setMode(getActiveCommandSession() ? "point" : "select")
+  interactionVisuals.move(getViewportPoint(event))
+}
+
 function onCommandPointerLeave() {
+  interactionVisuals.leave()
   clearSnap()
   getActiveCommandSession()?.handlePointerLeave?.()
 }
@@ -266,8 +307,10 @@ function bindCanvas(nextCanvas) {
   canvas = nextCanvas
   navigation = window.CaderactViewportNavigation.bindViewportNavigation({
     canvas, camera: viewportCamera, viewportSettings, getCanvasPoint, requestRender,
+    onStateChange: state => interactionVisuals.setNavigating(state.navigationMode !== null || state.isSpacePressed),
   })
   canvas.addEventListener("pointerdown", onViewportPointerDown)
+  canvas.addEventListener("pointerenter", onViewportPointerEnter)
   canvas.addEventListener("pointermove", onCommandPointerMove)
   canvas.addEventListener("pointerleave", onCommandPointerLeave)
   resizeObserver = new ResizeObserver(resizeCanvas)
@@ -284,6 +327,7 @@ function installRenderer(createdRenderer) {
   renderer = createdRenderer
   rendererStatus = createdRenderer.kind === "canvas2d" ? "fallback-active" : "ready"
   rendererError = null
+  interactionVisuals.setAvailable(true)
   createdRenderer.onDeviceLost = () => recoverRenderer(createdRenderer)
   resizeCanvas()
 }
@@ -294,6 +338,7 @@ function failRenderer(error, failedRenderer = null) {
     failedRenderer.destroy?.()
   } else if (!failedRenderer) renderer = null
   rendererStatus = "failed"
+  interactionVisuals.setAvailable(false)
   rendererError = error?.message || String(error)
   console.warn("Caderact renderer unavailable", error)
   return Object.freeze({ status: "failed", error: rendererError })

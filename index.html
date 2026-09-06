@@ -26,6 +26,7 @@
     <script src="/src/js/viewport/ViewportScene.js" defer></script>
     <script src="/src/js/viewport/ViewportCanvas.js" defer></script>
     <script src="/src/js/viewport/ViewportNavigation.js" defer></script>
+    <script src="/src/js/viewport/InteractionVisuals.js" defer></script>
     <script src="/src/js/editor/LineDraftSession.js" defer></script>
     <script src="/src/js/editor/PointInput.js" defer></script>
     <script src="/src/js/editor/SnapResolver.js" defer></script>
@@ -403,7 +404,7 @@
             </div>
           </div>
           <div class="footer-tools" aria-label="Viewport settings">
-            <button class="footer-tool is-active" type="button">
+            <button id="grid-snap-toggle" class="footer-tool is-active" type="button" aria-pressed="true">
               Grid Snap
             </button>
             <button class="footer-tool" type="button">Ortho</button>

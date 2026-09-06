@@ -34,6 +34,7 @@ feedbackController = window.CaderactCommandFeedback.createController({
 })
 feedbackController.setActivePrompt(commandRouter.currentPrompt)
 commandRouter.subscribe(feedbackController.presentResult)
+commandRouter.subscribe(() => window.caderactViewport.setCommandActive(commandRouter.isActive))
 window.caderactFeedback = feedbackController
 
 function getMatchingCommands(value) { return commandRegistry.search(value, { limit: 8 }) }

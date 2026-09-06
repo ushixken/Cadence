@@ -16,10 +16,6 @@
       return 10 * magnitude
     }
 
-    function alignToPhysicalPixel(value, scale) {
-      return (Math.round(value * scale) + 0.5) / scale
-    }
-
     function addSegment(segments, x1, y1, x2, y2) {
       segments.push(x1, y1, x2, y2)
     }
@@ -62,10 +58,10 @@
             const coordinate = index * spacing
             const target = index % MAJOR_MULTIPLE === 0 ? majorGrid : minorGrid
             if (vertical) {
-              const sx = alignToPhysicalPixel(camera.worldToScreen(coordinate, 0).x, scale)
+              const sx = camera.worldToScreen(coordinate, 0).x
               addSegment(target, sx, Math.max(0, top), sx, Math.min(viewportHeight, bottom))
             } else {
-              const sy = alignToPhysicalPixel(camera.worldToScreen(0, coordinate).y, scale)
+              const sy = camera.worldToScreen(0, coordinate).y
               addSegment(target, Math.max(0, left), sy, Math.min(viewportWidth, right), sy)
             }
           }
@@ -77,18 +73,18 @@
       const visibleLeft = Math.max(0, left), visibleTop = Math.max(0, top)
       const visibleRight = Math.min(viewportWidth, right), visibleBottom = Math.min(viewportHeight, bottom)
       if (visibleLeft <= visibleRight && visibleTop <= visibleBottom) {
-        if (top >= 0 && top <= viewportHeight) addSegment(boundary, visibleLeft, alignToPhysicalPixel(top, scale), visibleRight, alignToPhysicalPixel(top, scale))
-        if (bottom >= 0 && bottom <= viewportHeight) addSegment(boundary, visibleLeft, alignToPhysicalPixel(bottom, scale), visibleRight, alignToPhysicalPixel(bottom, scale))
-        if (left >= 0 && left <= viewportWidth) addSegment(boundary, alignToPhysicalPixel(left, scale), visibleTop, alignToPhysicalPixel(left, scale), visibleBottom)
-        if (right >= 0 && right <= viewportWidth) addSegment(boundary, alignToPhysicalPixel(right, scale), visibleTop, alignToPhysicalPixel(right, scale), visibleBottom)
+        if (top >= 0 && top <= viewportHeight) addSegment(boundary, visibleLeft, top, visibleRight, top)
+        if (bottom >= 0 && bottom <= viewportHeight) addSegment(boundary, visibleLeft, bottom, visibleRight, bottom)
+        if (left >= 0 && left <= viewportWidth) addSegment(boundary, left, visibleTop, left, visibleBottom)
+        if (right >= 0 && right <= viewportWidth) addSegment(boundary, right, visibleTop, right, visibleBottom)
       }
 
       const origin = camera.worldToScreen(0, 0)
       if (origin.y >= 0 && origin.y <= viewportHeight && right >= 0 && left <= viewportWidth) {
-        addSegment(xAxis, Math.max(0, left), alignToPhysicalPixel(origin.y, scale), Math.min(viewportWidth, right), alignToPhysicalPixel(origin.y, scale))
+        addSegment(xAxis, Math.max(0, left), origin.y, Math.min(viewportWidth, right), origin.y)
       }
       if (origin.x >= 0 && origin.x <= viewportWidth && bottom >= 0 && top <= viewportHeight) {
-        addSegment(yAxis, alignToPhysicalPixel(origin.x, scale), Math.max(0, top), alignToPhysicalPixel(origin.x, scale), Math.min(viewportHeight, bottom))
+        addSegment(yAxis, origin.x, Math.max(0, top), origin.x, Math.min(viewportHeight, bottom))
       }
 
       // A6 persistent projection: query the authoritative document read-side on
@@ -131,8 +127,11 @@
           addSegment(snapMarker, center.x+size, center.y+size, center.x-size, center.y+size)
           addSegment(snapMarker, center.x-size, center.y+size, center.x, center.y-size)
         } else {
-          addSegment(snapMarker, center.x-size, center.y, center.x+size, center.y)
-          addSegment(snapMarker, center.x, center.y-size, center.x, center.y+size)
+          const inset = 2.5
+          addSegment(snapMarker, center.x-inset, center.y-size, center.x-inset, center.y+size)
+          addSegment(snapMarker, center.x+inset, center.y-size, center.x+inset, center.y+size)
+          addSegment(snapMarker, center.x-size, center.y-inset, center.x+size, center.y-inset)
+          addSegment(snapMarker, center.x-size, center.y+inset, center.x+size, center.y+inset)
         }
         snapOverlay = Object.freeze({ kind: snap.kind, point: Object.freeze({ x: center.x, y: center.y }),
           label: snap.kind[0].toUpperCase()+snap.kind.slice(1), segments: new Float32Array(snapMarker) })

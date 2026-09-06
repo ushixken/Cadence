@@ -1,15 +1,18 @@
 (() => {
-  function bindViewportNavigation({ canvas, camera, viewportSettings, getCanvasPoint, requestRender }) {
+  function bindViewportNavigation({ canvas, camera, viewportSettings, getCanvasPoint, requestRender, onStateChange = () => {} }) {
     let isSpacePressed = false
     let navigationMode = null
     let activePointerId = null
     let previousPointerX = 0, previousPointerY = 0, zoomAnchorX = 0, zoomAnchorY = 0
+
+    function publishState() { onStateChange(Object.freeze({ navigationMode, isSpacePressed })) }
 
     function stopNavigation(event) {
       if (event && activePointerId !== null && event.pointerId !== activePointerId) return
       navigationMode = null
       activePointerId = null
       canvas.classList.remove("is-navigating")
+      publishState()
     }
 
     function onPointerDown(event) {
@@ -25,6 +28,7 @@
       zoomAnchorY = point.y
       canvas.setPointerCapture(event.pointerId)
       canvas.classList.add("is-navigating")
+      publishState()
       event.preventDefault()
     }
 
@@ -65,6 +69,7 @@
       if (event.code !== "Space" || !canvas.classList.contains("is-hovered")) return
       isSpacePressed = true
       canvas.classList.add("is-navigation-ready")
+      publishState()
       event.preventDefault()
     }
 

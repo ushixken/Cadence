@@ -47,12 +47,12 @@ test('adaptive spacing follows deterministic 1/2/5 thresholds and ignores pan',a
 test('grid remains world-origin anchored across negative coordinates and pan',async()=>{
   const b=await browser();b.run('camera.zoom=28;camera.panX=400;camera.panY=300;requestRender()');b.flush();
   const first=Array.from(b.renders.at(-1).grid.minorSegments);
-  assert.ok(first.some((value,index)=>index%4===0&&value===372.5));
-  assert.ok(first.some((value,index)=>index%4===0&&value===428.5));
+  assert.ok(first.some((value,index)=>index%4===0&&value===372));
+  assert.ok(first.some((value,index)=>index%4===0&&value===428));
   b.run('camera.panX+=7;requestRender()');b.flush();
   const moved=Array.from(b.renders.at(-1).grid.minorSegments);
-  assert.ok(moved.some((value,index)=>index%4===0&&value===379.5));
-  assert.ok(moved.some((value,index)=>index%4===0&&value===435.5));
+  assert.ok(moved.some((value,index)=>index%4===0&&value===379));
+  assert.ok(moved.some((value,index)=>index%4===0&&value===435));
 });
 
 test('major/minor renderer-neutral contract is explicit and axes stay separate',async()=>{

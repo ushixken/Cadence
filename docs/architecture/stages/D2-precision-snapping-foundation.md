@@ -16,11 +16,11 @@ Only candidates inside tolerance participate. Candidates more than 0.75 pixels a
 
 Line start/end candidates use current authoritative endpoint coordinates and attach the canonical frozen A10 `{kind:"feature", recordId, featureId}` reference. Midpoints are derived at full precision with `start + (end - start) / 2` and receive no persistent identity. Grid candidates round each raw world component to the nearest current U4 adaptive minor-spacing multiple, anchored at world origin; pan is absent from that calculation.
 
-All three kinds are enabled by default for the first production consumer. Configurable kinds and independent snap spacing remain separable future policy.
+All three kinds are enabled by default. The viewport owns an immutable transient enabled-mode snapshot and passes it into the pure resolver. The existing Grid Snap status button changes only `grid`; endpoint and midpoint remain enabled. This state creates no transaction or persistence field, survives ordinary drawing, and resets to ON through the existing New/Open viewport reset because no user-preference store exists yet. Independent snap spacing and a full settings model remain future policy.
 
 ## Transient marker contract
 
-The current acquired result enters `ViewportScene` as transient state. It becomes one final renderer-neutral line group plus `scene.snapOverlay` metadata. Endpoint uses a 10-pixel square, Midpoint a 10-pixel triangle, and Grid a 10-pixel cross, all centered on the projected exact target with the subtle snap color. Marker dimensions are screen-stable because projection creates them directly in CSS pixels. Canvas2D and WebGPU consume the same segments; neither chooses the snap.
+The current acquired result enters `ViewportScene` as transient state. It becomes one final renderer-neutral line group plus `scene.snapOverlay` metadata. Endpoint uses a 10-pixel square, Midpoint a 10-pixel triangle, and Grid a symmetric 10-pixel hash made from two vertical and two horizontal lines inset 2.5 pixels around the shared center. Grid geometry and marker geometry both retain exact world-to-screen projection; raster alignment never changes their semantic coordinates. Marker dimensions are screen-stable because projection creates them directly in CSS pixels. Canvas2D and WebGPU consume the same segments; neither chooses the snap.
 
 No markers are generated while idle or permanently for committed geometry. Leaving tolerance/viewport, typed input, finish, Escape, or Step Undo clears the current marker.
 
@@ -34,4 +34,4 @@ Every pointer query enumerates the active document reader. Undo/Redo, deletion, 
 
 D2 performs a simple deterministic traversal of current Lines and creates transient endpoint/midpoint candidates only for the active point-consuming interaction. No idle preselection or permanent spatial index exists. A replaceable spatial index is deferred until measured scale requires one.
 
-Selection, grips, pickbox, nearest/intersection/perpendicular/tangent/center/quadrant/extension snaps, Ortho, Polar/Object Snap Tracking, settings/tolerance UI, configurable grid-snap spacing, additional commands, and 3D snapping remain deferred.
+Grips, nearest/intersection/perpendicular/tangent/center/quadrant/extension snaps, Ortho, Polar/Object Snap Tracking, settings/tolerance UI, configurable grid-snap spacing, preference persistence, additional commands, and 3D snapping remain deferred.

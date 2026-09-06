@@ -4,6 +4,7 @@ const snapEnabled = document.querySelector("#snap-enabled")
 const snapDependentOptions = document.querySelectorAll(".snap-dependent input")
 const snapDependentSection = document.querySelector(".snap-dependent")
 const footerTools = document.querySelectorAll(".footer-tool")
+const gridSnapToggle = document.querySelector("#grid-snap-toggle")
 const unitsTrigger = document.querySelector(".units-control")
 const unitsMenu = document.querySelector(".units-menu")
 const unitValue = document.querySelector("[data-unit-value]")
@@ -76,7 +77,16 @@ document.addEventListener("keydown", (event) => {
 
 updateSnapOptions()
 
+function refreshGridSnapButton(modes) {
+  gridSnapToggle.classList.toggle("is-active", modes.grid)
+  gridSnapToggle.setAttribute("aria-pressed", String(modes.grid))
+}
+gridSnapToggle.addEventListener("mousedown", event => event.preventDefault())
+gridSnapToggle.addEventListener("click", () => window.caderactViewport.setGridSnapEnabled(!window.caderactViewport.snapModes.grid))
+window.caderactViewport.subscribeSnapModes(refreshGridSnapButton)
+
 footerTools.forEach(function (button) {
+  if (button === gridSnapToggle) return
   button.addEventListener("click", function () {
     button.classList.toggle("is-active")
   })

@@ -4,9 +4,9 @@ const {browser}=require('../helpers/browser.cjs');
 
 function typed(b,value){b.input.value=value;b.emit(b.input,'input');b.key('Enter',b.input)}
 function installRecord(b,record){b.window.__snapRecord=record}
-function resolve(b,{raw,zoom=1,panX=0,panY=0,spacing=10,records='[window.__snapRecord]'}){
+function resolve(b,{raw,zoom=1,panX=0,panY=0,spacing=10,records='[window.__snapRecord]',enabled='{}'}){
   return b.read(`window.CaderactSnapResolver.createResolver().resolve({rawWorldPoint:${JSON.stringify(raw)},
-    worldToScreen:(x,y)=>({x:${panX}+x*${zoom},y:${panY}-y*${zoom}}),records:${records},gridSpacing:${spacing}})`)
+    worldToScreen:(x,y)=>({x:${panX}+x*${zoom},y:${panY}-y*${zoom}}),records:${records},gridSpacing:${spacing},enabled:${enabled}})`)
 }
 const record={id:'line_b',type:'line',layerId:'layer',start:{x:-10,y:-20,featureId:'feature_start'},end:{x:30,y:40,featureId:'feature_end'}};
 
@@ -38,6 +38,45 @@ test('grid snaps to origin and nearest positive/negative adaptive-grid multiples
     assert.equal(first.kind,'grid');assert.deepEqual(first.point,expected);assert.deepEqual(panned.point,expected);
   }
   b.run('camera.zoom=14');assert.equal(b.run('sceneBuilder.getAdaptiveGridSpacing()'),2);
+});
+
+test('enabled snap modes exclude only grid candidates',async()=>{
+  const b=await browser();installRecord(b,record);
+  const modes='{endpoint:true,midpoint:true,grid:false}';
+  assert.equal(resolve(b,{raw:{x:10.1,y:10.1},spacing:10,records:'[]',enabled:modes}).snapped,false);
+  assert.equal(resolve(b,{raw:{x:-10,y:-20},spacing:10,enabled:modes}).kind,'endpoint');
+  assert.equal(resolve(b,{raw:{x:10,y:10},spacing:10,enabled:modes}).kind,'midpoint');
+  assert.equal(resolve(b,{raw:{x:10.1,y:10.1},spacing:10,records:'[]',enabled:'{endpoint:true,midpoint:true,grid:true}'}).kind,'grid');
+});
+
+test('Grid marker uses exact projection and symmetric fixed screen-space hash geometry',async()=>{
+  const b=await browser();
+  for(const [zoom,panX,panY,dpr,point] of [[5,400,300,1,{x:2,y:4}],[1.25,400.25,299.75,1.25,{x:-10,y:20}],[3.5,-17.5,42.25,1.5,{x:3,y:-7}],[8,100,80,2,{x:.5,y:1.25}]]){
+    b.run(`camera.zoom=${zoom};camera.panX=${panX};camera.panY=${panY};window.devicePixelRatio=${dpr};activeSnapResult=Object.freeze({snapped:true,kind:"grid",point:Object.freeze(${JSON.stringify(point)})})`);
+    const scene=b.run('createScene()');const marker=scene.snapOverlay;const expected={x:panX+point.x*zoom,y:panY-point.y*zoom};
+    assert.equal(marker.point.x,expected.x);assert.equal(marker.point.y,expected.y);
+    const s=Array.from(marker.segments);assert.equal(s.length,16);
+    const close=(a,c)=>assert.ok(Math.abs(a-c)<1e-5,`${a} != ${c}`);
+    for(let i=0;i<s.length;i+=4){close((s[i]+s[i+2])/2, i<8 ? expected.x+(i===0?-2.5:2.5) : expected.x);close((s[i+1]+s[i+3])/2, i<8 ? expected.y : expected.y+(i===8?-2.5:2.5));}
+    close(s[1],expected.y-5);close(s[3],expected.y+5);close(s[9],expected.y-2.5);close(s[11],expected.y-2.5);
+  }
+});
+
+test('Grid Snap button toggles transient grid acquisition while endpoints, midpoints, and visual grid remain',async()=>{
+  const b=await browser();typed(b,'Line');typed(b,'10,10');typed(b,'30,10');b.key('Enter',b.input);b.flush();
+  const before=b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo,dirty:documentController.isDirty})');
+  const gridSegments=b.renders.at(-1).grid.minorSegments.length+b.renders.at(-1).grid.majorSegments.length;
+  assert.equal(b.gridSnapButton.classList.contains('is-active'),true);assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'true');
+  assert.equal(b.emit(b.gridSnapButton,'mousedown').defaultPrevented,true);b.emit(b.gridSnapButton,'click');b.flush();
+  assert.equal(b.gridSnapButton.classList.contains('is-active'),false);assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'false');
+  assert.equal(b.renders.at(-1).grid.minorSegments.length+b.renders.at(-1).grid.majorSegments.length,gridSegments);
+  b.launch();typed(b,'0,0');b.point(403,303,'pointermove');assert.equal(b.read('activeSnapResult.snapped'),false);
+  b.point(450,250,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');
+  b.point(500,250,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'midpoint');
+  b.emit(b.gridSnapButton,'click');b.point(403,303,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'grid');
+  assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'true');assert.deepEqual(b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo,dirty:documentController.isDirty})'),before);
+  b.key('Escape');b.emit(b.gridSnapButton,'click');b.run('window.caderactViewport.resetForDocumentReplacement()');
+  assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'true');
 });
 
 test('nearest distance dominates and endpoint priority resolves close collisions deterministically',async()=>{
