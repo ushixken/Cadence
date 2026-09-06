@@ -8,6 +8,7 @@ There was no package.json, npm script, installed test stack, or existing test su
 
 - `commands/input.test.cjs`: U1 registry-backed name/alias/prefix launch, trimming/case, Enter/Space/click exactly-once dispatch, deterministic unknown-command feedback, active-session relaunch protection, Tab completion, printable-key routing, and field/modifier guards.
 - `commands/line.test.cjs`: router-owned Line lifecycle, transient drafts, live preview, one-transaction completion, cancellation, Step Undo, failure retention, and active-session preservation.
+- `commands/arc.test.cjs`: D7 three-point Arc geometry/draft/input, degeneracy, snapping/topology, atomic history, persistence, selection, recovery, and repeat lifecycle.
 - `commands/history.test.cjs`: U2 document Undo/Redo shortcuts, command-local Step Undo priority, focus/browser safety, authoritative button availability, single-fire traversal, and Redo branch discard.
 - `commands/feedback-autocomplete.test.cjs`: U5 router-derived prompts, timed feedback/history, ranked fuzzy discovery, safe match highlighting, and explicit-selection execution safety.
 - `commands/layers-ui.test.cjs`: U6 authoritative layer list/actions, current/default identity, A4 history, command safety, U5 feedback, and U3 session rebinding.
@@ -20,6 +21,7 @@ There was no package.json, npm script, installed test stack, or existing test su
 - `viewport/selection.test.cjs`: D3 projected Line hit testing, stable-ID selection rules, command arbitration, transient highlighting, and history/session reconciliation.
 - `viewport/interaction-visuals.test.cjs`: UX1 raw-pointer CAD crosshair lifecycle, independent snapped target ownership, navigation fallback, fixed CSS/DPR behavior, document replacement cleanup, and renderer-recovery singleton safety.
 - `rendering/boundary.test.cjs`: scene ordering, buffer isolation, WebGPU-first creation, early fallback, context-exclusive canvas replacement, device-loss/render-exception recovery, and controlled total failure.
+- `rendering/arc.test.cjs`: D7 semantic Arc preview/read-side projection, native Canvas2D path, and shared bounded curved tessellation.
 - `rendering/scale.test.cjs`: 5,000-record authoritative enumeration, stable ordering, scene projection, and Canvas2D consumption baseline.
 - `rendering/read-side.test.cjs`: authoritative document projection, Undo/Redo and external publication rendering, immutable deterministic enumeration, unsupported records, and the shared backend scene contract.
 - `document/layers.test.cjs`: layer invariants and immutable reads, atomic lifecycle/property edits, deletion policy, exact history, stale/rollback behavior, branching, and A6 rendering continuity.

@@ -36,7 +36,7 @@
       if (!Object.hasOwn(objects, reference.recordId)) return result("unresolved", { reason: "missing-record" })
       const record = objects[reference.recordId]
       if (reference.kind === "object") return result("resolved", { kind: "object", record })
-      if (record.type !== "line") return result("unresolved", { reason: "unsupported-record-type" })
+      if (record.type !== "line" && record.type !== "arc") return result("unresolved", { reason: "unsupported-record-type" })
       if (record.start.featureId === reference.featureId) {
         return result("resolved", { kind: "feature", role: "start", record, feature: record.start })
       }

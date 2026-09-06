@@ -10,6 +10,7 @@ function setCommandHint(message) {
 }
 
 const commandRegistry = window.CaderactCommandRegistry.createRegistry([
+  { name: "Arc", aliases: ["A"], repeatable: true, activate: context => window.caderactViewport.createArcCommandSession(context) },
   { name: "Circle", aliases: ["C"], repeatable: true, activate: context => window.caderactViewport.createCircleCommandSession(context) },
   { name: "Line", aliases: ["L"], repeatable: true, activate: context => window.caderactViewport.createLineCommandSession(context) },
   { name: "Polyline", aliases: ["Pline", "PL"], repeatable: true, activate: context => window.caderactViewport.createPolylineCommandSession(context) },

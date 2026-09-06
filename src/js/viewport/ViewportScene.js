@@ -1,5 +1,5 @@
 (() => {
-  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getPreviewLines = null, getCirclePreview = () => null, getDraftPoints = () => [], getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null }) {
+  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getPreviewLines = null, getCirclePreview = () => null, getArcPreview = () => null, getDraftPoints = () => [], getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null }) {
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
     const MAX_GRID_LINES_PER_AXIS = 512
@@ -59,6 +59,14 @@
       const minorGrid = [], majorGrid = [], boundary = [], xAxis = [], yAxis = [], geometry = [], acceptedDraft = [], nextPreview = [], snapMarker = [], selection = []
       const idleGrips = [], hoverGrips = [], activeGrips = []
       const committedCircles = [], previewCircles = [], selectedCircles = []
+      const committedArcs = [], previewArcs = [], selectedArcs = []
+      function projectArc(record) {
+        const center=camera.worldToScreen(record.center.x,record.center.y)
+        const start=camera.worldToScreen(record.start.x,record.start.y)
+        return Object.freeze({recordId:record.id,center:Object.freeze({x:center.x,y:center.y}),
+          radius:Math.hypot(start.x-center.x,start.y-center.y),
+          startAngle:Math.atan2(start.y-center.y,start.x-center.x),sweep:-record.sweep})
+      }
       const topLeft = camera.screenToWorld(0, 0)
       const bottomRight = camera.screenToWorld(viewportWidth, viewportHeight)
       const minX = Math.max(-extent, topLeft.x), maxX = Math.min(extent, bottomRight.x)
@@ -124,6 +132,9 @@
             radius: Math.hypot(edge.x - center.x, edge.y - center.y) })
           committedCircles.push(circle)
           if (selectedIds.has(record.id)) selectedCircles.push(circle)
+        } else if (record?.type === "arc") {
+          const arc=projectArc(record);committedArcs.push(arc)
+          if(selectedIds.has(record.id))selectedArcs.push(arc)
         }
       }
 
@@ -149,6 +160,11 @@
         const edge = camera.worldToScreen(circlePreview.center.x + circlePreview.radius, circlePreview.center.y)
         previewCircles.push(Object.freeze({ center: Object.freeze({ x: center.x, y: center.y }),
           radius: Math.hypot(edge.x - center.x, edge.y - center.y) }))
+      }
+      const arcPreview=getArcPreview()
+      if(arcPreview?.valid){
+        const previewRecord={id:null,center:arcPreview.center,start:arcPreview.start,sweep:arcPreview.sweep}
+        previewArcs.push(projectArc(previewRecord))
       }
 
       if (gripPreview) {
@@ -237,6 +253,8 @@
         color: group.color, colorData: group.colorData, lineWidth: group.lineWidth,
         circles: Object.freeze(index === 4 ? committedCircles : index === 6 ? previewCircles : index === 7 ? selectedCircles : []),
       }))
+      const arcGroups=lineGroups.map((group,index)=>Object.freeze({color:group.color,colorData:group.colorData,lineWidth:group.lineWidth,
+        arcs:Object.freeze(index===4?committedArcs:index===6?previewArcs:index===7?selectedArcs:[])}))
       return {
         width: viewportWidth, height: viewportHeight, deviceScale: scale,
         backgroundColor: viewportSettings.backgroundColor,
@@ -256,8 +274,9 @@
         draftPointOverlay: Object.freeze({ points: Object.freeze(projectedDraftPoints), segments: new Float32Array(draftPoints) }),
         circleOverlay: Object.freeze({ committed: Object.freeze(committedCircles), preview: Object.freeze(previewCircles),
           selected: Object.freeze(selectedCircles) }),
-        lineGroups, circleGroups,
-        drawGroups: Object.freeze(lineGroups.map((lineGroup, index) => Object.freeze({ lineGroup, circleGroup: circleGroups[index] }))),
+        arcOverlay:Object.freeze({committed:Object.freeze(committedArcs),preview:Object.freeze(previewArcs),selected:Object.freeze(selectedArcs)}),
+        lineGroups, circleGroups, arcGroups,
+        drawGroups: Object.freeze(lineGroups.map((lineGroup, index) => Object.freeze({ lineGroup, circleGroup: circleGroups[index],arcGroup:arcGroups[index] }))),
       }
     }
 

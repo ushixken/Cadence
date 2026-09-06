@@ -72,6 +72,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getDraftLines: () => getActiveCommandSession()?.getDraftLines?.() || [],
   getPreviewLines: () => getActiveCommandSession()?.getPreviewLines?.() || [],
   getCirclePreview: () => getActiveCommandSession()?.getCirclePreview?.() || null,
+  getArcPreview: () => getActiveCommandSession()?.getArcPreview?.() || null,
   getDraftPoints: () => getActiveCommandSession()?.getDraftPoints?.() || [],
   getSnapResult: () => activeSnapResult,
   getSelectedIds: selection.selectedIds,
@@ -252,6 +253,41 @@ function createCircleCommandSession({ setPrompt = () => {} } = {}) {
     hasPointerPreview: () => draft.hasCenter,
     get prompt() { return prompt },
   })
+}
+
+function createArcCommandSession({setPrompt=()=>{}}={}){
+  const draft=window.CaderactArcDraftSession.createSession({createArc:recordGateway.createArc,commitRecords:recordGateway.createAll})
+  let prompt="Arc: Specify start point"
+  function updatePrompt(message){prompt=message;setPrompt(message)}
+  function presentOutcome(outcome,point=null){
+    requestRender()
+    if(outcome.status==="start-accepted"){updatePrompt("Arc: Specify second point");return Object.freeze({status:"input-accepted",command:"Arc",kind:"point",point,outcome})}
+    if(outcome.status==="second-accepted"){updatePrompt("Arc: Specify end point");return Object.freeze({status:"input-accepted",command:"Arc",kind:"point",point,outcome})}
+    if(outcome.status==="arc-committed"){clearSnap();return Object.freeze({status:"command-completed",command:"Arc",outcome})}
+    if(outcome.status==="repeated-point"||outcome.status==="invalid-arc"){
+      updatePrompt(outcome.status==="repeated-point"?"Arc: Second point must differ from start":"Arc: End point must form a stable non-collinear arc")
+      return Object.freeze({status:"invalid-input",reason:outcome.reason||outcome.status,command:"Arc",message:"Arc requires three distinct, non-collinear points",outcome})
+    }
+    updatePrompt("Arc: Unable to commit; draft preserved")
+    return Object.freeze({status:"invalid-input",reason:"commit-failed",command:"Arc",outcome})
+  }
+  function handlePointerDown(point){return presentOutcome(draft.acceptPoint(point),point)}
+  function handlePointerMove(point){draft.updatePointer(point);requestRender()}
+  function handlePointerLeave(){draft.clearPointer();clearSnap();requestRender()}
+  function handleInput(input){
+    clearSnap()
+    const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor:draft.currentPoint})
+    if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Arc",message:"Enter a point as x,y"})
+    const point=Object.freeze({x:parsed.x,y:parsed.y});return presentOutcome(draft.acceptPoint(point),point)
+  }
+  function finish(){clearSnap();draft.finish();requestRender();return Object.freeze({status:"command-completed",command:"Arc"})}
+  function cancel(){clearSnap();draft.cancel();requestRender();return Object.freeze({status:"command-cancelled",command:"Arc"})}
+  function getSnapCandidates(){return draft.acceptedPoints().map((point,index)=>Object.freeze({kind:"draft-point",point,
+    stableKey:`arc-draft:${index}`,reference:Object.freeze({kind:"draft-point",index})}))}
+  requestRender()
+  return Object.freeze({name:"Arc",draft,finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,
+    getArcPreview:draft.preview,getDraftPoints:draft.acceptedPoints,getSnapCandidates,hasPointerPreview:()=>draft.hasFirstPoint,
+    get prompt(){return prompt}})
 }
 
 function createRectangleCommandSession({ setPrompt = () => {} } = {}) {
@@ -522,7 +558,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createCircleCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createCircleCommandSession, createArcCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()

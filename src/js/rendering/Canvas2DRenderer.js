@@ -19,7 +19,7 @@ class Canvas2DRenderer extends window.CaderactRenderer {
     context.fillRect(0, 0, scene.width, scene.height)
 
     const drawGroups = scene.drawGroups || scene.lineGroups.map(lineGroup => ({ lineGroup, circleGroup: null }))
-    for (const { lineGroup, circleGroup } of drawGroups) {
+    for (const { lineGroup, circleGroup, arcGroup } of drawGroups) {
       if (lineGroup.segments.length > 0) {
         context.beginPath()
         context.strokeStyle = lineGroup.color
@@ -37,6 +37,15 @@ class Canvas2DRenderer extends window.CaderactRenderer {
         for (const circle of circleGroup.circles) {
           context.moveTo(circle.center.x + circle.radius, circle.center.y)
           context.arc(circle.center.x, circle.center.y, circle.radius, 0, Math.PI * 2)
+        }
+        context.stroke()
+      }
+      if(arcGroup?.arcs.length>0){
+        context.beginPath();context.strokeStyle=arcGroup.color;context.lineWidth=arcGroup.lineWidth/scene.deviceScale
+        for(const arc of arcGroup.arcs){
+          const end=arc.startAngle+arc.sweep
+          context.moveTo(arc.center.x+Math.cos(arc.startAngle)*arc.radius,arc.center.y+Math.sin(arc.startAngle)*arc.radius)
+          context.arc(arc.center.x,arc.center.y,arc.radius,arc.startAngle,end,arc.sweep<0)
         }
         context.stroke()
       }

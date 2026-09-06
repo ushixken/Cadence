@@ -22,6 +22,12 @@
       id: record.id, type: record.type, layerId: record.layerId,
       center: { x: record.center?.x, y: record.center?.y }, radius: record.radius,
     }
+    if (record.type === "arc") return {
+      id: record.id, type: record.type, layerId: record.layerId,
+      center: { x: record.center?.x, y: record.center?.y }, radius: record.radius,
+      start: { x: record.start?.x, y: record.start?.y, featureId: record.start?.featureId },
+      end: { x: record.end?.x, y: record.end?.y, featureId: record.end?.featureId }, sweep: record.sweep,
+    }
     return { id: record.id, type: record.type }
   }
   function payloadFor(document) {
@@ -74,6 +80,12 @@
             rejectUnknown(item, fields.circle, "Circle record")
             if (!isRecord(item.center)) invalid("Circle center must be an object")
             rejectUnknown(item.center, fields.coordinate, "Circle center")
+          } else if (item.type === "arc") {
+            rejectUnknown(item, fields.arc, "Arc record")
+            if (!isRecord(item.center) || !isRecord(item.start) || !isRecord(item.end)) invalid("Arc center and endpoints must be objects")
+            rejectUnknown(item.center, fields.coordinate, "Arc center")
+            rejectUnknown(item.start, fields.endpoint, "Arc start")
+            rejectUnknown(item.end, fields.endpoint, "Arc end")
           } else invalid(`unsupported record type ${String(item.type)}`)
         }
         if (typeof item.id !== "string" || item.id.trim() === "") invalid(`${label} entry is missing an ID`)

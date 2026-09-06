@@ -39,6 +39,16 @@
         if ([center.x, center.y, radiusPx, distancePx].every(Number.isFinite) && distancePx <= tolerancePx) {
           hits.push({ recordId: record.id, distancePx })
         }
+      } else if (record?.type === "arc") {
+        const center=worldToScreen(record.center.x,record.center.y), start=worldToScreen(record.start.x,record.start.y)
+        const radiusPx=Math.hypot(start.x-center.x,start.y-center.y)
+        const distancePx=Math.abs(Math.hypot(screenPoint.x-center.x,screenPoint.y-center.y)-radiusPx)
+        const worldAngle=Math.atan2(-(screenPoint.y-center.y),screenPoint.x-center.x)
+        const startAngle=Math.atan2(record.start.y-record.center.y,record.start.x-record.center.x)
+        if ([center.x,center.y,radiusPx,distancePx,worldAngle,startAngle].every(Number.isFinite)
+            && distancePx<=tolerancePx && window.CaderactArcGeometry.angleOnSweep(worldAngle,startAngle,record.sweep)) {
+          hits.push({recordId:record.id,distancePx})
+        }
       }
     }
     hits.sort((a,b)=>a.distancePx-b.distancePx||a.recordId.localeCompare(b.recordId))

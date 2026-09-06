@@ -23,16 +23,18 @@
         if (!Number.isFinite(distancePx) || distancePx > tolerancePx) return
         candidates.push({ kind, point: freezePoint(point), distancePx, stableKey, reference })
       }
-      const ordered = Array.from(records).filter(record => record?.type === "line").sort((a, b) => a.id.localeCompare(b.id))
+      const ordered = Array.from(records).filter(record => record?.type === "line" || record?.type === "arc").sort((a, b) => a.id.localeCompare(b.id))
       for (const record of ordered) {
         for (const endpoint of [record.start, record.end].sort((a, b) => a.featureId.localeCompare(b.featureId))) {
           if (excluded.has(endpoint.featureId)) continue
           add("endpoint", endpoint, `endpoint:${record.id}:${endpoint.featureId}`,
             window.CaderactReferences.createEndpointReference(record.id, endpoint.featureId))
         }
-        const midpoint = { x: record.start.x + (record.end.x - record.start.x) / 2,
-          y: record.start.y + (record.end.y - record.start.y) / 2 }
-        add("midpoint", midpoint, `midpoint:${record.id}`)
+        if (record.type === "line") {
+          const midpoint = { x: record.start.x + (record.end.x - record.start.x) / 2,
+            y: record.start.y + (record.end.y - record.start.y) / 2 }
+          add("midpoint", midpoint, `midpoint:${record.id}`)
+        }
       }
       const commandCandidates = Array.from(transientCandidates)
       // Keep the D2 draftPoints input compatible while commands migrate to the

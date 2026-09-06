@@ -15,6 +15,7 @@
     line: fields(["id", "type", "layerId", "start", "end"]),
     endpoint: fields(["x", "y", "featureId"]),
     circle: fields(["id", "type", "layerId", "center", "radius"]),
+    arc: fields(["id", "type", "layerId", "center", "radius", "start", "end", "sweep"]),
     coordinate: fields(["x", "y"]),
   })
   function unknownFields(value, allowedFields) {
@@ -81,6 +82,27 @@
         point(record.center, "Circle center")
         closedShape(record.center, V1_FIELDS.coordinate, "Circle center")
         if (!Number.isFinite(record.radius) || record.radius <= 0) errors.push("Circle: radius must be finite and greater than zero")
+      } else if (record.type === "arc") {
+        closedShape(record, V1_FIELDS.arc, "Arc")
+        point(record.center, "Arc center"); point(record.start, "Arc start"); point(record.end, "Arc end")
+        closedShape(record.center, V1_FIELDS.coordinate, "Arc center")
+        closedShape(record.start, V1_FIELDS.endpoint, "Arc start")
+        closedShape(record.end, V1_FIELDS.endpoint, "Arc end")
+        identity(record.start?.featureId, "start feature"); identity(record.end?.featureId, "end feature")
+        if (!Number.isFinite(record.radius) || record.radius <= 0) errors.push("Arc: radius must be finite and greater than zero")
+        if (!Number.isFinite(record.sweep) || record.sweep === 0 || Math.abs(record.sweep) >= Math.PI*2) errors.push("Arc: sweep must be finite, non-zero, and less than one turn")
+        if (Number.isFinite(record.radius) && record.radius > 0 && isRecord(record.center)) {
+          for (const [role, endpoint] of [["start",record.start],["end",record.end]]) if (isRecord(endpoint)) {
+            const radialError=Math.abs(Math.hypot(endpoint.x-record.center.x,endpoint.y-record.center.y)-record.radius)
+            if (!Number.isFinite(radialError) || radialError > 1e-9*Math.max(1,record.radius)) errors.push(`Arc ${role}: endpoint is not on radius`)
+          }
+          if (isRecord(record.start) && isRecord(record.end) && Number.isFinite(record.sweep)) {
+            const startAngle=Math.atan2(record.start.y-record.center.y,record.start.x-record.center.x)
+            const expected={x:record.center.x+Math.cos(startAngle+record.sweep)*record.radius,
+              y:record.center.y+Math.sin(startAngle+record.sweep)*record.radius}
+            if (Math.hypot(expected.x-record.end.x,expected.y-record.end.y)>1e-9*Math.max(1,record.radius)) errors.push("Arc end: endpoint does not match sweep")
+          }
+        }
       } else errors.push("Unsupported object type")
     }
     return errors
@@ -117,7 +139,7 @@
       for (const layer of Object.values(candidate.layers)) allocated.add(layer.id)
       for (const record of Object.values(candidate.geometry.objects)) {
         allocated.add(record.id)
-        if (record.type === "line") {
+        if (record.type === "line" || record.type === "arc") {
           allocated.add(record.start.featureId)
           allocated.add(record.end.featureId)
         }
@@ -188,6 +210,13 @@
       createCircle(center, radius) {
         return freeze({ id: newId(), type: "circle", layerId: state.currentLayerId,
           center: { x: center?.x, y: center?.y }, radius,
+        })
+      },
+      createArc(geometry) {
+        return freeze({ id: newId(), type: "arc", layerId: state.currentLayerId,
+          center: { x: geometry.center?.x, y: geometry.center?.y }, radius: geometry.radius,
+          start: { x: geometry.start?.x, y: geometry.start?.y, featureId: newId() },
+          end: { x: geometry.end?.x, y: geometry.end?.y, featureId: newId() }, sweep: geometry.sweep,
         })
       },
       createAll(records) {
