@@ -18,7 +18,23 @@ Camera zoom is pixels per document unit. The minimum desired projected interval 
 
 The minor spacing is the smallest value greater than or equal to that requirement from `1, 2, 5 × 10^n`. There is no unit-specific branch: the resulting number is interpreted in the current authoritative document unit and is included as `scene.grid.unit`. Pan is deliberately absent from spacing selection.
 
-Thresholds are deterministic. For example, zoom values 28, 14, 7, and 2.8 pixels per unit select minor spacings 1, 2, 5, and 10 document units respectively.
+Thresholds are deterministic. For example, zoom values 28, 14, 7, and 2.8 pixels per unit select minor spacings 1, 2, 5, and 10 document units respectively. Comparisons within eight scaled machine epsilons of an exact threshold are treated as equal, preventing floating-point noise from selecting the adjacent level.
+
+## Minimum world interval
+
+The density rule has a separate world-space lower bound supplied by `CaderactGridPolicy.minimumGridSpacing(lengthUnit)`. Effective spacing is `max(densitySelectedSpacing, unitMinimum)`. The initial explicit policy is:
+
+| Unit | Minimum interval | Basis |
+| --- | ---: | --- |
+| mm | 1 mm | one-millimetre metric drafting resolution |
+| cm | 0.1 cm | the same one-millimetre metric resolution |
+| m | 0.001 m | the same one-millimetre metric resolution |
+| in | 1/16 in | conventional fractional imperial drafting resolution |
+| ft | 1/192 ft | the same 1/16-inch imperial resolution |
+
+The value is interpreted in the current A9 document unit; changing unit remains metadata-only and does not rescale geometry. The centralized immutable policy is intentionally replaceable by future visual-grid preferences without introducing settings UI now.
+
+Minimum world interval and minimum screen density solve opposite problems. Screen density selects coarser levels while zooming out. The world minimum stops progressively finer subdivision while zooming in. Once clamped, further zoom leaves the world lattice unchanged and increases its projected cell size. For millimetres, 500%, 1000%, 1400%, 2000%, 5000%, and 10000% select 10, 5, 2, 2, 1, and 1 mm respectively; zoom beyond 5000% therefore produces increasingly sparse cells.
 
 ## Major/minor and renderer-neutral contract
 
@@ -26,7 +42,13 @@ Every fifth minor interval is classified as major. Axes remain separate red/gree
 
 ## Bounds, anchoring, and numerical safety
 
-Visible world bounds come directly from the camera's screen-to-world transform and are clipped to the established grid extent. Generation starts at `ceil(minimum / spacing)` and ends at `floor(maximum / spacing)`; it does not walk from the origin through invisible coordinates. Integer grid indices provide stable positive/negative classification and world-origin anchoring.
+Visible world bounds come directly from the camera's screen-to-world transform and are clipped to the established grid extent. Generation covers `floor(minimum / spacing)` through `ceil(maximum / spacing)`, with near-integral ratios stabilized only within scaled machine epsilon. Each line is calculated independently as `index × spacing`; repeated addition, screen-space rounding, pan-derived origins, and previous-level offsets are absent. Integer indices provide stable positive/negative major classification and anchor every 1/2/5 level to world zero. Axes render index zero separately.
+
+Grid and axes retain their exact projected CSS coordinates in the renderer-neutral scene. DPR does not alter logical coordinates, and the D2 Grid marker uses the same exact projected lattice point. Any backend pixel treatment must preserve this shared logical center.
+
+D2 intentionally receives the effective visual-grid spacing, including the unit minimum. Grid Snap therefore cannot acquire a finer lattice after the visual grid clamps. Endpoint and Midpoint candidates are independent of this policy. Separate configurable visual and snap intervals remain deferred.
+
+The prior 1400% reproduction selects the expected 2 mm interval. Lines at world ±2 project exactly through the camera, and the Grid marker for `(2,2)` shares that projection. The minimum clamp is not active there, so the earlier offset was independently addressed by exact logical projection and origin-indexed generation rather than hidden by this enhancement.
 
 At most 512 candidates per axis are emitted. Invalid viewport dimensions produce no grid. Invalid zoom falls back safely, and spacing exponents are clamped to finite IEEE-754 ranges, keeping extreme zoom projections bounded and deterministic.
 
@@ -36,4 +58,4 @@ A clean saved state becomes dirty after a unit transaction. Undo restores the pr
 
 ## Deferred
 
-Physical-size-preserving conversion, Scale Drawing, coordinate parsing, typed suffixes, snapping, coordinate HUD/dynamic input, configurable grid spacing/settings, architectural formatting, fractions, and precision/tolerance UI remain deferred.
+Physical-size-preserving conversion, Scale Drawing, configurable grid spacing/settings, coordinate HUD/dynamic input, architectural formatting, fractions, and precision/tolerance UI remain deferred.

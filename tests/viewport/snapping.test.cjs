@@ -62,6 +62,20 @@ test('Grid marker uses exact projection and symmetric fixed screen-space hash ge
   }
 });
 
+test('Grid snap target and visible lattice stay coincident through adaptive spacing transitions',async()=>{
+  const b=await browser();
+  for(const [zoom,spacing] of [[2.8,10],[1.4,20],[.56,50],[.28,100]]){
+    b.run(`camera.zoom=${zoom};camera.panX=400.25;camera.panY=300.75`);
+    const raw={x:2*spacing+.1/zoom,y:-2*spacing+.1/zoom};b.window.__raw=raw;
+    b.run(`activeSnapResult=snapResolver.resolve({rawWorldPoint:window.__raw,worldToScreen,records:[],gridSpacing:${spacing},enabled:{grid:true}})`);
+    const scene=b.run('createScene()'),target={x:400.25+2*spacing*zoom,y:300.75+2*spacing*zoom};assert.equal(scene.grid.minorSpacing,spacing);
+    assert.deepEqual(b.read('activeSnapResult.point'),{x:2*spacing,y:-2*spacing});assert.equal(scene.snapOverlay.point.x,target.x);assert.equal(scene.snapOverlay.point.y,target.y);
+    const grid=[...scene.grid.minorSegments,...scene.grid.majorSegments];
+    assert.ok(grid.some((value,index)=>index%4===0&&value===target.x&&grid[index+2]===target.x));
+    assert.ok(grid.some((value,index)=>index%4===1&&value===target.y&&grid[index-1]!==grid[index+1]));
+  }
+});
+
 test('Grid Snap button toggles transient grid acquisition while endpoints, midpoints, and visual grid remain',async()=>{
   const b=await browser();typed(b,'Line');typed(b,'10,10');typed(b,'30,10');b.key('Enter',b.input);b.flush();
   const before=b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo,dirty:documentController.isDirty})');

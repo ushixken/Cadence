@@ -3,6 +3,21 @@
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
     const MAX_GRID_LINES_PER_AXIS = 512
+    const GRID_EPSILON_MULTIPLIER = 8
+
+    function nearlyEqual(a, b) {
+      return Math.abs(a - b) <= Number.EPSILON * GRID_EPSILON_MULTIPLIER * Math.max(1, Math.abs(a), Math.abs(b))
+    }
+
+    function stableFloor(value) {
+      const nearest = Math.round(value)
+      return nearlyEqual(value, nearest) ? nearest : Math.floor(value)
+    }
+
+    function stableCeil(value) {
+      const nearest = Math.round(value)
+      return nearlyEqual(value, nearest) ? nearest : Math.ceil(value)
+    }
 
     function getAdaptiveGridSpacing() {
       const zoom = camera.state.zoom
@@ -12,8 +27,12 @@
       if (required <= 0) return 1e-300
       const exponent = Math.max(-300, Math.min(300, Math.floor(Math.log10(required))))
       const magnitude = 10 ** exponent
-      for (const step of GRID_STEPS) if (step * magnitude >= required) return step * magnitude
-      return 10 * magnitude
+      let adaptiveSpacing = 10 * magnitude
+      for (const step of GRID_STEPS) {
+        const candidate = step * magnitude
+        if (candidate > required || nearlyEqual(candidate, required)) { adaptiveSpacing = candidate; break }
+      }
+      return Math.max(adaptiveSpacing, window.CaderactGridPolicy.minimumGridSpacing(getDocumentUnit()))
     }
 
     function addSegment(segments, x1, y1, x2, y2) {
@@ -49,7 +68,7 @@
       if (Number.isFinite(viewportWidth) && Number.isFinite(viewportHeight) && viewportWidth > 0 && viewportHeight > 0 &&
           Number.isFinite(spacing) && spacing > 0 && minX <= maxX && minY <= maxY) {
         function addVisibleLines(minimum, maximum, vertical) {
-          const first = Math.ceil(minimum / spacing), last = Math.floor(maximum / spacing)
+          const first = stableFloor(minimum / spacing), last = stableCeil(maximum / spacing)
           if (!Number.isFinite(first) || !Number.isFinite(last) || first > last) return
           const count = Math.min(last - first + 1, MAX_GRID_LINES_PER_AXIS)
           for (let offset = 0; offset < count; offset++) {

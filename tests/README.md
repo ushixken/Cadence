@@ -15,6 +15,7 @@ There was no package.json, npm script, installed test stack, or existing test su
 - `commands/files.test.cjs`: U3 pinned Save, atomic Open/New replacement, dirty guards, active-command safety, consumer rebinding, and file shortcuts.
 - `viewport/navigation.test.cjs`: real coordinate functions, pan, wheel/drag zoom anchors, navigation termination, resize and DPR through the real Canvas2D renderer.
 - `viewport/units-grid.test.cjs`: U4 authoritative footer units, history/session rebinding, adaptive 1/2/5 world grid, major/minor classification, anchoring, and extreme-zoom bounds.
+- `viewport/minimum-grid.test.cjs`: U4 per-unit minimum visual-grid policy, high-zoom clamping, sparse-cell growth, origin/DPR/navigation stability, Grid Snap coincidence, and the 1400% regression.
 - `viewport/snapping.test.cjs`: D2 endpoint/midpoint/grid resolution, A10 references, screen tolerance, ranking, exact symmetric marker projection, transient Grid Snap mode/button state, Line integration, and authoritative-state refresh.
 - `viewport/selection.test.cjs`: D3 projected Line hit testing, stable-ID selection rules, command arbitration, transient highlighting, and history/session reconciliation.
 - `viewport/interaction-visuals.test.cjs`: UX1 raw-pointer CAD crosshair lifecycle, independent snapped target ownership, navigation fallback, fixed CSS/DPR behavior, document replacement cleanup, and renderer-recovery singleton safety.

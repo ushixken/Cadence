@@ -121,6 +121,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/document/CaderactPersistence.js');
   load('src/js/editor/DocumentSession.js');
   load('src/js/viewport/ViewportCamera.js');
+  load('src/js/viewport/GridPolicy.js');
   load('src/js/viewport/ViewportScene.js');
   load('src/js/viewport/ViewportCanvas.js');
   load('src/js/viewport/ViewportNavigation.js');
