@@ -6,7 +6,7 @@ const viewportSettings = {
   initialZoom: 5, wheelZoomSensitivity: 0.0015, dragZoomSensitivity: 0.01,
   backgroundColor: "#182633", gridColor: "rgba(167, 175, 187, 0.28)",
   majorGridColor: "rgba(167, 175, 187, 0.45)", gridBoundaryColor: "rgba(167, 175, 187, 0.55)", xAxisColor: "#984b51",
-  yAxisColor: "#3b7658", geometryColor: "#e8edf4", previewColor: "rgba(232, 237, 244, 0.65)",
+  yAxisColor: "#3b7658", geometryColor: "#e8edf4", previewColor: "rgba(232, 237, 244, 0.65)", snapMarkerColor: "#f2cf72",
 }
 
 const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettings.initialZoom)
@@ -19,6 +19,8 @@ let viewportWidth = 0, viewportHeight = 0
 let renderer = null, isInitialized = false, isRenderScheduled = false
 let rendererStatus = "initializing", rendererError = null, recoveryPromise = null
 let navigation = null, resizeObserver = null
+let activeSnapResult = null
+const snapResolver = window.CaderactSnapResolver.createResolver()
 
 function getActiveCommandSession() {
   return window.caderactCommandRouter?.activeSession || null
@@ -49,6 +51,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getRecords: () => modelReader.records(),
   getDraftLines: () => getActiveCommandSession()?.getDraftLines?.() || [],
   getPreview: () => getActiveCommandSession()?.getPreview?.() || null,
+  getSnapResult: () => activeSnapResult,
 })
 
 function createScene() {
@@ -94,6 +97,7 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     if (draft.preview() !== null) { draft.clearPointer(); requestRender() }
   }
   function handleInput(input) {
+    clearSnap()
     const parsed = window.CaderactPointInput.parseAndResolve(input, {
       currentUnit: modelReader.units().length,
       anchor: draft.currentPoint,
@@ -115,6 +119,7 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     return Object.freeze({ status: "input-accepted", command: "Line", kind: "point", point, outcome })
   }
   function finish() {
+    clearSnap()
     const outcome = draft.finish()
     if (outcome.status !== "committed" && outcome.status !== "no-op") {
       updatePrompt("Line: Unable to commit; draft preserved")
@@ -125,10 +130,11 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     return Object.freeze({ status: "command-completed", command: "Line", outcome })
   }
   function cancel() {
-    draft.cancel(); requestRender()
+    clearSnap(); draft.cancel(); requestRender()
     return Object.freeze({ status: "command-cancelled", command: "Line" })
   }
   function stepUndo() {
+    clearSnap()
     const outcome = draft.stepUndo()
     if (outcome.status === "step-undone") updatePrompt("Line: Specify next point")
     requestRender()
@@ -165,6 +171,18 @@ function getRendererState() {
 }
 
 function refreshDocumentView() { requestRender() }
+
+function clearSnap() { activeSnapResult = null }
+
+function resolvePointerSnap(point) {
+  activeSnapResult = snapResolver.resolve({
+    rawWorldPoint: point,
+    worldToScreen,
+    records: modelReader.records(),
+    gridSpacing: sceneBuilder.getAdaptiveGridSpacing(),
+  })
+  return activeSnapResult
+}
 
 function resetForDocumentReplacement() {
   camera.zoom = viewportSettings.initialZoom
@@ -205,17 +223,20 @@ function onCommandPointerDown(event) {
   const session = getActiveCommandSession()
   if (event.button !== 0 || navigation.isActive() || !session?.handlePointerDown) return
   const point = getCanvasPoint(event)
-  session.handlePointerDown(screenToWorld(point.x, point.y))
+  const snap = resolvePointerSnap(screenToWorld(point.x, point.y))
+  session.handlePointerDown(snap.point)
 }
 
 function onCommandPointerMove(event) {
   const session = getActiveCommandSession()
   if (!session?.handlePointerMove || !session.draft?.hasFirstPoint || navigation.isActive()) return
   const point = getCanvasPoint(event)
-  session.handlePointerMove(screenToWorld(point.x, point.y))
+  const snap = resolvePointerSnap(screenToWorld(point.x, point.y))
+  session.handlePointerMove(snap.point)
 }
 
 function onCommandPointerLeave() {
+  clearSnap()
   getActiveCommandSession()?.handlePointerLeave?.()
 }
 

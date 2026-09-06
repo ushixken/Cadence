@@ -1,5 +1,5 @@
 (() => {
-  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview }) {
+  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview, getSnapResult = () => null }) {
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
     const MAX_GRID_LINES_PER_AXIS = 512
@@ -41,7 +41,7 @@
       const { width: viewportWidth, height: viewportHeight } = getViewportSize()
       const scale = window.devicePixelRatio || 1
       const extent = viewportSettings.gridExtent
-      const minorGrid = [], majorGrid = [], boundary = [], xAxis = [], yAxis = [], geometry = [], preview = []
+      const minorGrid = [], majorGrid = [], boundary = [], xAxis = [], yAxis = [], geometry = [], preview = [], snapMarker = []
       const topLeft = camera.screenToWorld(0, 0)
       const bottomRight = camera.screenToWorld(viewportWidth, viewportHeight)
       const minX = Math.max(-extent, topLeft.x), maxX = Math.min(extent, bottomRight.x)
@@ -115,6 +115,27 @@
         addSegment(preview, a.x, a.y, b.x, b.y)
       }
 
+      const snap = getSnapResult()
+      let snapOverlay = null
+      if (snap?.snapped && Number.isFinite(snap.point?.x) && Number.isFinite(snap.point?.y)) {
+        const center = camera.worldToScreen(snap.point.x, snap.point.y), size = 5
+        if (snap.kind === "endpoint") {
+          addSegment(snapMarker, center.x-size, center.y-size, center.x+size, center.y-size)
+          addSegment(snapMarker, center.x+size, center.y-size, center.x+size, center.y+size)
+          addSegment(snapMarker, center.x+size, center.y+size, center.x-size, center.y+size)
+          addSegment(snapMarker, center.x-size, center.y+size, center.x-size, center.y-size)
+        } else if (snap.kind === "midpoint") {
+          addSegment(snapMarker, center.x, center.y-size, center.x+size, center.y+size)
+          addSegment(snapMarker, center.x+size, center.y+size, center.x-size, center.y+size)
+          addSegment(snapMarker, center.x-size, center.y+size, center.x, center.y-size)
+        } else {
+          addSegment(snapMarker, center.x-size, center.y, center.x+size, center.y)
+          addSegment(snapMarker, center.x, center.y-size, center.x, center.y+size)
+        }
+        snapOverlay = Object.freeze({ kind: snap.kind, point: Object.freeze({ x: center.x, y: center.y }),
+          label: snap.kind[0].toUpperCase()+snap.kind.slice(1), segments: new Float32Array(snapMarker) })
+      }
+
       // The ordered groups are a renderer input, never authoritative geometry.
       const combinedMajorGrid = majorGrid.concat(boundary)
       return {
@@ -127,6 +148,7 @@
           minorSegments: new Float32Array(minorGrid), majorSegments: new Float32Array(majorGrid),
           boundarySegments: new Float32Array(boundary),
         }),
+        snapOverlay,
         lineGroups: [
           lineGroup(viewportSettings.gridColor, minorGrid),
           lineGroup(viewportSettings.majorGridColor || viewportSettings.gridBoundaryColor, combinedMajorGrid),
@@ -134,6 +156,7 @@
           lineGroup(viewportSettings.yAxisColor, yAxis),
           lineGroup(viewportSettings.geometryColor, geometry),
           lineGroup(viewportSettings.previewColor, preview),
+          lineGroup(viewportSettings.snapMarkerColor || viewportSettings.previewColor, snapMarker),
         ],
       }
     }
