@@ -7,7 +7,9 @@ for (const value of ['Line', 'l', 'L', '  LiNe  ', 'li']) for (const key of ['En
     const b = await browser(); let starts = 0;
     const start = b.window.caderactViewport.createLineCommandSession;
     b.window.caderactViewport.createLineCommandSession = () => { starts++; return start(); };
-    b.launch(value, key);
+    if (key === ' ') {
+      b.input.value=value;b.emit(b.input,'input');b.emit(b.canvas,'pointerenter');b.key(' ',b.input,{code:'Space'});b.emit(b.window,'keyup',{key:' ',code:'Space'});
+    } else b.launch(value, key);
     assert.equal(starts, 1); assert.equal(b.read('window.caderactCommandRouter.activeCommand'), 'Line');
     assert.equal(b.input.value, ''); assert.equal(b.suggestions.hidden, true);
   });
@@ -27,7 +29,7 @@ test('unknown command returns deterministic feedback without document mutation',
   const before = b.read('({document:modelReader.snapshot(),revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo})');
   b.launch('NotACommand');
   assert.deepEqual(b.read('window.caderactCommandRouter.lastResult'), { status: 'unknown-command', input: 'NotACommand' });
-  assert.equal(b.input.placeholder, 'Unknown command: NotACommand');
+  assert.equal(b.commandPrompt.children[0].textContent, 'Unknown command: NotACommand');
   assert.equal(b.read('window.caderactCommandRouter.activeCommand'), null);
   assert.deepEqual(b.read('({document:modelReader.snapshot(),revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo})'), before);
 });

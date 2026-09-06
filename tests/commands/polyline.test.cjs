@@ -11,7 +11,7 @@ function segments(b){return b.read('window.caderactCommandRouter.activeSession.d
 test('Polyline, Pline, and PL launch through the command registry',async()=>{
   for(const name of ['Polyline','Pline','PL','pl']){
     const b=await browser();b.launch(name);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polyline');
-    assert.equal(b.input.placeholder,'Polyline: Specify first point');
+    assert.equal(b.read('window.caderactFeedback.activePrompt'),'Polyline: Specify first point');
   }
 });
 
@@ -77,7 +77,7 @@ test('command Step Undo removes points locally and can return to first-point acq
   const b=await browser(),before=state(b);b.launch('Polyline');for(const value of ['1,2','4,5','8,9'])typed(b,value);
   b.key('z',b.canvas,{ctrlKey:true});assert.deepEqual(points(b),[{x:1,y:2},{x:4,y:5}]);
   b.key('z',b.canvas,{ctrlKey:true});assert.deepEqual(points(b),[{x:1,y:2}]);
-  b.key('z',b.canvas,{ctrlKey:true});assert.deepEqual(points(b),[]);assert.equal(b.input.placeholder,'Polyline: Specify first point');
+  b.key('z',b.canvas,{ctrlKey:true});assert.deepEqual(points(b),[]);assert.equal(b.read('window.caderactFeedback.activePrompt'),'Polyline: Specify first point');
   assert.deepEqual(state(b),before);
 });
 

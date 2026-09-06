@@ -3,20 +3,29 @@
   function createController({ setDisplay, setHistory, schedule = setTimeout, cancel = clearTimeout,
     feedbackDuration = 2000, historyDuration = 4000, historyLimit = 3 } = {}) {
     let activePrompt = "Type a command..."
+    let activePromptPresentation = null
+    let activeOptions = Object.freeze([])
     let feedbackTimer = null
     let nextEntryId = 1
     let history = []
 
-    function renderPrompt(message = activePrompt, kind = "prompt") { setDisplay?.(message, kind) }
+    function renderPrompt(message = activePrompt, kind = "prompt", options = activeOptions, presentation = activePromptPresentation) { setDisplay?.(message, kind, options, presentation) }
     function renderHistory() { setHistory?.(Object.freeze(history.map(entry => Object.freeze({ ...entry })))) }
-    function setActivePrompt(message) {
+    function setActivePrompt(message, options = [], presentation = null) {
       activePrompt = message || "Type a command..."
+      activePromptPresentation = presentation ? Object.freeze({ ...presentation }) : null
+      activeOptions = Object.freeze(Array.from(options, option => Object.freeze({ ...option })))
       if (feedbackTimer === null) renderPrompt()
     }
     function showTemporary(message, kind = "status") {
       if (!message) return
       if (feedbackTimer !== null) cancel(feedbackTimer)
-      renderPrompt(message, kind)
+      let instruction = message
+      const commandName = activePromptPresentation?.commandName
+      if (commandName && instruction.startsWith(`${commandName}: `)) instruction = instruction.slice(commandName.length + 2)
+      else if (commandName && instruction.startsWith(`${commandName} `)) instruction = instruction.slice(commandName.length + 1)
+      const presentation = activePromptPresentation ? Object.freeze({ ...activePromptPresentation, instruction }) : null
+      renderPrompt(message, kind, Object.freeze([]), presentation)
       feedbackTimer = schedule(() => { feedbackTimer = null; renderPrompt() }, feedbackDuration)
     }
     function addHistory(message, kind = "status") {
@@ -62,7 +71,7 @@
     }
     renderPrompt(); renderHistory()
     return Object.freeze({ setActivePrompt, showTemporary, addHistory, presentResult, clear,
-      get activePrompt() { return activePrompt }, get history() { return Object.freeze(history.map(({ timer, ...entry }) => Object.freeze(entry))) },
+      get activePrompt() { return activePrompt }, get activePromptPresentation() { return activePromptPresentation }, get activeOptions() { return activeOptions }, get history() { return Object.freeze(history.map(({ timer, ...entry }) => Object.freeze(entry))) },
     })
   }
   window.CaderactCommandFeedback = Object.freeze({ createController })

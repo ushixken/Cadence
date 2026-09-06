@@ -6,7 +6,7 @@ function createArc(b,p1='10,0',p2='0,10',p3='-10,0'){b.launch('Arc');typed(b,p1)
 function near(actual,expected,tolerance=1e-10){assert.ok(Math.abs(actual-expected)<=tolerance,`${actual} != ${expected}`)}
 
 test('Arc and A launch with three-point prompts and repeatable canonical metadata',async()=>{
-  for(const name of ['Arc','A','a']){const b=await browser();b.launch(name);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Arc');assert.equal(b.input.placeholder,'Arc: Specify start point');typed(b,'1,0');assert.equal(b.input.placeholder,'Arc: Specify second point');typed(b,'0,1');assert.equal(b.input.placeholder,'Arc: Specify end point');assert.equal(b.read('window.caderactCommandRouter.lastRepeatableCommand'),'Arc')}
+  for(const name of ['Arc','A','a']){const b=await browser();b.launch(name);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Arc');assert.equal(b.read('window.caderactFeedback.activePrompt'),'Arc: Specify start point');typed(b,'1,0');assert.equal(b.read('window.caderactFeedback.activePrompt'),'Arc: Specify second point');typed(b,'0,1');assert.equal(b.read('window.caderactFeedback.activePrompt'),'Arc: Specify end point');assert.equal(b.read('window.caderactCommandRouter.lastRepeatableCommand'),'Arc')}
 });
 
 test('pure three-point geometry derives minor, major, positive, and negative sweeps through P2',async()=>{

@@ -21,7 +21,7 @@ test('Line start, first point, and accepted draft segments do not mutate persist
   b.launch();
   assert.deepEqual(persistentState(b), before);
   b.point(400, 300);
-  assert.equal(b.input.placeholder, 'Line: Specify next point');
+  assert.equal(b.read('window.caderactFeedback.activePrompt'), 'Line: Specify next point');
   assert.deepEqual(persistentState(b), before);
   b.point(450, 300); b.point(450, 250); b.point(500, 250);
   assert.deepEqual(persistentState(b), before);

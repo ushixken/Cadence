@@ -24,7 +24,7 @@
       return () => listeners.delete(listener)
     }
     function showSessionPrompt() {
-      setPrompt(activeSession?.prompt || "Type a command...")
+      setPrompt(activeSession?.prompt || "Type a command...", activeSession?.promptPresentation || null)
     }
     function acceptSessionOutcome(session, outcome) {
       if (outcome.status === "command-completed" && activeSession === session) {
@@ -36,8 +36,8 @@
     function activate(definition) {
       if (activeSession) return publish(result("command-active", { command: activeSession.name }))
       let session
-      session = definition.activate({ setPrompt: message => {
-        if (activeSession === session) setPrompt(message)
+      session = definition.activate({ setPrompt: (message, presentation = null) => {
+        if (activeSession === session) setPrompt(message, presentation)
       } })
       if (!session || session.name !== definition.name || typeof session.finish !== "function" || typeof session.cancel !== "function") {
         return publish(result("invalid-input", { reason: "invalid-command-session", command: definition.name }))
@@ -88,6 +88,12 @@
       const session = activeSession
       return acceptSessionOutcome(session, session.handlePointerDown(point, context))
     }
+    function activateOption(optionId) {
+      if (!activeSession) return publish(result("option-unavailable", { reason: "no-active-command", optionId }))
+      if (typeof activeSession.handleOption !== "function") return publish(result("option-unavailable", { reason: "unsupported-option", optionId, command: activeSession.name }))
+      const session = activeSession
+      return acceptSessionOutcome(session, session.handleOption(optionId))
+    }
     function repeatLastCommand() {
       if (activeSession) return publish(result("repeat-unavailable", { reason: "active-command", command: activeSession.name }))
       if (!lastRepeatableCommand) return publish(result("repeat-unavailable", { reason: "no-repeatable-command" }))
@@ -97,10 +103,11 @@
     }
 
     return Object.freeze({
-      execute, activate, finishActive, cancelActive, submitActiveInput, submitActivePointer, repeatLastCommand, subscribe,
+      execute, activate, finishActive, cancelActive, submitActiveInput, submitActivePointer, activateOption, repeatLastCommand, subscribe,
       get activeSession() { return activeSession },
       get activeCommand() { return activeSession?.name || null },
       get currentPrompt() { return activeSession?.prompt || "Type a command..." },
+      get currentPromptPresentation() { return activeSession?.promptPresentation || null },
       get lastResult() { return lastResult },
       get lastRepeatableCommand() { return lastRepeatableCommand },
       get isActive() { return activeSession !== null },

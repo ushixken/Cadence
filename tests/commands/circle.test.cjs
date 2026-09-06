@@ -9,7 +9,7 @@ function state(b){return b.read('({document:modelReader.snapshot(),revision:docu
 test('Circle and C launch with exact center/radius prompt progression',async()=>{
   for(const name of ['Circle','C','c']){
     const b=await browser();b.launch(name);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Circle');
-    assert.equal(b.input.placeholder,'Circle: Specify center point');typed(b,'3,4');assert.equal(b.input.placeholder,'Circle: Specify radius point');
+    assert.equal(b.read('window.caderactFeedback.activePrompt'),'Circle: Specify center point');typed(b,'3,4');assert.equal(b.read('window.caderactFeedback.activePrompt'),'Circle: Specify radius point');
   }
 });
 

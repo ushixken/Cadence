@@ -111,12 +111,41 @@ canvas.is-navigating {
 }
 
 .command-area {
+  flex: 1 1 auto;
+  min-width: 240px;
   gap: 10px;
 }
 
+.footer-tools,
+.footer-actions { flex: 0 0 auto; }
+
 .command-input-wrap {
+  display: flex;
+  align-items: center;
   position: relative;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 200px;
+  background-color: #172738;
+  border: 1px solid #20364a;
+  border-radius: 0.35rem;
 }
+
+.command-input-wrap:focus-within { border-color: var(--activeText); }
+.command-name { flex:none; padding-left:11px; color:var(--mainText); font-size:10px; white-space:nowrap; }
+.command-name:empty { display:none; }
+.command-input-area { position:relative; flex:1 1 auto; min-width:0; }
+.command-prompt { display:flex; position:absolute; z-index:2; inset:0; align-items:center; gap:5px; min-width:0; padding:0 11px 0 5px; overflow:hidden; color:var(--secondaryText); font-size:10px; white-space:nowrap; pointer-events:none; }
+.command-prompt:empty { display:none; }
+.command-input-wrap.has-typed-input .command-prompt-instruction,
+.command-input-wrap.has-typed-input .command-option { display:none; }
+.command-prompt-text { overflow:hidden; text-overflow:ellipsis; }
+.command-prompt-instruction { min-width:0; overflow:hidden; color:var(--secondaryText); text-overflow:ellipsis; }
+.command-prompt.is-error { color:#e2767c; }
+.command-option { appearance:none; flex:none; border:0; border-bottom:1px solid #6687a6; padding:0 1px; background:transparent; color:#9dc8ef; font:inherit; cursor:pointer; pointer-events:auto; }
+.command-option:hover:not(:disabled) { color:var(--mainText); border-color:var(--activeText); }
+.command-option:focus-visible { outline:1px solid #69a9e6; outline-offset:2px; }
+.command-option:disabled { color:#687786; border-color:transparent; cursor:default; }
 
 .command-label {
   color: var(--mainText);
@@ -124,23 +153,24 @@ canvas.is-navigating {
 }
 
 .command-input {
-  width: min(325px, 28vw);
-  padding: 9px 11px;
-  color: #738398;
-  background-color: #172738;
-  border: 1px solid #20364a;
-  border-radius: 0.35rem;
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  width: auto;
+  min-width: 0;
+  padding: 9px 11px 9px 5px;
+  color: var(--mainText);
+  background: transparent;
+  border: 0;
   font: inherit;
   outline: none;
 }
 
-.command-input:focus {
-  color: var(--mainText);
-  border-color: var(--activeText);
-}
+.command-input::placeholder { color:var(--secondaryText); opacity:1; }
 
 .command-input.has-active-command::placeholder {
-  color: var(--mainText);
+  color: var(--secondaryText);
   opacity: 1;
 }
 
@@ -423,9 +453,8 @@ canvas.is-navigating {
     padding: 0 8px;
   }
 
-  .command-input {
-    width: 150px;
-  }
+  .command-area { min-width: 180px; }
+  .command-input-wrap { min-width: 140px; }
 
   .footer-tool:nth-child(n + 3),
   .snap-control,

@@ -12,7 +12,7 @@ test('Rectangle and Rect launch through the registry with the two-corner prompt'
   for(const name of ['Rectangle','Rect']){
     const b=await browser();b.launch(name);
     assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Rectangle');
-    assert.equal(b.input.placeholder,'Rectangle: Specify first corner');
+    assert.equal(b.read('window.caderactFeedback.activePrompt'),'Rectangle: Specify first corner');
   }
 });
 

@@ -65,9 +65,17 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const unitOptions = ['mm','cm','m','in','ft'].map(unit => { const option=new Element('button'); option.dataset.unit=unit; return option; });
   const layersList = new Element(); const layerCreateButton = new Element('button');
   const gridSnapButton = new Element('button'); gridSnapButton.classList.add('footer-tool', 'is-active'); gridSnapButton.setAttribute('aria-pressed', 'true');
-  const suggestions = new Element();
+  const commandArea = new Element(); const commandWrap = new Element();
+  commandArea.classList.add('command-area'); commandWrap.classList.add('command-input-wrap');
+  commandArea.parent=document; commandArea.owner=document; commandWrap.parent=commandArea; commandWrap.owner=document;
+  const commandName = new Element('span'); const commandInputArea = new Element();
+  commandName.classList.add('command-name'); commandInputArea.classList.add('command-input-area');
+  commandName.parent=commandWrap; commandInputArea.parent=commandWrap; commandName.owner=document; commandInputArea.owner=document;
+  const suggestions = new Element(); const commandPrompt = new Element();
   const commandHistory = new Element();
-  for (const el of [input, suggestions, commandHistory, undoButton, redoButton, fileMenu, editMenuTrigger]) { el.parent = document; el.owner = document; }
+  commandHistory.parent=commandWrap;commandHistory.owner=document;
+  for (const el of [input, suggestions, commandPrompt]) { el.parent = commandInputArea; el.owner = document; }
+  for (const el of [undoButton, redoButton, fileMenu, editMenuTrigger]) { el.parent = document; el.owner = document; }
   fileMenuTrigger.parent = fileMenu; fileMenuDropdown.parent = fileMenu;
   for (const el of [fileNewButton, fileOpenButton, fileSaveButton]) el.parent = fileMenuDropdown;
   for (const el of [fileMenuTrigger, fileMenuDropdown, fileNewButton, fileOpenButton, fileSaveButton]) el.owner = document;
@@ -94,7 +102,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
     };
   }
   canvas._configure = configureCanvas; canvas._replace = replacement => { canvas = replacement; }; configureCanvas(canvas);
-  document.querySelector = selector => ({ canvas, '.viewport': viewportHost, '#grid-snap-toggle': gridSnapButton, '#command-input': input, '#command-suggestions': suggestions, '#command-history': commandHistory, '#undo-button': undoButton, '#redo-button': redoButton, '#file-new': fileNewButton, '#file-open': fileOpenButton, '#file-save': fileSaveButton, '.file-menu': fileMenu, '.file-menu-trigger': fileMenuTrigger, '#file-menu-actions': fileMenuDropdown, '.snap-trigger': snapTrigger, '.snap-menu': snapMenu, '#snap-enabled': snapEnabled, '.snap-dependent': snapDependent, '.units-control': unitsTrigger, '.units-menu': unitsMenu, '[data-unit-value]': unitValue, '#layers-list': layersList, '#layer-create': layerCreateButton })[selector];
+  document.querySelector = selector => ({ canvas, '.viewport': viewportHost, '#grid-snap-toggle': gridSnapButton, '#command-input': input, '#command-suggestions': suggestions, '#command-history': commandHistory, '#command-prompt': commandPrompt, '#command-name': commandName, '#undo-button': undoButton, '#redo-button': redoButton, '#file-new': fileNewButton, '#file-open': fileOpenButton, '#file-save': fileSaveButton, '.file-menu': fileMenu, '.file-menu-trigger': fileMenuTrigger, '#file-menu-actions': fileMenuDropdown, '.snap-trigger': snapTrigger, '.snap-menu': snapMenu, '#snap-enabled': snapEnabled, '.snap-dependent': snapDependent, '.units-control': unitsTrigger, '.units-menu': unitsMenu, '[data-unit-value]': unitValue, '#layers-list': layersList, '#layer-create': layerCreateButton })[selector];
   document.querySelectorAll = selector => ({ '.menu-items > li > button':[fileMenuTrigger,editMenuTrigger], '.snap-dependent input':[], '.footer-tool':[gridSnapButton], '.unit-option':unitOptions })[selector] || [];
   document.createElement = tag => { const element = new Element(tag); element.owner = document; return element; };
   window.devicePixelRatio = 1;
@@ -156,7 +164,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
       defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...props };
     target.dispatchEvent(event); return event;
   };
-  return { window, document, viewportHost, gridSnapButton, get canvas() { return canvas; }, input, suggestions, commandHistory, undoButton, redoButton, fileNewButton, fileOpenButton, fileSaveButton, fileMenu, fileMenuTrigger, fileMenuDropdown, editMenuTrigger, unitsTrigger, unitsMenu, unitValue, unitOptions, layersList, layerCreateButton, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
+  return { window, document, viewportHost, gridSnapButton, get canvas() { return canvas; }, input, suggestions, commandHistory, commandPrompt, undoButton, redoButton, fileNewButton, fileOpenButton, fileSaveButton, fileMenu, fileMenuTrigger, fileMenuDropdown, editMenuTrigger, unitsTrigger, unitsMenu, unitValue, unitOptions, layersList, layerCreateButton, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
     advance(milliseconds) { clock += milliseconds; let ran; do { ran = false; for (const [id,timer] of [...timers].sort((a,b)=>a[1].at-b[1].at)) if (timer.at <= clock) { timers.delete(id); timer.fn(); ran = true; } } while (ran); },
     flushOne() { const frame = frames.shift(); if (frame) frame(); return Boolean(frame); },
     flush() { while (frames.length) frames.shift()(); },

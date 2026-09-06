@@ -104,17 +104,21 @@ function requestRender() {
   })
 }
 
+function createCommandPrompt(commandName, instruction) {
+  return Object.freeze({ commandName, instruction, text: `${commandName}: ${instruction}` })
+}
+
 function createLineCommandSession({ setPrompt = () => {} } = {}) {
   const draft = window.CaderactLineDraftSession.createSession({
     createSegment: recordGateway.createLine,
     commitSegments: recordGateway.createAll,
   })
-  let prompt = "Line: Specify first point"
-  function updatePrompt(message) { prompt = message; setPrompt(message) }
+  let promptPresentation = createCommandPrompt("Line", "Specify first point")
+  function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Line", instruction); setPrompt(promptPresentation.text, promptPresentation) }
 
   function handlePointerDown(point) {
     const outcome = draft.acceptPoint(point)
-    if (outcome.status === "first-point") updatePrompt("Line: Specify next point")
+    if (outcome.status === "first-point") updatePrompt("Specify next point")
     requestRender()
     return outcome
   }
@@ -140,7 +144,7 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     }
     const point = Object.freeze({ x: parsed.x, y: parsed.y })
     const outcome = draft.acceptPoint(point)
-    if (outcome.status === "first-point") updatePrompt("Line: Specify next point")
+    if (outcome.status === "first-point") updatePrompt("Specify next point")
     requestRender()
     return Object.freeze({ status: "input-accepted", command: "Line", kind: "point", point, outcome })
   }
@@ -148,7 +152,7 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     clearSnap()
     const outcome = draft.finish()
     if (outcome.status !== "committed" && outcome.status !== "no-op") {
-      updatePrompt("Line: Unable to commit; draft preserved")
+      updatePrompt("Unable to commit; draft preserved")
       requestRender()
       return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Line", outcome })
     }
@@ -162,7 +166,7 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
   function stepUndo() {
     clearSnap()
     const outcome = draft.stepUndo()
-    if (outcome.status === "step-undone") updatePrompt("Line: Specify next point")
+    if (outcome.status === "step-undone") updatePrompt("Specify next point")
     requestRender()
     return outcome
   }
@@ -182,7 +186,7 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     getDraftLines: draft.draftSegments, getPreview: draft.preview, getPreviewLines,
     getDraftPoints: draft.acceptedPoints,
     getSnapCandidates, hasPointerPreview,
-    get prompt() { return prompt },
+    get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
 }
 
@@ -191,12 +195,12 @@ function createCircleCommandSession({ setPrompt = () => {} } = {}) {
     createCircle: recordGateway.createCircle,
     commitRecords: recordGateway.createAll,
   })
-  let prompt = "Circle: Specify center point"
-  function updatePrompt(message) { prompt = message; setPrompt(message) }
+  let promptPresentation = createCommandPrompt("Circle", "Specify center point")
+  function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Circle", instruction); setPrompt(promptPresentation.text, promptPresentation) }
   function presentOutcome(outcome, point = null) {
     requestRender()
     if (outcome.status === "center-accepted") {
-      updatePrompt("Circle: Specify radius point")
+      updatePrompt("Specify radius point")
       return Object.freeze({ status: "input-accepted", command: "Circle", kind: "point", point, outcome })
     }
     if (outcome.status === "circle-committed") {
@@ -204,11 +208,11 @@ function createCircleCommandSession({ setPrompt = () => {} } = {}) {
       return Object.freeze({ status: "command-completed", command: "Circle", outcome })
     }
     if (outcome.status === "zero-radius") {
-      updatePrompt("Circle: Radius point must differ from center")
+      updatePrompt("Radius point must differ from center")
       return Object.freeze({ status: "invalid-input", reason: "zero-radius", command: "Circle",
         message: "Circle radius must be greater than zero", outcome })
     }
-    updatePrompt("Circle: Unable to commit; draft preserved")
+    updatePrompt("Unable to commit; draft preserved")
     return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Circle", outcome })
   }
   function handlePointerDown(point) { return presentOutcome(draft.acceptPoint(point), point) }
@@ -251,24 +255,24 @@ function createCircleCommandSession({ setPrompt = () => {} } = {}) {
     name: "Circle", draft, finish, cancel, handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
     getCirclePreview: draft.preview, getDraftPoints: draft.acceptedPoints, getSnapCandidates,
     hasPointerPreview: () => draft.hasCenter,
-    get prompt() { return prompt },
+    get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
 }
 
 function createArcCommandSession({setPrompt=()=>{}}={}){
   const draft=window.CaderactArcDraftSession.createSession({createArc:recordGateway.createArc,commitRecords:recordGateway.createAll})
-  let prompt="Arc: Specify start point"
-  function updatePrompt(message){prompt=message;setPrompt(message)}
+  let promptPresentation=createCommandPrompt("Arc","Specify start point")
+  function updatePrompt(instruction){promptPresentation=createCommandPrompt("Arc",instruction);setPrompt(promptPresentation.text,promptPresentation)}
   function presentOutcome(outcome,point=null){
     requestRender()
-    if(outcome.status==="start-accepted"){updatePrompt("Arc: Specify second point");return Object.freeze({status:"input-accepted",command:"Arc",kind:"point",point,outcome})}
-    if(outcome.status==="second-accepted"){updatePrompt("Arc: Specify end point");return Object.freeze({status:"input-accepted",command:"Arc",kind:"point",point,outcome})}
+    if(outcome.status==="start-accepted"){updatePrompt("Specify second point");return Object.freeze({status:"input-accepted",command:"Arc",kind:"point",point,outcome})}
+    if(outcome.status==="second-accepted"){updatePrompt("Specify end point");return Object.freeze({status:"input-accepted",command:"Arc",kind:"point",point,outcome})}
     if(outcome.status==="arc-committed"){clearSnap();return Object.freeze({status:"command-completed",command:"Arc",outcome})}
     if(outcome.status==="repeated-point"||outcome.status==="invalid-arc"){
-      updatePrompt(outcome.status==="repeated-point"?"Arc: Second point must differ from start":"Arc: End point must form a stable non-collinear arc")
+      updatePrompt(outcome.status==="repeated-point"?"Second point must differ from start":"End point must form a stable non-collinear arc")
       return Object.freeze({status:"invalid-input",reason:outcome.reason||outcome.status,command:"Arc",message:"Arc requires three distinct, non-collinear points",outcome})
     }
-    updatePrompt("Arc: Unable to commit; draft preserved")
+    updatePrompt("Unable to commit; draft preserved")
     return Object.freeze({status:"invalid-input",reason:"commit-failed",command:"Arc",outcome})
   }
   function handlePointerDown(point){return presentOutcome(draft.acceptPoint(point),point)}
@@ -287,19 +291,20 @@ function createArcCommandSession({setPrompt=()=>{}}={}){
   requestRender()
   return Object.freeze({name:"Arc",draft,finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,
     getArcPreview:draft.preview,getDraftPoints:draft.acceptedPoints,getSnapCandidates,hasPointerPreview:()=>draft.hasFirstPoint,
-    get prompt(){return prompt}})
+    get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
 function createPolygonCommandSession({setPrompt=()=>{}}={}){
   const draft=window.CaderactPolygonDraftSession.createSession({createSegment:recordGateway.createLine,commitSegments:recordGateway.createAll})
-  let prompt="Polygon: Enter number of sides <4>"
-  function updatePrompt(message){prompt=message;setPrompt(message)}
+  let editingSides=true
+  let promptPresentation=createCommandPrompt("Polygon","Enter number of sides <4>")
+  function updatePrompt(instruction){promptPresentation=createCommandPrompt("Polygon",instruction);setPrompt(promptPresentation.text,promptPresentation)}
   function presentPoint(outcome,point=null){
     requestRender()
-    if(outcome.status==="center-accepted"){updatePrompt("Polygon: Specify radius point");return Object.freeze({status:"input-accepted",command:"Polygon",kind:"point",point,outcome})}
+    if(outcome.status==="center-accepted"){updatePrompt("Specify radius point");return Object.freeze({status:"input-accepted",command:"Polygon",kind:"point",point,outcome})}
     if(outcome.status==="polygon-committed"){clearSnap();return Object.freeze({status:"command-completed",command:"Polygon",outcome})}
-    if(outcome.status==="zero-radius"){updatePrompt("Polygon: Radius point must differ from center");return Object.freeze({status:"invalid-input",reason:"zero-radius",command:"Polygon",message:"Polygon radius must be greater than zero",outcome})}
-    if(outcome.status==="commit-failed"){updatePrompt("Polygon: Unable to commit; draft preserved");return Object.freeze({status:"invalid-input",reason:"commit-failed",command:"Polygon",outcome})}
+    if(outcome.status==="zero-radius"){updatePrompt("Radius point must differ from center");return Object.freeze({status:"invalid-input",reason:"zero-radius",command:"Polygon",message:"Polygon radius must be greater than zero",outcome})}
+    if(outcome.status==="commit-failed"){updatePrompt("Unable to commit; draft preserved");return Object.freeze({status:"invalid-input",reason:"commit-failed",command:"Polygon",outcome})}
     return Object.freeze({status:"invalid-input",reason:"side-count-required",command:"Polygon",message:"Enter the number of sides first",outcome})
   }
   function handlePointerDown(point){return presentPoint(draft.acceptPoint(point),point)}
@@ -307,11 +312,14 @@ function createPolygonCommandSession({setPrompt=()=>{}}={}){
   function handlePointerLeave(){draft.clearPointer();clearSnap();requestRender()}
   function handleInput(input){
     clearSnap()
-    if(!draft.hasSideCount){
-      const parsed=draft.acceptSideCount(input)
-      if(!parsed.valid){updatePrompt("Polygon: Enter an integer number of sides from 3 to 1024 <4>");return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Polygon",message:"Polygon side count must be an integer from 3 to 1024"})}
-      updatePrompt("Polygon: Specify center of polygon");requestRender()
-      return Object.freeze({status:"input-accepted",command:"Polygon",kind:"option",sideCount:parsed.value,usedDefault:parsed.usedDefault})
+    if(editingSides){
+      const retainedDefault=draft.sideCount??window.CaderactPolygonGeometry.DEFAULT_SIDES
+      const usedDefault=String(input??"").trim()===""
+      const parsed=draft.acceptSideCount(usedDefault?String(retainedDefault):input)
+      if(!parsed.valid)return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Polygon",message:"Polygon side count must be an integer from 3 to 1024"})
+      editingSides=false
+      updatePrompt(draft.hasCenter?"Specify radius point":"Specify center of polygon");requestRender()
+      return Object.freeze({status:"input-accepted",command:"Polygon",kind:"option",sideCount:parsed.value,usedDefault})
     }
     const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor:draft.center})
     if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Polygon",message:"Enter a point as x,y"})
@@ -321,10 +329,16 @@ function createPolygonCommandSession({setPrompt=()=>{}}={}){
   function cancel(){clearSnap();draft.cancel();requestRender();return Object.freeze({status:"command-cancelled",command:"Polygon"})}
   function getSnapCandidates(){return draft.acceptedPoints().map((point,index)=>Object.freeze({kind:"draft-point",point,
     stableKey:`polygon-draft:${index}`,reference:Object.freeze({kind:"draft-point",index})}))}
+  function handleOption(optionId){
+    if(optionId!=="numSides")return Object.freeze({status:"option-unavailable",reason:"unknown-option",command:"Polygon",optionId})
+    editingSides=true;clearSnap();updatePrompt(`Enter number of sides <${draft.sideCount}>`)
+    return Object.freeze({status:"option-activated",command:"Polygon",optionId})
+  }
+  function options(){return !editingSides&&draft.hasSideCount?Object.freeze([Object.freeze({id:"numSides",label:"NumSides",value:String(draft.sideCount),enabled:true})]):Object.freeze([])}
   requestRender()
-  return Object.freeze({name:"Polygon",draft,finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,
+  return Object.freeze({name:"Polygon",draft,finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,handleOption,
     getPreviewLines:draft.previewEdges,getDraftPoints:draft.acceptedPoints,getSnapCandidates,hasPointerPreview:()=>draft.hasCenter,
-    get acceptsEmptyInput(){return !draft.hasSideCount},get prompt(){return prompt}})
+    get acceptsEmptyInput(){return editingSides},get options(){return options()},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
 function createRectangleCommandSession({ setPrompt = () => {} } = {}) {
@@ -332,12 +346,12 @@ function createRectangleCommandSession({ setPrompt = () => {} } = {}) {
     createSegment: recordGateway.createLine,
     commitSegments: recordGateway.createAll,
   })
-  let prompt = "Rectangle: Specify first corner"
-  function updatePrompt(message) { prompt = message; setPrompt(message) }
+  let promptPresentation = createCommandPrompt("Rectangle", "Specify first corner")
+  function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Rectangle", instruction); setPrompt(promptPresentation.text, promptPresentation) }
   function presentOutcome(outcome) {
     requestRender()
     if (outcome.status === "first-corner") {
-      updatePrompt("Rectangle: Specify opposite corner")
+      updatePrompt("Specify opposite corner")
       return Object.freeze({ status: "input-accepted", command: "Rectangle", kind: "point", outcome })
     }
     if (outcome.status === "rectangle-committed") {
@@ -345,11 +359,11 @@ function createRectangleCommandSession({ setPrompt = () => {} } = {}) {
       return Object.freeze({ status: "command-completed", command: "Rectangle", outcome })
     }
     if (outcome.status === "degenerate-rectangle") {
-      updatePrompt("Rectangle: Opposite corner must change both X and Y")
+      updatePrompt("Opposite corner must change both X and Y")
       return Object.freeze({ status: "invalid-input", reason: "degenerate-rectangle", command: "Rectangle",
         message: "Rectangle requires non-zero width and height", outcome })
     }
-    updatePrompt("Rectangle: Unable to commit; draft preserved")
+    updatePrompt("Unable to commit; draft preserved")
     return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Rectangle", outcome })
   }
   function handlePointerDown(point) { return presentOutcome(draft.acceptPoint(point)) }
@@ -392,7 +406,7 @@ function createRectangleCommandSession({ setPrompt = () => {} } = {}) {
     name: "Rectangle", draft, finish, cancel, handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
     getPreviewLines: draft.previewEdges, getDraftPoints: draft.acceptedPoints, getSnapCandidates,
     hasPointerPreview: () => draft.hasFirstCorner,
-    get prompt() { return prompt },
+    get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
 }
 
@@ -401,15 +415,15 @@ function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
     createSegment: recordGateway.createLine,
     commitSegments: recordGateway.createAll,
   })
-  let prompt = "Polyline: Specify first point"
-  function updatePrompt(message) { prompt = message; setPrompt(message) }
+  let promptPresentation = createCommandPrompt("Polyline", "Specify first point")
+  function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Polyline", instruction); setPrompt(promptPresentation.text, promptPresentation) }
   function presentPointOutcome(outcome, point = null) {
     requestRender()
     if (outcome.status === "first-point" || outcome.status === "segment-added") {
-      updatePrompt("Polyline: Specify next point or Close")
+      updatePrompt("Specify next point or Close")
       return Object.freeze({ status: "input-accepted", command: "Polyline", kind: "point", point, outcome })
     }
-    updatePrompt("Polyline: Next point must differ from the current point")
+    updatePrompt("Next point must differ from the current point")
     return Object.freeze({ status: "invalid-input", reason: "repeated-point", command: "Polyline",
       message: "Polyline cannot create a zero-length segment", outcome })
   }
@@ -420,11 +434,11 @@ function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
       return Object.freeze({ status: "command-completed", command: "Polyline", outcome })
     }
     if (outcome.status === "close-unavailable") {
-      updatePrompt("Polyline: Close requires at least one segment")
+      updatePrompt("Close requires at least one segment")
       return Object.freeze({ status: "invalid-input", reason: "close-unavailable", command: "Polyline",
         message: "Close requires at least two accepted points", outcome })
     }
-    updatePrompt("Polyline: Unable to commit; draft preserved")
+    updatePrompt("Unable to commit; draft preserved")
     return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Polyline", outcome })
   }
   function handlePointerDown(point) { return presentPointOutcome(draft.acceptPoint(point), point) }
@@ -457,7 +471,7 @@ function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
   function stepUndo() {
     clearSnap()
     const outcome = draft.stepUndo()
-    updatePrompt(draft.hasFirstPoint ? "Polyline: Specify next point or Close" : "Polyline: Specify first point")
+    updatePrompt(draft.hasFirstPoint ? "Specify next point or Close" : "Specify first point")
     requestRender()
     return outcome
   }
@@ -473,7 +487,7 @@ function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
     name: "Polyline", draft, finish, cancel, stepUndo, handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
     getDraftLines: draft.draftSegments, getPreview: draft.preview, getPreviewLines,
     getDraftPoints: draft.acceptedPoints, getSnapCandidates, hasPointerPreview: () => draft.hasFirstPoint,
-    get prompt() { return prompt },
+    get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
 }
 
@@ -755,9 +769,12 @@ function bindCanvas(nextCanvas) {
   navigation = window.CaderactViewportNavigation.bindViewportNavigation({
     canvas, camera: viewportCamera, viewportSettings, getCanvasPoint, requestRender,
     onStateChange: state => interactionVisuals.setNavigating(state.navigationMode !== null || state.isSpacePressed),
+    isSpaceEditableTarget: target => target === document.querySelector("#command-input") &&
+      !window.caderactCommandRouter?.isActive && target.value.trim() !== "",
     onSpaceTap: () => {
       const router = window.caderactCommandRouter
-      if (router && !router.isActive) router.repeatLastCommand()
+      if (!router || router.isActive) return
+      if (!window.caderactCommandInput?.acceptIdleCommandSuggestion()) router.repeatLastCommand()
     },
   })
   canvas.addEventListener("pointerdown", onViewportPointerDown)

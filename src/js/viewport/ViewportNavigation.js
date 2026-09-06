@@ -1,7 +1,7 @@
 (() => {
   const SPACE_HOLD_THRESHOLD_MS = 220
 
-  function bindViewportNavigation({ canvas, camera, viewportSettings, getCanvasPoint, requestRender, onStateChange = () => {}, onSpaceTap = () => {} }) {
+  function bindViewportNavigation({ canvas, camera, viewportSettings, getCanvasPoint, requestRender, onStateChange = () => {}, onSpaceTap = () => {}, isSpaceEditableTarget = () => false }) {
     let isSpacePressed = false
     let spaceInteraction = null
     let navigationMode = null
@@ -78,7 +78,8 @@
     const onPointerLeave = () => canvas.classList.remove("is-hovered")
 
     function onKeyDown(event) {
-      if (event.code !== "Space" || !canvas.classList.contains("is-hovered") || event.defaultPrevented || isEditable(event.target)) return
+      if (event.code !== "Space" || !canvas.classList.contains("is-hovered") || event.defaultPrevented ||
+          (isEditable(event.target) && !isSpaceEditableTarget(event.target))) return
       if (event.repeat) { event.preventDefault(); return }
       if (isSpacePressed) { event.preventDefault(); return }
       isSpacePressed = true
@@ -101,8 +102,7 @@
       spaceInteraction = null
       canvas.classList.remove("is-navigation-ready")
       stopNavigation()
-      if (interaction && !interaction.consumed && !interaction.held && !interaction.modified &&
-          !event.defaultPrevented && !isEditable(event.target)) onSpaceTap(event)
+      if (interaction && !interaction.consumed && !interaction.held && !interaction.modified && !event.defaultPrevented) onSpaceTap(event)
       event.preventDefault()
     }
 

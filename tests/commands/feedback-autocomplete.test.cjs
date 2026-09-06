@@ -1,6 +1,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {browser}=require('../helpers/browser.cjs');
+const prompt=b=>[b.document.querySelector('#command-name').textContent,b.commandPrompt.children[0]?.textContent||b.input.placeholder].filter(Boolean).join(' ');
 
 function registry(b){
   b.run(`window.__ranked=window.CaderactCommandRegistry.createRegistry([
@@ -14,20 +15,24 @@ function registry(b){
 
 test('active prompt follows the router and Line session without UI command knowledge',async()=>{
   const b=await browser();b.launch();
-  assert.equal(b.input.placeholder,'Line: Specify first point');
-  b.point(100,100);assert.equal(b.input.placeholder,'Line: Specify next point');
-  b.point(150,150);assert.equal(b.input.placeholder,'Line: Specify next point');
-  b.key('Enter');assert.equal(b.input.placeholder,'Type a command...');
+  assert.equal(prompt(b),'Line: Specify first point');
+  b.point(100,100);assert.equal(prompt(b),'Line: Specify next point');
+  b.point(150,150);assert.equal(prompt(b),'Line: Specify next point');
+  b.key('Enter');assert.equal(prompt(b),'Type a command...');
 });
 
 test('temporary error preserves active Line and restores its current prompt after two seconds',async()=>{
   const b=await browser();b.launch();b.point(100,100);
   b.run(`window.caderactFeedback.presentResult(Object.freeze({status:'unknown-command',input:'foo'}))`);
-  assert.equal(b.input.placeholder,'Unknown command: foo');assert.equal(b.input.classList.contains('has-command-error'),true);
+  assert.equal(prompt(b),'Line: Unknown command: foo');assert.equal(b.input.classList.contains('has-command-error'),true);
   assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Line');
-  b.advance(1999);assert.equal(b.input.placeholder,'Unknown command: foo');
-  b.advance(1);assert.equal(b.input.placeholder,'Line: Specify next point');
+  b.advance(1999);assert.equal(prompt(b),'Line: Unknown command: foo');
+  b.advance(1);assert.equal(prompt(b),'Line: Specify next point');
   assert.equal(b.input.classList.contains('has-command-error'),false);
+});
+
+test('a stale feedback timer renders the current command prompt rather than an earlier session',async()=>{
+  const b=await browser();b.launch('Line');b.run(`window.caderactFeedback.presentResult(Object.freeze({status:'unknown-command',input:'old'}))`);b.key('Escape');b.launch('Circle');assert.equal(b.read('window.caderactFeedback.activePrompt'),'Circle: Specify center point');b.advance(2000);assert.equal(prompt(b),'Circle: Specify center point');assert.equal(prompt(b).includes('Line'),false);
 });
 
 test('command HUD is bounded to three transient entries and expires without document state',async()=>{

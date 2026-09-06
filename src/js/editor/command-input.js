@@ -1,12 +1,19 @@
 const commandInput = document.querySelector("#command-input")
 const commandSuggestions = document.querySelector("#command-suggestions")
 const commandHistory = document.querySelector("#command-history")
+const commandPrompt = document.querySelector("#command-prompt")
+const commandName = document.querySelector("#command-name")
+const commandInputWrap = commandInput.closest(".command-input-wrap")
 let selectedSuggestionIndex = 0
 let suggestionExplicitlySelected = false
 let feedbackController = null
 
-function setCommandHint(message) {
-  feedbackController?.setActivePrompt(message)
+function syncCommandInputPresentation() {
+  commandInputWrap?.classList.toggle("has-typed-input", commandInput.value.length > 0)
+}
+
+function setCommandHint(message, presentation = null) {
+  feedbackController?.setActivePrompt(message, commandRouter?.activeSession?.options || [], presentation)
 }
 
 const commandRegistry = window.CaderactCommandRegistry.createRegistry([
@@ -22,8 +29,26 @@ window.caderactCommandRegistry = commandRegistry
 window.caderactCommandRouter = commandRouter
 
 feedbackController = window.CaderactCommandFeedback.createController({
-  setDisplay(message, kind) {
-    commandInput.placeholder = message
+  setDisplay(message, kind, options, presentation) {
+    const active = message !== "Type a command..."
+    commandName.textContent = active && presentation?.commandName ? `${presentation.commandName}:` : ""
+    commandPrompt.replaceChildren()
+    if (active) {
+      if (presentation?.instruction) {
+        const instruction = document.createElement("span"); instruction.classList.add("command-prompt-instruction"); instruction.textContent = presentation.instruction
+        commandPrompt.appendChild(instruction)
+      } else {
+        const text = document.createElement("span"); text.classList.add("command-prompt-text"); text.textContent = message
+        commandPrompt.appendChild(text)
+      }
+      for (const option of options) {
+        const button=document.createElement("button");button.type="button";button.classList.add("command-option")
+        button.dataset.optionId=option.id;button.textContent=`${option.label}=${option.value}`;button.disabled=option.enabled===false
+        button.setAttribute("aria-label",`${option.label}, current value ${option.value}`);commandPrompt.appendChild(button)
+      }
+    }
+    commandInput.placeholder = active ? "" : "Type a command..."
+    commandPrompt.classList.toggle("is-error", kind === "error")
     commandInput.classList.toggle("has-active-command", message !== "Type a command...")
     commandInput.classList.toggle("has-command-error", kind === "error")
   },
@@ -37,7 +62,7 @@ feedbackController = window.CaderactCommandFeedback.createController({
     }))
   },
 })
-feedbackController.setActivePrompt(commandRouter.currentPrompt)
+feedbackController.setActivePrompt(commandRouter.currentPrompt, [], commandRouter.currentPromptPresentation)
 commandRouter.subscribe(feedbackController.presentResult)
 commandRouter.subscribe(() => window.caderactViewport.setCommandActive(commandRouter.isActive))
 window.caderactFeedback = feedbackController
@@ -90,10 +115,12 @@ function showSuggestions() {
 function applyCommandResult(outcome) {
   if (outcome.status === "command-started") {
     commandInput.value = ""
+    syncCommandInputPresentation()
     commandInput.blur()
     hideSuggestions()
   } else if (outcome.status === "unknown-command") {
     commandInput.value = ""
+    syncCommandInputPresentation()
     hideSuggestions()
   } else if (outcome.status === "invalid-input" && outcome.reason === "empty-command") {
     setCommandHint("Type a command...")
@@ -105,23 +132,47 @@ function confirmSelectedCommand() {
   const matches = getMatchingCommands(commandInput.value)
   if (matches.length === 0) return
   commandInput.value = matches[selectedSuggestionIndex].command.name
+  syncCommandInputPresentation()
   hideSuggestions()
 }
 
 function runCommandInput() { return applyCommandResult(commandRouter.execute(commandInput.value)) }
 
+function acceptIdleCommandSuggestion() {
+  if (commandRouter.isActive || commandInput.value.trim() === "") return false
+  const matches = getMatchingCommands(commandInput.value)
+  const selected = matches[selectedSuggestionIndex]
+  if (selected && (suggestionExplicitlySelected || selected.category < 6)) {
+    applyCommandResult(commandRouter.execute(selected.command.name))
+  } else runCommandInput()
+  return true
+}
+
+window.caderactCommandInput = Object.freeze({ acceptIdleCommandSuggestion })
+
 function resetCommandInput() {
   commandInput.value = ""
+  syncCommandInputPresentation()
   setCommandHint(commandRouter.currentPrompt)
   hideSuggestions()
 }
+
+commandPrompt.addEventListener("click", event => {
+  const button=event.target.closest(".command-option")
+  if(!button||button.disabled||!commandRouter.isActive)return
+  commandRouter.activateOption(button.dataset.optionId)
+  commandInput.value="";syncCommandInputPresentation();hideSuggestions();commandInput.focus()
+})
 
 function isTypingInAnotherField(target) {
   return target instanceof HTMLElement && target !== commandInput &&
     (target.matches("input, textarea, select") || target.isContentEditable)
 }
 
-commandInput.addEventListener("input", () => { selectedSuggestionIndex = 0; suggestionExplicitlySelected = false; showSuggestions() })
+commandInput.addEventListener("input", () => {
+  syncCommandInputPresentation()
+  selectedSuggestionIndex = 0; suggestionExplicitlySelected = false; showSuggestions()
+})
 
 commandInput.addEventListener("keydown", (event) => {
   const matches = getMatchingCommands(commandInput.value)
@@ -130,11 +181,12 @@ commandInput.addEventListener("keydown", (event) => {
     if (commandInput.value.trim() !== "") {
       const outcome = commandRouter.submitActiveInput(commandInput.value)
       commandInput.value = ""
+      syncCommandInputPresentation()
       hideSuggestions()
       if (outcome.status === "command-completed") commandInput.blur()
     } else if (commandRouter.activeSession?.acceptsEmptyInput) {
       const outcome = commandRouter.submitActiveInput("")
-      commandInput.value = ""; hideSuggestions()
+      commandInput.value = ""; syncCommandInputPresentation(); hideSuggestions()
       if (outcome.status === "command-completed") commandInput.blur()
     } else {
       applyCommandResult(commandRouter.finishActive()); resetCommandInput()
@@ -150,11 +202,9 @@ commandInput.addEventListener("keydown", (event) => {
     event.preventDefault(); selectedSuggestionIndex = (selectedSuggestionIndex - 1 + matches.length) % matches.length; suggestionExplicitlySelected = true; showSuggestions()
   } else if (event.key === "Tab" && matches.length > 0) {
     event.preventDefault(); confirmSelectedCommand()
-  } else if ((event.key === "Enter" || (event.key === " " && !commandRouter.isActive)) && commandInput.value.trim() !== "") {
+  } else if (event.key === "Enter" && !commandRouter.isActive && commandInput.value.trim() !== "") {
     event.preventDefault()
-    if (event.key === "Enter" && suggestionExplicitlySelected && matches[selectedSuggestionIndex]) {
-      applyCommandResult(commandRouter.execute(matches[selectedSuggestionIndex].command.name))
-    } else runCommandInput()
+    acceptIdleCommandSuggestion()
   } else if (event.key === "Enter" && !commandRouter.isActive && commandInput.value.trim() === "") {
     if (window.caderactSelection?.selectedIds().length > 0) {
       event.preventDefault()
@@ -209,6 +259,7 @@ document.addEventListener("keydown", (event) => {
   if (event.target !== commandInput) {
     commandInput.focus()
     commandInput.value += event.key
+    syncCommandInputPresentation()
     selectedSuggestionIndex = 0
     suggestionExplicitlySelected = false
     showSuggestions()

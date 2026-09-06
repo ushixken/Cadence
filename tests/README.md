@@ -12,6 +12,7 @@ There was no package.json, npm script, installed test stack, or existing test su
 - `commands/polygon.test.cjs`: D8 bounded side-count/default input, regular inscribed geometry, transient preview/snapping, atomic Line publication, history, recovery, selection/grips reuse, and repeat lifecycle.
 - `commands/history.test.cjs`: U2 document Undo/Redo shortcuts, command-local Step Undo priority, focus/browser safety, authoritative button availability, single-fire traversal, and Redo branch discard.
 - `commands/feedback-autocomplete.test.cjs`: U5 router-derived prompts, timed feedback/history, ranked fuzzy discovery, safe match highlighting, and explicit-selection execution safety.
+- `commands/interactive-options.test.cjs`: U5B prompt/input separation, deterministic autocomplete Enter, semantic option rendering/routing, focus behavior, and Polygon NumSides editing before/after center.
 - `commands/layers-ui.test.cjs`: U6 authoritative layer list/actions, current/default identity, A4 history, command safety, U5 feedback, and U3 session rebinding.
 - `commands/point-input.test.cjs`: D1 absolute/relative point grammar, mixed-unit conversion, active-session routing, typed/mixed Line drafts, and execution safety.
 - `commands/files.test.cjs`: U3 pinned Save, atomic Open/New replacement, dirty guards, active-command safety, consumer rebinding, and file shortcuts.

@@ -58,11 +58,11 @@ test('mixed pointer, absolute, and relative points produce one consistent Line d
 
 test('invalid typed input preserves Line draft and restores prompt without autocomplete',async()=>{
   const b=await browser();b.launch();typed(b,'@20,10');
-  assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.hasFirstPoint'),false);assert.equal(b.input.placeholder,'Relative point requires a previous point');
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.hasFirstPoint'),false);assert.equal(b.commandPrompt.children[0].textContent,'Relative point requires a previous point');
   b.advance(2000);typed(b,'100,100');const before=b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()');
   b.input.value='@20,10';b.emit(b.input,'input');assert.equal(b.suggestions.hidden,true);typed(b,'bad,10');
   assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Line');assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()'),before);
-  assert.equal(b.input.placeholder,'Coordinate values must be finite numbers');b.advance(2000);assert.equal(b.input.placeholder,'Line: Specify next point');
+  assert.equal(b.commandPrompt.children[0].textContent,'Coordinate values must be finite numbers');b.advance(2000);assert.equal(b.read('window.caderactFeedback.activePrompt'),'Line: Specify next point');
 });
 
 test('typed drafts retain Escape cancellation and Ctrl+Z command-local Step Undo',async()=>{

@@ -20,7 +20,7 @@ test('create trims names, uses one transaction, and invalid names provide U5 fee
   assert.equal(b.read(`modelReader.layer(${JSON.stringify(layerId(b))}).name`),'Details');
   for(const [name,message] of [[' details ','A layer with that name already exists'],['   ','Layer name cannot be empty']]){
     const before=state(b);assert.notEqual(b.run(`window.caderactLayers.create(${JSON.stringify(name)}).status`),'committed');
-    assert.deepEqual(state(b),before);assert.equal(b.input.placeholder,message);assert.equal(b.input.classList.contains('has-command-error'),true);
+    assert.deepEqual(state(b),before);assert.equal(b.commandPrompt.children[0].textContent,message);assert.equal(b.input.classList.contains('has-command-error'),true);
   }
 });
 
@@ -49,7 +49,7 @@ test('rename preserves identity and Undo/Redo restore exact names',async()=>{
 test('delete follows A7 protection and exact history rules',async()=>{
   const b=await browser();const defaultId=b.read('modelReader.snapshot().defaultLayerId');
   assert.equal(b.run(`window.caderactLayers.remove(${JSON.stringify(defaultId)}).status`),'default-layer-required');
-  assert.equal(b.input.placeholder,'The default layer cannot be deleted');
+  assert.equal(b.commandPrompt.children[0].textContent,'The default layer cannot be deleted');
   b.run(`window.caderactLayers.create('Temporary')`);const temporary=layerId(b);
   assert.equal(b.run(`window.caderactLayers.remove(${JSON.stringify(temporary)}).status`),'committed');
   assert.equal(b.run(`modelReader.layer(${JSON.stringify(temporary)})`),null);
@@ -57,12 +57,12 @@ test('delete follows A7 protection and exact history rules',async()=>{
   b.run('window.caderactHistory.redo()');assert.equal(b.run(`modelReader.layer(${JSON.stringify(temporary)})`),null);
   b.run(`window.caderactLayers.create('Current')`);const current=layerId(b);b.run(`window.caderactLayers.setCurrent(${JSON.stringify(current)})`);
   const currentBefore=state(b);assert.equal(b.run(`window.caderactLayers.remove(${JSON.stringify(current)}).status`),'validation-failed');
-  assert.deepEqual(state(b),currentBefore);assert.equal(b.input.placeholder,'The current layer cannot be deleted');
+  assert.deepEqual(state(b),currentBefore);assert.equal(b.commandPrompt.children[0].textContent,'The current layer cannot be deleted');
   b.run(`window.caderactLayers.setCurrent(${JSON.stringify(defaultId)})`);
   b.run(`window.caderactLayers.create('Objects')`);const objects=layerId(b);
   b.run(`window.caderactLayers.setCurrent(${JSON.stringify(objects)});window.__r=recordGateway.createLine({x:0,y:0},{x:1,y:1});recordGateway.createAll([window.__r])`);
   const before=state(b);assert.equal(b.run(`window.caderactLayers.remove(${JSON.stringify(objects)}).status`),'layer-in-use');
-  assert.deepEqual(state(b),before);assert.equal(b.input.placeholder,'Layer cannot be deleted while objects use it');
+  assert.deepEqual(state(b),before);assert.equal(b.commandPrompt.children[0].textContent,'Layer cannot be deleted while objects use it');
 });
 
 test('all layer mutations are blocked during active commands and controls reflect the policy',async()=>{

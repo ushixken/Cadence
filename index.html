@@ -398,19 +398,23 @@
             <span class="command-label">Command:</span>
             <div class="command-input-wrap">
               <div class="command-history" id="command-history" aria-live="polite"></div>
-              <input
-                class="command-input"
-                id="command-input"
-                type="text"
-                placeholder="Type a command..."
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <div
-                class="command-suggestions"
-                id="command-suggestions"
-                hidden
-              ></div>
+              <span class="command-name" id="command-name" aria-hidden="true"></span>
+              <div class="command-input-area">
+                <div class="command-prompt" id="command-prompt" aria-live="polite"></div>
+                <input
+                  class="command-input"
+                  id="command-input"
+                  type="text"
+                  placeholder="Type a command..."
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <div
+                  class="command-suggestions"
+                  id="command-suggestions"
+                  hidden
+                ></div>
+              </div>
             </div>
           </div>
           <div class="footer-tools" aria-label="Viewport settings">
