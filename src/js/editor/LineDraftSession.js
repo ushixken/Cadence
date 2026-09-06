@@ -60,6 +60,7 @@
       stepUndo, finish, cancel,
       get segmentCount() { return segments.length },
       get hasFirstPoint() { return currentPoint !== null },
+      get currentPoint() { return currentPoint },
     })
   }
 

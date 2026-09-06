@@ -93,6 +93,27 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
   function handlePointerLeave() {
     if (draft.preview() !== null) { draft.clearPointer(); requestRender() }
   }
+  function handleInput(input) {
+    const parsed = window.CaderactPointInput.parseAndResolve(input, {
+      currentUnit: modelReader.units().length,
+      anchor: draft.currentPoint,
+    })
+    if (parsed.status !== "point-resolved") {
+      const messages = {
+        "invalid-coordinate": "Enter a point as x,y",
+        "invalid-number": "Coordinate values must be finite numbers",
+        "unsupported-unit": `Unsupported unit${parsed.unit ? `: ${parsed.unit}` : ""}`,
+        "relative-point-without-anchor": "Relative point requires a previous point",
+      }
+      return Object.freeze({ status: "invalid-input", reason: parsed.reason, command: "Line",
+        message: messages[parsed.reason] || "Invalid coordinate" })
+    }
+    const point = Object.freeze({ x: parsed.x, y: parsed.y })
+    const outcome = draft.acceptPoint(point)
+    if (outcome.status === "first-point") updatePrompt("Line: Specify next point")
+    requestRender()
+    return Object.freeze({ status: "input-accepted", command: "Line", kind: "point", point, outcome })
+  }
   function finish() {
     const outcome = draft.finish()
     if (outcome.status !== "committed" && outcome.status !== "no-op") {
@@ -117,7 +138,7 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
   requestRender()
   return Object.freeze({
     name: "Line", draft, finish, cancel, stepUndo,
-    handlePointerDown, handlePointerMove, handlePointerLeave,
+    handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
     getDraftLines: draft.draftSegments, getPreview: draft.preview,
     get prompt() { return prompt },
   })

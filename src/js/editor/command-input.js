@@ -120,7 +120,15 @@ commandInput.addEventListener("input", () => { selectedSuggestionIndex = 0; sugg
 commandInput.addEventListener("keydown", (event) => {
   const matches = getMatchingCommands(commandInput.value)
   if (commandRouter.isActive && event.key === "Enter") {
-    event.preventDefault(); applyCommandResult(commandRouter.finishActive()); resetCommandInput(); return
+    event.preventDefault()
+    if (commandInput.value.trim() !== "") {
+      commandRouter.submitActiveInput(commandInput.value)
+      commandInput.value = ""
+      hideSuggestions()
+    } else {
+      applyCommandResult(commandRouter.finishActive()); resetCommandInput()
+    }
+    return
   }
   if (commandRouter.isActive && event.key === "Escape") {
     event.preventDefault(); applyCommandResult(commandRouter.cancelActive()); resetCommandInput(); return
@@ -131,7 +139,7 @@ commandInput.addEventListener("keydown", (event) => {
     event.preventDefault(); selectedSuggestionIndex = (selectedSuggestionIndex - 1 + matches.length) % matches.length; suggestionExplicitlySelected = true; showSuggestions()
   } else if (event.key === "Tab" && matches.length > 0) {
     event.preventDefault(); confirmSelectedCommand()
-  } else if ((event.key === "Enter" || event.key === " ") && commandInput.value.trim() !== "") {
+  } else if ((event.key === "Enter" || (event.key === " " && !commandRouter.isActive)) && commandInput.value.trim() !== "") {
     event.preventDefault()
     if (event.key === "Enter" && suggestionExplicitlySelected && matches[selectedSuggestionIndex]) {
       applyCommandResult(commandRouter.execute(matches[selectedSuggestionIndex].command.name))
@@ -165,7 +173,8 @@ document.addEventListener("keydown", (event) => {
   }
 
   const isPrintableKey = event.key.length === 1 && event.code !== "Space"
-  if (!isPrintableKey || commandRouter.isActive || event.ctrlKey || event.altKey || event.metaKey || isTypingInAnotherField(event.target)) return
+  const activeAcceptsInput = commandRouter.isActive && typeof commandRouter.activeSession?.handleInput === "function"
+  if (!isPrintableKey || (commandRouter.isActive && !activeAcceptsInput) || event.ctrlKey || event.altKey || event.metaKey || isTypingInAnotherField(event.target)) return
   if (event.target !== commandInput) {
     commandInput.focus()
     commandInput.value += event.key

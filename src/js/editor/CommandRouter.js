@@ -67,9 +67,16 @@
       setPrompt("Type a command...")
       return publish(outcome.status === "command-cancelled" ? outcome : result("command-cancelled", { command: session.name }))
     }
+    function submitActiveInput(input, context = {}) {
+      if (!activeSession) return publish(result("invalid-input", { reason: "no-active-command" }))
+      if (typeof activeSession.handleInput !== "function") {
+        return publish(result("invalid-input", { reason: "command-does-not-accept-input", command: activeSession.name }))
+      }
+      return publish(activeSession.handleInput(input, context))
+    }
 
     return Object.freeze({
-      execute, activate, finishActive, cancelActive, subscribe,
+      execute, activate, finishActive, cancelActive, submitActiveInput, subscribe,
       get activeSession() { return activeSession },
       get activeCommand() { return activeSession?.name || null },
       get currentPrompt() { return activeSession?.prompt || "Type a command..." },
