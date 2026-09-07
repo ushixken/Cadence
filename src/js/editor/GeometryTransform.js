@@ -37,5 +37,26 @@
     if(record.type==="polyline")return Object.freeze({...record,vertices:Object.freeze(record.vertices.map(vertex=>rotatePoint(vertex,center,normalized)) )})
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
-  window.CaderactGeometryTransform = Object.freeze({ translateRecord, rotatePoint, rotateRecord, normalizeAngle })
+  function scalePoint(value, base, factor) {
+    if(!value||!Number.isFinite(value.x)||!Number.isFinite(value.y)||!Number.isFinite(base?.x)||!Number.isFinite(base?.y)||!Number.isFinite(factor)||factor<=0)throw new Error("Invalid scale")
+    const x=base.x+factor*(value.x-base.x),y=base.y+factor*(value.y-base.y)
+    if(!Number.isFinite(x)||!Number.isFinite(y))throw new Error("Invalid scale result")
+    return Object.freeze({...value,x,y})
+  }
+  function scaleVector(value, factor) {
+    if(!value||!Number.isFinite(value.x)||!Number.isFinite(value.y)||!Number.isFinite(factor)||factor<=0)throw new Error("Invalid scale")
+    const x=value.x*factor,y=value.y*factor
+    if(!Number.isFinite(x)||!Number.isFinite(y))throw new Error("Invalid scale result")
+    return Object.freeze({...value,x,y})
+  }
+  function scaleRecord(record, base, factor) {
+    if(!record||!Number.isFinite(base?.x)||!Number.isFinite(base?.y)||!Number.isFinite(factor)||factor<=0)throw new Error("Invalid scale")
+    if(record.type==="line")return Object.freeze({...record,start:scalePoint(record.start,base,factor),end:scalePoint(record.end,base,factor)})
+    if(record.type==="circle"){const radius=record.radius*factor;if(!Number.isFinite(radius)||radius<=0)throw new Error("Invalid scale result");return Object.freeze({...record,center:scalePoint(record.center,base,factor),radius})}
+    if(record.type==="arc"){const radius=record.radius*factor;if(!Number.isFinite(radius)||radius<=0)throw new Error("Invalid scale result");return Object.freeze({...record,center:scalePoint(record.center,base,factor),start:scalePoint(record.start,base,factor),end:scalePoint(record.end,base,factor),radius})}
+    if(record.type==="ellipse"){const minorRadius=record.minorRadius*factor;if(!Number.isFinite(minorRadius)||minorRadius<=0)throw new Error("Invalid scale result");return Object.freeze({...record,center:scalePoint(record.center,base,factor),majorAxis:scaleVector(record.majorAxis,factor),minorRadius})}
+    if(record.type==="polyline")return Object.freeze({...record,vertices:Object.freeze(record.vertices.map(vertex=>scalePoint(vertex,base,factor)))})
+    throw new Error(`Unsupported geometry type: ${record.type}`)
+  }
+  window.CaderactGeometryTransform = Object.freeze({ translateRecord, rotatePoint, rotateRecord, normalizeAngle, scalePoint, scaleRecord })
 })()

@@ -222,7 +222,7 @@
         let reference=null
         if(movePreview.referencePoint){reference=camera.worldToScreen(movePreview.referencePoint.x,movePreview.referencePoint.y);addSegment(moveGuide,base.x,base.y,reference.x,reference.y)}
         if(candidate)addSegment(moveGuide,base.x,base.y,candidate.x,candidate.y)
-        if(movePreview.mode==="rotate"){
+        if(movePreview.mode==="rotate"||movePreview.mode==="scale"){
           const anchor=4,arm=6
           addSegment(rotateCenterMarker,base.x,base.y-anchor,base.x+anchor,base.y);addSegment(rotateCenterMarker,base.x+anchor,base.y,base.x,base.y+anchor);addSegment(rotateCenterMarker,base.x,base.y+anchor,base.x-anchor,base.y);addSegment(rotateCenterMarker,base.x-anchor,base.y,base.x,base.y-anchor)
           addSegment(rotateCenterMarker,base.x-arm,base.y,base.x+arm,base.y);addSegment(rotateCenterMarker,base.x,base.y-arm,base.x,base.y+arm)
@@ -232,9 +232,9 @@
           addSegment(moveGuide,base.x-size,base.y-size,base.x+size,base.y-size);addSegment(moveGuide,base.x+size,base.y-size,base.x+size,base.y+size)
           addSegment(moveGuide,base.x+size,base.y+size,base.x-size,base.y+size);addSegment(moveGuide,base.x-size,base.y+size,base.x-size,base.y-size)
         }
-        const markers=movePreview.mode==="rotate"?Object.freeze({center:Object.freeze({point:Object.freeze({x:base.x,y:base.y}),segments:new Float32Array(rotateCenterMarker)}),reference:reference?Object.freeze({point:Object.freeze({x:reference.x,y:reference.y}),segments:new Float32Array(rotateReferenceMarker)}):null,target:candidate?Object.freeze({point:Object.freeze({x:candidate.x,y:candidate.y}),segments:new Float32Array(rotateTargetMarker)}):null}):null
+        const markers=movePreview.mode==="rotate"||movePreview.mode==="scale"?Object.freeze({center:Object.freeze({point:Object.freeze({x:base.x,y:base.y}),segments:new Float32Array(rotateCenterMarker)}),reference:reference?Object.freeze({point:Object.freeze({x:reference.x,y:reference.y}),segments:new Float32Array(rotateReferenceMarker)}):null,target:candidate?Object.freeze({point:Object.freeze({x:candidate.x,y:candidate.y}),segments:new Float32Array(rotateTargetMarker)}):null}):null
         moveOverlay=Object.freeze({recordIds:Object.freeze(Array.from(movePreview.recordIds)),source:Object.freeze({segments:new Float32Array(moveSourceGhost),circles:Object.freeze(moveSourceCircles),arcs:Object.freeze(moveSourceArcs),ellipses:Object.freeze(moveSourceEllipses)}),
-          mode:movePreview.mode,basePoint:Object.freeze({x:base.x,y:base.y}),referencePoint:reference?Object.freeze({x:reference.x,y:reference.y}):null,candidatePoint:candidate?Object.freeze({x:candidate.x,y:candidate.y}):null,markers,guideSegments:new Float32Array(moveGuide)})
+          mode:movePreview.mode,factor:movePreview.factor??null,angle:movePreview.angle??null,basePoint:Object.freeze({x:base.x,y:base.y}),referencePoint:reference?Object.freeze({x:reference.x,y:reference.y}):null,candidatePoint:candidate?Object.freeze({x:candidate.x,y:candidate.y}):null,markers,guideSegments:new Float32Array(moveGuide)})
       }
 
       if (gripPreview) {

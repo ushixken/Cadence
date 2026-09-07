@@ -27,6 +27,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Polygon", aliases: ["PG"], repeatable: true, activate: context => window.caderactViewport.createPolygonCommandSession(context) },
   { name: "Rectangle", aliases: ["Rect"], repeatable: true, activate: context => window.caderactViewport.createRectangleCommandSession(context) },
   { name: "Rotate", aliases: ["RO"], repeatable: true, activate: context => window.caderactViewport.createRotateCommandSession(context) },
+  { name: "Scale", aliases: ["SC"], repeatable: true, activate: context => window.caderactViewport.createScaleCommandSession(context) },
 ])
 const commandRouter = window.CaderactCommandRouter.createRouter({ registry: commandRegistry, setPrompt: setCommandHint })
 window.caderactCommandRegistry = commandRegistry

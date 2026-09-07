@@ -37,13 +37,14 @@ test('registry is the single deterministic autocomplete and routing source', asy
   const b = await browser();
   assert.deepEqual(b.read('window.caderactCommandRegistry.commands().map(command=>({name:command.name,aliases:command.aliases}))'), [
     { name: 'Arc', aliases: ['A'] }, { name: 'Circle', aliases: ['C'] }, { name: 'Copy', aliases: ['CP'] }, { name: 'Ellipse', aliases: ['EL'] }, { name: 'Line', aliases: ['L'] }, { name: 'Move', aliases: ['M'] }, { name: 'Polygon', aliases: ['PG'] }, { name: 'Polyline', aliases: ['Pline', 'PL'] },
-    { name: 'Rectangle', aliases: ['Rect'] }, { name: 'Rotate', aliases: ['RO'] },
+    { name: 'Rectangle', aliases: ['Rect'] }, { name: 'Rotate', aliases: ['RO'] }, { name: 'Scale', aliases: ['SC'] },
   ]);
   assert.deepEqual(b.read('window.caderactCommandRegistry.matches("Li").map(command=>command.name)'), ['Line']);
   assert.equal(b.run('window.caderactCommandRegistry.resolve("l").name'), 'Line');
   assert.equal(b.run('window.caderactCommandRegistry.resolve("rect").name'), 'Rectangle');
   assert.equal(b.run('window.caderactCommandRegistry.resolve("pl").name'), 'Polyline');
   assert.equal(b.run('window.caderactCommandRegistry.resolve("c").name'), 'Circle');
+  assert.equal(b.run('window.caderactCommandRegistry.resolve("sc").name'), 'Scale');
   assert.equal(b.run('window.caderactCommandRegistry.resolve("a").name'), 'Arc');
   assert.equal(b.run('window.caderactCommandRegistry.resolve("el").name'), 'Ellipse');
   assert.equal(b.run('window.caderactCommandRegistry.resolve("pol")'), null);
