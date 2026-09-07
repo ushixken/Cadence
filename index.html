@@ -349,11 +349,30 @@
           <span class="project-title">Caderact - Project</span>
           <ul class="menu-items">
             <li class="file-menu">
-              <button class="file-menu-trigger" type="button" aria-expanded="false" aria-controls="file-menu-actions">File</button>
-              <div class="file-menu-dropdown" id="file-menu-actions" role="menu" aria-label="File actions" hidden>
-                <button id="file-new" type="button">New <span>Ctrl+N</span></button>
-                <button id="file-open" type="button">Open… <span>Ctrl+O</span></button>
-                <button id="file-save" type="button">Save <span>Ctrl+S</span></button>
+              <button
+                class="file-menu-trigger"
+                type="button"
+                aria-expanded="false"
+                aria-controls="file-menu-actions"
+              >
+                File
+              </button>
+              <div
+                class="file-menu-dropdown"
+                id="file-menu-actions"
+                role="menu"
+                aria-label="File actions"
+                hidden
+              >
+                <button id="file-new" type="button">
+                  New <span>Ctrl+N</span>
+                </button>
+                <button id="file-open" type="button">
+                  Open… <span>Ctrl+O</span>
+                </button>
+                <button id="file-save" type="button">
+                  Save <span>Ctrl+S</span>
+                </button>
               </div>
             </li>
             <li><button type="button">Edit</button></li>
@@ -364,8 +383,24 @@
             <li><button type="button">Help</button></li>
           </ul>
           <div class="history-actions" aria-label="Document history">
-            <button id="undo-button" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled>↶</button>
-            <button id="redo-button" type="button" aria-label="Redo" title="Redo (Ctrl+Y)" disabled>↷</button>
+            <button
+              id="undo-button"
+              type="button"
+              aria-label="Undo"
+              title="Undo (Ctrl+Z)"
+              disabled
+            >
+              ↶
+            </button>
+            <button
+              id="redo-button"
+              type="button"
+              aria-label="Redo"
+              title="Redo (Ctrl+Y)"
+              disabled
+            >
+              ↷
+            </button>
           </div>
           <div class="menu-actions">
             <button
@@ -393,7 +428,14 @@
           <aside class="layers-panel" aria-label="Layers">
             <header class="layers-panel-header">
               <strong>Layers</strong>
-              <button id="layer-create" type="button" aria-label="Create layer" title="Create layer">+</button>
+              <button
+                id="layer-create"
+                type="button"
+                aria-label="Create layer"
+                title="Create layer"
+              >
+                +
+              </button>
             </header>
             <div id="layers-list" class="layers-list" role="list"></div>
           </aside>
@@ -402,10 +444,22 @@
           <div class="command-area">
             <span class="command-label">Command:</span>
             <div class="command-input-wrap">
-              <div class="command-history" id="command-history" aria-live="polite"></div>
-              <span class="command-name" id="command-name" aria-hidden="true"></span>
+              <div
+                class="command-history"
+                id="command-history"
+                aria-live="polite"
+              ></div>
+              <span
+                class="command-name"
+                id="command-name"
+                aria-hidden="true"
+              ></span>
               <div class="command-input-area">
-                <div class="command-prompt" id="command-prompt" aria-live="polite"></div>
+                <div
+                  class="command-prompt"
+                  id="command-prompt"
+                  aria-live="polite"
+                ></div>
                 <input
                   class="command-input"
                   id="command-input"
@@ -423,7 +477,12 @@
             </div>
           </div>
           <div class="footer-tools" aria-label="Viewport settings">
-            <button id="grid-snap-toggle" class="footer-tool is-active" type="button" aria-pressed="true">
+            <button
+              id="grid-snap-toggle"
+              class="footer-tool is-active"
+              type="button"
+              aria-pressed="true"
+            >
               Grid Snap
             </button>
             <button class="footer-tool" type="button">Ortho</button>

@@ -65,6 +65,7 @@
       const committedEllipses = [], previewEllipses = [], selectedEllipses = []
       const committedPolylines = [], selectedPolylines = []
       const moveSourceGhost = [], moveGuide = [], moveSourceCircles = [], moveSourceArcs = [], moveSourceEllipses = []
+      const rotateCenterMarker = [], rotateReferenceMarker = [], rotateTargetMarker = []
       function projectArc(record) {
         const center=camera.worldToScreen(record.center.x,record.center.y)
         const start=camera.worldToScreen(record.start.x,record.start.y)
@@ -131,7 +132,7 @@
       // A6 persistent projection: query the authoritative document read-side on
       // every scene build. Unknown record types are skipped deterministically.
       const records = getRecords(), selectedIds = new Set(getSelectedIds()), gripPreview = getGripPreview(), movePreview = getMovePreview()
-      const movingIds = new Set(movePreview?.mode === "move" ? movePreview.records.map(record => record.id) : [])
+      const movingIds = new Set(movePreview?.mode !== "copy" ? movePreview?.records?.map(record => record.id) || [] : [])
       for (const record of records) {
         if (movingIds.has(record.id)) continue
         if (record?.type === "line") {
@@ -204,7 +205,7 @@
         } else if(record.type === "arc") previewArcs.push(projectArc(record))
         else if(record.type === "ellipse") previewEllipses.push(projectEllipse(record))
       }
-      for (const record of movePreview?.mode === "move" ? movePreview.sourceRecords : []) {
+      for (const record of movePreview?.mode !== "copy" ? movePreview?.sourceRecords || [] : []) {
         if(record.type === "line") {
           const a=camera.worldToScreen(record.start.x,record.start.y),b=camera.worldToScreen(record.end.x,record.end.y);addSegment(moveSourceGhost,a.x,a.y,b.x,b.y)
         } else if(record.type === "polyline") {
@@ -216,13 +217,24 @@
         else if(record.type === "ellipse") moveSourceEllipses.push(projectEllipse(record))
       }
       let moveOverlay=null
-      if(movePreview?.basePoint&&movePreview?.candidatePoint){
-        const base=camera.worldToScreen(movePreview.basePoint.x,movePreview.basePoint.y),candidate=camera.worldToScreen(movePreview.candidatePoint.x,movePreview.candidatePoint.y),size=3
-        addSegment(moveGuide,base.x,base.y,candidate.x,candidate.y)
-        addSegment(moveGuide,base.x-size,base.y-size,base.x+size,base.y-size);addSegment(moveGuide,base.x+size,base.y-size,base.x+size,base.y+size)
-        addSegment(moveGuide,base.x+size,base.y+size,base.x-size,base.y+size);addSegment(moveGuide,base.x-size,base.y+size,base.x-size,base.y-size)
+      if(movePreview?.basePoint){
+        const base=camera.worldToScreen(movePreview.basePoint.x,movePreview.basePoint.y),candidate=movePreview.candidatePoint?camera.worldToScreen(movePreview.candidatePoint.x,movePreview.candidatePoint.y):null,size=3
+        let reference=null
+        if(movePreview.referencePoint){reference=camera.worldToScreen(movePreview.referencePoint.x,movePreview.referencePoint.y);addSegment(moveGuide,base.x,base.y,reference.x,reference.y)}
+        if(candidate)addSegment(moveGuide,base.x,base.y,candidate.x,candidate.y)
+        if(movePreview.mode==="rotate"){
+          const anchor=4,arm=6
+          addSegment(rotateCenterMarker,base.x,base.y-anchor,base.x+anchor,base.y);addSegment(rotateCenterMarker,base.x+anchor,base.y,base.x,base.y+anchor);addSegment(rotateCenterMarker,base.x,base.y+anchor,base.x-anchor,base.y);addSegment(rotateCenterMarker,base.x-anchor,base.y,base.x,base.y-anchor)
+          addSegment(rotateCenterMarker,base.x-arm,base.y,base.x+arm,base.y);addSegment(rotateCenterMarker,base.x,base.y-arm,base.x,base.y+arm)
+          if(reference){addSegment(rotateReferenceMarker,reference.x,reference.y-size,reference.x+size,reference.y);addSegment(rotateReferenceMarker,reference.x+size,reference.y,reference.x,reference.y+size);addSegment(rotateReferenceMarker,reference.x,reference.y+size,reference.x-size,reference.y);addSegment(rotateReferenceMarker,reference.x-size,reference.y,reference.x,reference.y-size)}
+          if(candidate){addSegment(rotateTargetMarker,candidate.x-size,candidate.y-size,candidate.x+size,candidate.y-size);addSegment(rotateTargetMarker,candidate.x+size,candidate.y-size,candidate.x+size,candidate.y+size);addSegment(rotateTargetMarker,candidate.x+size,candidate.y+size,candidate.x-size,candidate.y+size);addSegment(rotateTargetMarker,candidate.x-size,candidate.y+size,candidate.x-size,candidate.y-size);addSegment(rotateTargetMarker,candidate.x-size-2,candidate.y,candidate.x+size+2,candidate.y);addSegment(rotateTargetMarker,candidate.x,candidate.y-size-2,candidate.x,candidate.y+size+2)}
+        }else{
+          addSegment(moveGuide,base.x-size,base.y-size,base.x+size,base.y-size);addSegment(moveGuide,base.x+size,base.y-size,base.x+size,base.y+size)
+          addSegment(moveGuide,base.x+size,base.y+size,base.x-size,base.y+size);addSegment(moveGuide,base.x-size,base.y+size,base.x-size,base.y-size)
+        }
+        const markers=movePreview.mode==="rotate"?Object.freeze({center:Object.freeze({point:Object.freeze({x:base.x,y:base.y}),segments:new Float32Array(rotateCenterMarker)}),reference:reference?Object.freeze({point:Object.freeze({x:reference.x,y:reference.y}),segments:new Float32Array(rotateReferenceMarker)}):null,target:candidate?Object.freeze({point:Object.freeze({x:candidate.x,y:candidate.y}),segments:new Float32Array(rotateTargetMarker)}):null}):null
         moveOverlay=Object.freeze({recordIds:Object.freeze(Array.from(movePreview.recordIds)),source:Object.freeze({segments:new Float32Array(moveSourceGhost),circles:Object.freeze(moveSourceCircles),arcs:Object.freeze(moveSourceArcs),ellipses:Object.freeze(moveSourceEllipses)}),
-          basePoint:Object.freeze({x:base.x,y:base.y}),candidatePoint:Object.freeze({x:candidate.x,y:candidate.y}),guideSegments:new Float32Array(moveGuide)})
+          mode:movePreview.mode,basePoint:Object.freeze({x:base.x,y:base.y}),referencePoint:reference?Object.freeze({x:reference.x,y:reference.y}):null,candidatePoint:candidate?Object.freeze({x:candidate.x,y:candidate.y}):null,markers,guideSegments:new Float32Array(moveGuide)})
       }
 
       if (gripPreview) {
@@ -345,6 +357,9 @@
         lineGroup(viewportSettings.snapMarkerColor || viewportSettings.previewColor, snapMarker),
         lineGroup(viewportSettings.moveSourceGhostColor || "rgba(160, 177, 193, 0.35)", moveSourceGhost),
         lineGroup(viewportSettings.moveGuideColor || viewportSettings.snapMarkerColor, moveGuide),
+        lineGroup(viewportSettings.rotateCenterMarkerColor || viewportSettings.snapMarkerColor, rotateCenterMarker),
+        lineGroup(viewportSettings.rotateReferenceMarkerColor || viewportSettings.previewColor, rotateReferenceMarker),
+        lineGroup(viewportSettings.rotateTargetMarkerColor || viewportSettings.selectionColor, rotateTargetMarker),
       ]
       const circleGroups = lineGroups.map((group, index) => Object.freeze({
         color: group.color, colorData: group.colorData, lineWidth: group.lineWidth,

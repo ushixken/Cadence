@@ -13,6 +13,7 @@ const viewportSettings = {
   draftPointColor: "#e8edf4",
   acceptedDraftColor: "#e8edf4",
   moveSourceGhostColor: "rgba(160, 177, 193, 0.35)", moveGuideColor: "rgba(242, 207, 114, 0.72)",
+  rotateCenterMarkerColor: "#f2cf72", rotateReferenceMarkerColor: "rgba(157, 200, 239, 0.90)", rotateTargetMarkerColor: "#63b7e6",
 }
 
 const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettings.initialZoom)
@@ -299,6 +300,34 @@ function createCopyCommandSession({ setPrompt = () => {} } = {}) {
   function getMovePreview(){if(phase!=="target"||!candidatePoint)return null;const dx=candidatePoint.x-basePoint.x,dy=candidatePoint.y-basePoint.y,sourceRecords=selectedRecords();return Object.freeze({mode:"copy",recordIds:selectedRecordIds,basePoint,candidatePoint,dx,dy,sourceRecords:Object.freeze(sourceRecords),records:Object.freeze(sourceRecords.map(record=>window.CaderactGeometryTransform.translateRecord(record,dx,dy)))})}
   requestRender()
   return Object.freeze({name:"Copy",finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,getMovePreview,hasPointerPreview:()=>phase!=="selection",getExcludedSnapRecordIds:()=>Object.freeze([]),get isSelectionPhase(){return phase==="selection"},get phase(){return phase},get selectedRecordIds(){return selectedRecordIds},get basePoint(){return basePoint},get candidatePoint(){return candidatePoint},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
+}
+
+function createRotateCommandSession({ setPrompt = () => {} } = {}) {
+  const ANGLE_EPSILON=1e-12
+  let phase=selection.selectedIds().length?"center":"selection"
+  let selectedRecordIds=phase==="center"?selection.selectedIds():Object.freeze([])
+  let centerPoint=null,referencePoint=null,candidatePoint=null,feedbackVisible=false
+  let promptPresentation=createCommandPrompt("Rotate",phase==="selection"?"Select objects":"Specify center point")
+  function updatePrompt(instruction){promptPresentation=createCommandPrompt("Rotate",instruction);setPrompt(promptPresentation.text,promptPresentation)}
+  function selectedRecords(){const selected=new Set(selectedRecordIds);return modelReader.records().filter(record=>selected.has(record.id))}
+  function confirmSelection(){const ids=selection.selectedIds();if(!ids.length)return Object.freeze({status:"invalid-input",reason:"empty-selection",command:"Rotate",message:"Select at least one object"});selectedRecordIds=ids;phase="center";updatePrompt("Specify center point");requestRender();return Object.freeze({status:"input-accepted",command:"Rotate",kind:"selection",recordIds:selectedRecordIds})}
+  function angleTo(point){if(!centerPoint||!referencePoint||point.x===centerPoint.x&&point.y===centerPoint.y)return null;const start=Math.atan2(referencePoint.y-centerPoint.y,referencePoint.x-centerPoint.x),target=Math.atan2(point.y-centerPoint.y,point.x-centerPoint.x);return window.CaderactGeometryTransform.normalizeAngle(target-start)}
+  function commitTarget(point){candidatePoint=Object.freeze({x:point.x,y:point.y});const angle=angleTo(candidatePoint);if(angle===null)return Object.freeze({status:"invalid-input",reason:"undefined-target-direction",command:"Rotate",message:"Target point must differ from center"});if(Math.abs(angle)<=ANGLE_EPSILON){clearSnap();candidatePoint=null;requestRender();return Object.freeze({status:"command-completed",command:"Rotate",outcome:Object.freeze({status:"no-op"})})}let replacements;try{const source=selectedRecords();if(source.length!==selectedRecordIds.length)return Object.freeze({status:"invalid-input",reason:"missing-selection",command:"Rotate",message:"A selected object is no longer available"});replacements=source.map(record=>window.CaderactGeometryTransform.rotateRecord(record,centerPoint,angle))}catch(error){return Object.freeze({status:"invalid-input",reason:"invalid-rotation",command:"Rotate",message:error.message})}const outcome=recordGateway.replaceAll(replacements);if(outcome.status!=="committed"){requestRender();return Object.freeze({status:"invalid-input",reason:"commit-failed",command:"Rotate",message:"Unable to rotate; preview preserved",outcome})}clearSnap();candidatePoint=null;requestRender();return Object.freeze({status:"command-completed",command:"Rotate",outcome,angle})}
+  function acceptPoint(point){
+    if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-not-confirmed",command:"Rotate"})
+    if(phase==="center"){centerPoint=Object.freeze({x:point.x,y:point.y});feedbackVisible=true;phase="reference";updatePrompt("Specify reference point");requestRender();return Object.freeze({status:"input-accepted",command:"Rotate",kind:"center-point",point:centerPoint})}
+    if(phase==="reference"){if(point.x===centerPoint.x&&point.y===centerPoint.y)return Object.freeze({status:"invalid-input",reason:"undefined-reference-direction",command:"Rotate",message:"Reference point must differ from center"});referencePoint=Object.freeze({x:point.x,y:point.y});candidatePoint=referencePoint;feedbackVisible=true;phase="target";updatePrompt("Specify target point");requestRender();return Object.freeze({status:"input-accepted",command:"Rotate",kind:"reference-point",point:referencePoint})}
+    return commitTarget(point)
+  }
+  function handlePointerDown(point){return acceptPoint(point)}
+  function handlePointerMove(point){if(centerPoint)feedbackVisible=true;if(phase==="target")candidatePoint=Object.freeze({x:point.x,y:point.y});requestRender()}
+  function handlePointerLeave(){candidatePoint=null;feedbackVisible=false;clearSnap();requestRender()}
+  function handleInput(input){if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Rotate",message:"Press Enter to confirm selection"});clearSnap();const anchor=phase==="reference"?centerPoint:phase==="target"?referencePoint:null;const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor});if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Rotate",message:"Enter a point as x,y"});return acceptPoint(Object.freeze({x:parsed.x,y:parsed.y}))}
+  function finish(){if(phase==="selection")return confirmSelection();return Object.freeze({status:"invalid-input",reason:"point-required",command:"Rotate",message:phase==="center"?"Specify a center point":phase==="reference"?"Specify a reference point":"Specify a target point"})}
+  function cancel(){candidatePoint=null;feedbackVisible=false;clearSnap();requestRender();return Object.freeze({status:"command-cancelled",command:"Rotate"})}
+  function getMovePreview(){if(!feedbackVisible||!centerPoint)return null;const validTarget=phase==="target"&&candidatePoint&&!(candidatePoint.x===centerPoint.x&&candidatePoint.y===centerPoint.y),angle=validTarget?angleTo(candidatePoint):null,sourceRecords=angle===null?[]:selectedRecords();return Object.freeze({mode:"rotate",recordIds:selectedRecordIds,basePoint:centerPoint,centerPoint,referencePoint,candidatePoint:validTarget?candidatePoint:null,angle,sourceRecords:Object.freeze(sourceRecords),records:Object.freeze(angle===null?[]:sourceRecords.map(record=>window.CaderactGeometryTransform.rotateRecord(record,centerPoint,angle)))})}
+  requestRender()
+  return Object.freeze({name:"Rotate",finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,getMovePreview,hasPointerPreview:()=>phase!=="selection",getExcludedSnapRecordIds:()=>phase==="target"?selectedRecordIds:Object.freeze([]),get isSelectionPhase(){return phase==="selection"},get phase(){return phase},get selectedRecordIds(){return selectedRecordIds},get centerPoint(){return centerPoint},get referencePoint(){return referencePoint},get candidatePoint(){return candidatePoint},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
 function createCircleCommandSession({ setPrompt = () => {} } = {}) {
@@ -761,7 +790,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()
