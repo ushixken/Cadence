@@ -1,4 +1,5 @@
 const commandInput = document.querySelector("#command-input")
+const viewportCanvas = document.querySelector("canvas")
 const commandSuggestions = document.querySelector("#command-suggestions")
 const commandHistory = document.querySelector("#command-history")
 const commandPrompt = document.querySelector("#command-prompt")
@@ -20,6 +21,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Arc", aliases: ["A"], repeatable: true, activate: context => window.caderactViewport.createArcCommandSession(context) },
   { name: "Circle", aliases: ["C"], repeatable: true, activate: context => window.caderactViewport.createCircleCommandSession(context) },
   { name: "Copy", aliases: ["CP"], repeatable: true, activate: context => window.caderactViewport.createCopyCommandSession(context) },
+  { name: "Delete", aliases: ["DEL", "E", "ERASE"], repeatable: true, activate: context => window.caderactViewport.createDeleteCommandSession(context) },
   { name: "Ellipse", aliases: ["EL"], repeatable: true, activate: context => window.caderactViewport.createEllipseCommandSession(context) },
   { name: "Line", aliases: ["L"], repeatable: true, activate: context => window.caderactViewport.createLineCommandSession(context) },
   { name: "Move", aliases: ["M"], repeatable: true, activate: context => window.caderactViewport.createMoveCommandSession(context) },
@@ -270,6 +272,17 @@ document.addEventListener("keydown", (event) => {
         return
       }
     }
+  }
+
+  if ((event.key === "Delete" || event.key === "Backspace")
+    && event.target !== commandInput && !isTypingInAnotherField(event.target)
+    && !commandRouter.isActive && !window.caderactGrips?.isActive
+    && window.caderactSelection?.selectedIds().length > 0) {
+    event.preventDefault()
+    applyCommandResult(commandRouter.execute("Delete"))
+    applyCommandResult(commandRouter.finishActive())
+    resetCommandInput()
+    return
   }
 
   const isPrintableKey = event.key.length === 1 && event.code !== "Space"

@@ -132,7 +132,7 @@
       // A6 persistent projection: query the authoritative document read-side on
       // every scene build. Unknown record types are skipped deterministically.
       const records = getRecords(), selectedIds = new Set(getSelectedIds()), gripPreview = getGripPreview(), movePreview = getMovePreview()
-      const movingIds = new Set(movePreview?.mode !== "copy" ? movePreview?.records?.map(record => record.id) || [] : [])
+      const movingIds = new Set(movePreview?.mode !== "copy" && !movePreview?.preserveSourceVisible ? movePreview?.records?.map(record => record.id) || [] : [])
       for (const record of records) {
         if (movingIds.has(record.id)) continue
         if (record?.type === "line") {
@@ -234,7 +234,7 @@
         }
         const markers=movePreview.mode==="rotate"||movePreview.mode==="scale"?Object.freeze({center:Object.freeze({point:Object.freeze({x:base.x,y:base.y}),segments:new Float32Array(rotateCenterMarker)}),reference:reference?Object.freeze({point:Object.freeze({x:reference.x,y:reference.y}),segments:new Float32Array(rotateReferenceMarker)}):null,target:candidate?Object.freeze({point:Object.freeze({x:candidate.x,y:candidate.y}),segments:new Float32Array(rotateTargetMarker)}):null}):null
         moveOverlay=Object.freeze({recordIds:Object.freeze(Array.from(movePreview.recordIds)),source:Object.freeze({segments:new Float32Array(moveSourceGhost),circles:Object.freeze(moveSourceCircles),arcs:Object.freeze(moveSourceArcs),ellipses:Object.freeze(moveSourceEllipses)}),
-          mode:movePreview.mode,factor:movePreview.factor??null,angle:movePreview.angle??null,basePoint:Object.freeze({x:base.x,y:base.y}),referencePoint:reference?Object.freeze({x:reference.x,y:reference.y}):null,candidatePoint:candidate?Object.freeze({x:candidate.x,y:candidate.y}):null,markers,guideSegments:new Float32Array(moveGuide)})
+          mode:movePreview.mode,copyMode:Boolean(movePreview.copyMode),preserveSourceVisible:Boolean(movePreview.preserveSourceVisible),factor:movePreview.factor??null,angle:movePreview.angle??null,basePoint:Object.freeze({x:base.x,y:base.y}),referencePoint:reference?Object.freeze({x:reference.x,y:reference.y}):null,candidatePoint:candidate?Object.freeze({x:candidate.x,y:candidate.y}):null,markers,guideSegments:new Float32Array(moveGuide)})
       }
 
       if (gripPreview) {

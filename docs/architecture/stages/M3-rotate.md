@@ -7,10 +7,14 @@ M1/M2 preselection and postselection: D3 click and D3A Window/Crossing remain
 active until Enter or quick Space confirms a non-empty selection. Point input
 then follows three phases: center `C`, reference `R`, and target `T`.
 
+## Copy option
+
+Rotate exposes the transient U5B option `Copy=No/Yes`, defaulting to `No` for each command session. `No` replaces the selected records as normal. `Yes` leaves sources authoritative and creates fresh-identity rotated copies in one atomic history entry, selecting only those copies after publication. The live preview keeps the original records visible and shows only the transformed copy preview; it does not create records, snap candidates, or selection targets. Undo removes the copies and Redo restores their exact generated identities. Persistent remembered Copy preferences are deliberately deferred.
+
 The signed rotation is derived from `atan2(R-C)` and `atan2(T-C)` and normalized
 deterministically to `(-π, π]`. Equivalent geometry remains visually continuous
 at the branch cut, so M3 does not accumulate turns. Direct typed angles,
-Reference/Copy options, and angle constraints remain deferred.
+Reference options and angle constraints remain deferred.
 
 ## Transform semantics and identity
 

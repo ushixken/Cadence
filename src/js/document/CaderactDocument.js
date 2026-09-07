@@ -272,6 +272,17 @@
           return Object.freeze({ status: "commit-failed", message: error.message })
         }
       },
+      removeAll(recordIds) {
+        let transaction
+        try {
+          transaction = controller.beginTransaction()
+          for (const recordId of recordIds) transaction.remove(recordId)
+          return transaction.publish()
+        } catch (error) {
+          if (transaction?.isOpen) transaction.rollback()
+          return Object.freeze({ status: "commit-failed", message: error.message })
+        }
+      },
       copyWithFreshIdentity(record) {
         if(record.type==="line")return freeze({...record,id:newId(),start:{...record.start,featureId:newId()},end:{...record.end,featureId:newId()}})
         if(record.type==="arc")return freeze({...record,id:newId(),start:{...record.start,featureId:newId()},end:{...record.end,featureId:newId()}})
