@@ -75,6 +75,22 @@ test('Enter publishes a multi-segment Line once and one A4 Undo/Redo restores ex
   assert.equal(b.read('documentController.currentStateId'), committedStateId);
 });
 
+test('Line Close appears at three distinct points and atomically publishes independent closing Lines', async () => {
+  const b=await browser();const beforeHistory=b.read('documentController.historyInfo.entryCount');b.launch();typed(b,'0,0');typed(b,'10,0');
+  assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.options'),[]);typed(b,'10,10');assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.options'),[{id:'close',label:'Close',value:'',showValue:false,enabled:true}]);
+  const draft=b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()');const close=b.commandPrompt.children.find(child=>child.dataset.optionId==='close');assert.equal(close.textContent,'Close');b.emit(close,'click');
+  const records=b.read('modelReader.records()');assert.equal(records.length,3);assert.ok(records.every(record=>record.type==='line'));assert.ok(draft.every(segment=>records.some(record=>record.id===segment.id)));const closing=records.find(record=>!draft.some(segment=>segment.id===record.id));assert.deepEqual({x:closing.start.x,y:closing.start.y},{x:10,y:10});assert.deepEqual({x:closing.end.x,y:closing.end.y},{x:0,y:0});assert.equal(b.read('documentController.historyInfo.entryCount'),beforeHistory+1);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null);
+  b.run('window.caderactHistory.undo()');assert.equal(b.read('modelReader.records().length'),0);b.run('window.caderactHistory.redo()');assert.deepEqual(b.read('modelReader.records()'),records)
+});
+
+test('Line Close availability follows Step Undo and a naturally accepted return to P1 is not duplicated', async () => {
+  const b=await browser();b.launch();for(const point of ['0,0','10,0','10,10'])typed(b,point);assert.equal(b.read('window.caderactCommandRouter.activeSession.options.length'),1);b.window.caderactViewport.stepUndoActiveCommand();assert.equal(b.read('window.caderactCommandRouter.activeSession.options.length'),0);typed(b,'10,10');typed(b,'0,0');const count=b.read('window.caderactCommandRouter.activeSession.draft.segmentCount');assert.equal(count,3);b.run('window.caderactCommandRouter.activateOption("close")');assert.equal(b.read('modelReader.lines().length'),3);assert.equal(b.read('modelReader.lines().filter((line,index,all)=>all.findIndex(other=>other.start.x===line.start.x&&other.start.y===line.start.y&&other.end.x===line.end.x&&other.end.y===line.end.y)===index).length'),3)
+});
+
+test('Line Close failure preserves its prepared closing segment and retries without duplication', async () => {
+  const b=await browser();b.launch();for(const point of ['0,0','10,0','10,10'])typed(b,point);b.run('window.__conflict=window.caderactCommandRouter.activeSession.draft.draftSegments()[0];recordGateway.createAll([window.__conflict])');const history=b.read('documentController.historyInfo.entryCount');b.run('window.caderactCommandRouter.activateOption("close")');assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Line');assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.segmentCount'),3);assert.equal(b.read('documentController.historyInfo.entryCount'),history);b.run('documentController.undo()');b.run('window.caderactCommandRouter.activateOption("close")');assert.equal(b.read('modelReader.lines().length'),3);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null)
+});
+
 test('Escape discards several draft segments without changing document or A4 history', async () => {
   const b = await browser(); const before = persistentState(b);
   b.launch(); for (const x of [100, 150, 200, 250]) b.point(x, 100);

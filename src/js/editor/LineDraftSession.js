@@ -2,6 +2,7 @@
 // document state until finish() successfully publishes all segments at once.
 (() => {
   function copyPoint(point) { return Object.freeze({ x: point.x, y: point.y }) }
+  function samePoint(a, b) { return a?.x === b?.x && a?.y === b?.y }
 
   function createSession({ createSegment, commitSegments }) {
     let currentPoint = null
@@ -50,6 +51,22 @@
       if (outcome.status === "committed") clear()
       return outcome
     }
+    function canClose() {
+      const points = acceptedPoints()
+      if (points.length < 3) return false
+      return new Set(points.map(point => `${point.x}:${point.y}`)).size >= 3
+    }
+    function close() {
+      if (!canClose()) return Object.freeze({ status: "close-unavailable" })
+      const firstPoint = segments[0].start
+      if (!samePoint(currentPoint, firstPoint)) {
+        const closingSegment = createSegment(currentPoint, firstPoint)
+        segments.push(closingSegment)
+        currentPoint = copyPoint(firstPoint)
+        pointerPoint = currentPoint
+      }
+      return finish()
+    }
     function cancel() {
       clear()
       return Object.freeze({ status: "cancelled" })
@@ -64,10 +81,11 @@
 
     return Object.freeze({
       acceptPoint, updatePointer, clearPointer, preview, draftSegments, acceptedPoints,
-      stepUndo, finish, cancel,
+      stepUndo, finish, close, cancel,
       get segmentCount() { return segments.length },
       get hasFirstPoint() { return currentPoint !== null },
       get currentPoint() { return currentPoint },
+      get canClose() { return canClose() },
     })
   }
 

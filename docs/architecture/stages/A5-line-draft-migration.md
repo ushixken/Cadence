@@ -49,6 +49,20 @@ therefore receives one exact change set and one history entry. Revision and
 state identity each advance once regardless of segment count. On success, the
 draft is cleared and Line exits.
 
+### Close
+
+After at least three distinct accepted points, Line exposes the semantic U5B
+`Close` option. It derives one final segment from the latest accepted point to
+the exact first accepted point and then uses the same atomic publication path
+as Enter. If the user has already accepted the first point naturally, Close
+does not add a duplicate segment. A failed publication retains the complete
+draft, including its prepared closing segment, for an exact retry.
+
+Line chain + Close remains a collection of independent native Line records in
+one transaction and history entry. In contrast, Polyline + Close creates one
+closed native Polyline record. Enter continues to publish an open Line chain,
+and Line intentionally has no PersistentClose rubber band.
+
 ### Escape
 
 Escape discards the session in memory and exits. It performs no document

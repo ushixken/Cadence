@@ -183,14 +183,27 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
   }
   function hasPointerPreview() { return draft.hasFirstPoint }
   function getPreviewLines() { const preview = draft.preview(); return preview ? [preview] : [] }
+  function handleOption(optionId) {
+    if (optionId !== "close" || !draft.canClose) return Object.freeze({ status: "option-unavailable", reason: "close-unavailable", command: "Line", optionId })
+    clearSnap()
+    const outcome = draft.close()
+    if (outcome.status !== "committed") {
+      updatePrompt("Unable to commit; draft preserved")
+      requestRender()
+      return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Line", outcome })
+    }
+    requestRender()
+    return Object.freeze({ status: "command-completed", command: "Line", outcome })
+  }
+  function options() { return draft.canClose ? Object.freeze([Object.freeze({ id: "close", label: "Close", value: "", showValue: false, enabled: true })]) : Object.freeze([]) }
 
   requestRender()
   return Object.freeze({
     name: "Line", draft, finish, cancel, stepUndo,
-    handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
+    handlePointerDown, handlePointerMove, handlePointerLeave, handleInput, handleOption,
     getDraftLines: draft.draftSegments, getPreview: draft.preview, getPreviewLines,
     getDraftPoints: draft.acceptedPoints,
-    getSnapCandidates, hasPointerPreview,
+    getSnapCandidates, hasPointerPreview, get options() { return options() },
     get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
 }
