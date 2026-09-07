@@ -261,6 +261,17 @@
         try { transaction.replace(recordId, record); return transaction.publish() }
         catch (error) { if (transaction.isOpen) transaction.rollback(); throw error }
       },
+      replaceAll(records) {
+        let transaction
+        try {
+          transaction = controller.beginTransaction()
+          for (const record of records) transaction.replace(record.id, record)
+          return transaction.publish()
+        } catch (error) {
+          if (transaction?.isOpen) transaction.rollback()
+          return Object.freeze({ status: "commit-failed", message: error.message })
+        }
+      },
       updateProperties(recordId, properties) {
         return updateRecordProperties(recordId, properties)
       },

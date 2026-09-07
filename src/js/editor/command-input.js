@@ -21,6 +21,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Circle", aliases: ["C"], repeatable: true, activate: context => window.caderactViewport.createCircleCommandSession(context) },
   { name: "Ellipse", aliases: ["EL"], repeatable: true, activate: context => window.caderactViewport.createEllipseCommandSession(context) },
   { name: "Line", aliases: ["L"], repeatable: true, activate: context => window.caderactViewport.createLineCommandSession(context) },
+  { name: "Move", aliases: ["M"], repeatable: true, activate: context => window.caderactViewport.createMoveCommandSession(context) },
   { name: "Polyline", aliases: ["Pline", "PL"], priority: 10, repeatable: true, activate: context => window.caderactViewport.createPolylineCommandSession(context) },
   { name: "Polygon", aliases: ["PG"], repeatable: true, activate: context => window.caderactViewport.createPolygonCommandSession(context) },
   { name: "Rectangle", aliases: ["Rect"], repeatable: true, activate: context => window.caderactViewport.createRectangleCommandSession(context) },

@@ -1,5 +1,5 @@
 (() => {
-  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getPreviewLines = null, getCirclePreview = () => null, getArcPreview = () => null, getEllipsePreview = () => null, getDraftPoints = () => [], getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null, getSelectionBox = () => null }) {
+  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getPreviewLines = null, getCirclePreview = () => null, getArcPreview = () => null, getEllipsePreview = () => null, getMovePreview = () => null, getDraftPoints = () => [], getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null, getSelectionBox = () => null }) {
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
     const MAX_GRID_LINES_PER_AXIS = 512
@@ -64,6 +64,7 @@
       const committedArcs = [], previewArcs = [], selectedArcs = []
       const committedEllipses = [], previewEllipses = [], selectedEllipses = []
       const committedPolylines = [], selectedPolylines = []
+      const moveSourceGhost = [], moveGuide = [], moveSourceCircles = [], moveSourceArcs = [], moveSourceEllipses = []
       function projectArc(record) {
         const center=camera.worldToScreen(record.center.x,record.center.y)
         const start=camera.worldToScreen(record.start.x,record.start.y)
@@ -129,8 +130,10 @@
 
       // A6 persistent projection: query the authoritative document read-side on
       // every scene build. Unknown record types are skipped deterministically.
-      const records = getRecords(), selectedIds = new Set(getSelectedIds()), gripPreview = getGripPreview()
+      const records = getRecords(), selectedIds = new Set(getSelectedIds()), gripPreview = getGripPreview(), movePreview = getMovePreview()
+      const movingIds = new Set(movePreview?.records?.map(record => record.id) || [])
       for (const record of records) {
+        if (movingIds.has(record.id)) continue
         if (record?.type === "line") {
           const a = camera.worldToScreen(record.start.x, record.start.y)
           const b = camera.worldToScreen(record.end.x, record.end.y)
@@ -189,6 +192,38 @@
       const ellipsePreview=getEllipsePreview()
       if(ellipsePreview?.valid)previewEllipses.push(projectEllipse({id:null,center:ellipsePreview.center,
         majorAxis:ellipsePreview.majorAxis,minorRadius:ellipsePreview.minorRadius}))
+
+      for (const record of movePreview?.records || []) {
+        if (record.type === "line") {
+          const a=camera.worldToScreen(record.start.x,record.start.y),b=camera.worldToScreen(record.end.x,record.end.y);addSegment(nextPreview,a.x,a.y,b.x,b.y)
+        } else if(record.type === "polyline") {
+          const count=record.closed?record.vertices.length:record.vertices.length-1
+          for(let index=0;index<count;index++){const a=record.vertices[index],b=record.vertices[(index+1)%record.vertices.length],pa=camera.worldToScreen(a.x,a.y),pb=camera.worldToScreen(b.x,b.y);addSegment(nextPreview,pa.x,pa.y,pb.x,pb.y)}
+        } else if(record.type === "circle") {
+          const center=camera.worldToScreen(record.center.x,record.center.y),edge=camera.worldToScreen(record.center.x+record.radius,record.center.y);previewCircles.push(Object.freeze({recordId:record.id,center:Object.freeze(center),radius:Math.hypot(edge.x-center.x,edge.y-center.y)}))
+        } else if(record.type === "arc") previewArcs.push(projectArc(record))
+        else if(record.type === "ellipse") previewEllipses.push(projectEllipse(record))
+      }
+      for (const record of movePreview?.sourceRecords || []) {
+        if(record.type === "line") {
+          const a=camera.worldToScreen(record.start.x,record.start.y),b=camera.worldToScreen(record.end.x,record.end.y);addSegment(moveSourceGhost,a.x,a.y,b.x,b.y)
+        } else if(record.type === "polyline") {
+          const count=record.closed?record.vertices.length:record.vertices.length-1
+          for(let index=0;index<count;index++){const a=record.vertices[index],b=record.vertices[(index+1)%record.vertices.length],pa=camera.worldToScreen(a.x,a.y),pb=camera.worldToScreen(b.x,b.y);addSegment(moveSourceGhost,pa.x,pa.y,pb.x,pb.y)}
+        } else if(record.type === "circle") {
+          const center=camera.worldToScreen(record.center.x,record.center.y),edge=camera.worldToScreen(record.center.x+record.radius,record.center.y);moveSourceCircles.push(Object.freeze({recordId:record.id,center:Object.freeze(center),radius:Math.hypot(edge.x-center.x,edge.y-center.y)}))
+        } else if(record.type === "arc") moveSourceArcs.push(projectArc(record))
+        else if(record.type === "ellipse") moveSourceEllipses.push(projectEllipse(record))
+      }
+      let moveOverlay=null
+      if(movePreview?.basePoint&&movePreview?.candidatePoint){
+        const base=camera.worldToScreen(movePreview.basePoint.x,movePreview.basePoint.y),candidate=camera.worldToScreen(movePreview.candidatePoint.x,movePreview.candidatePoint.y),size=3
+        addSegment(moveGuide,base.x,base.y,candidate.x,candidate.y)
+        addSegment(moveGuide,base.x-size,base.y-size,base.x+size,base.y-size);addSegment(moveGuide,base.x+size,base.y-size,base.x+size,base.y+size)
+        addSegment(moveGuide,base.x+size,base.y+size,base.x-size,base.y+size);addSegment(moveGuide,base.x-size,base.y+size,base.x-size,base.y-size)
+        moveOverlay=Object.freeze({recordIds:Object.freeze(Array.from(movePreview.recordIds)),source:Object.freeze({segments:new Float32Array(moveSourceGhost),circles:Object.freeze(moveSourceCircles),arcs:Object.freeze(moveSourceArcs),ellipses:Object.freeze(moveSourceEllipses)}),
+          basePoint:Object.freeze({x:base.x,y:base.y}),candidatePoint:Object.freeze({x:candidate.x,y:candidate.y}),guideSegments:new Float32Array(moveGuide)})
+      }
 
       if (gripPreview) {
         if (gripPreview.type === "line") {
@@ -308,15 +343,17 @@
         lineGroup(viewportSettings.selectionWindowColor || viewportSettings.selectionColor, selectionWindow),
         lineGroup(viewportSettings.selectionCrossingColor || viewportSettings.selectionColor, selectionCrossing),
         lineGroup(viewportSettings.snapMarkerColor || viewportSettings.previewColor, snapMarker),
+        lineGroup(viewportSettings.moveSourceGhostColor || "rgba(160, 177, 193, 0.35)", moveSourceGhost),
+        lineGroup(viewportSettings.moveGuideColor || viewportSettings.snapMarkerColor, moveGuide),
       ]
       const circleGroups = lineGroups.map((group, index) => Object.freeze({
         color: group.color, colorData: group.colorData, lineWidth: group.lineWidth,
-        circles: Object.freeze(index === 4 ? committedCircles : index === 6 ? previewCircles : index === 7 ? selectedCircles : []),
+        circles: Object.freeze(index === 4 ? committedCircles : index === 6 ? previewCircles : index === 7 ? selectedCircles : index === 17 ? moveSourceCircles : []),
       }))
       const arcGroups=lineGroups.map((group,index)=>Object.freeze({color:group.color,colorData:group.colorData,lineWidth:group.lineWidth,
-        arcs:Object.freeze(index===4?committedArcs:index===6?previewArcs:index===7?selectedArcs:[])}))
+        arcs:Object.freeze(index===4?committedArcs:index===6?previewArcs:index===7?selectedArcs:index===17?moveSourceArcs:[])}))
       const ellipseGroups=lineGroups.map((group,index)=>Object.freeze({color:group.color,colorData:group.colorData,lineWidth:group.lineWidth,
-        ellipses:Object.freeze(index===4?committedEllipses:index===6?previewEllipses:index===7?selectedEllipses:[])}))
+        ellipses:Object.freeze(index===4?committedEllipses:index===6?previewEllipses:index===7?selectedEllipses:index===17?moveSourceEllipses:[])}))
       return {
         width: viewportWidth, height: viewportHeight, deviceScale: scale,
         backgroundColor: viewportSettings.backgroundColor,
@@ -339,6 +376,7 @@
         arcOverlay:Object.freeze({committed:Object.freeze(committedArcs),preview:Object.freeze(previewArcs),selected:Object.freeze(selectedArcs)}),
         ellipseOverlay:Object.freeze({committed:Object.freeze(committedEllipses),preview:Object.freeze(previewEllipses),selected:Object.freeze(selectedEllipses)}),
         selectionBoxOverlay,
+        moveOverlay,
         polylineOverlay:Object.freeze({committed:Object.freeze(committedPolylines),selected:Object.freeze(selectedPolylines)}),
         lineGroups, circleGroups, arcGroups, ellipseGroups,
         drawGroups: Object.freeze(lineGroups.map((lineGroup, index) => Object.freeze({ lineGroup, circleGroup: circleGroups[index],arcGroup:arcGroups[index],ellipseGroup:ellipseGroups[index] }))),

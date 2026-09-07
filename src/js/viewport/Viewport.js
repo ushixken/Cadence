@@ -12,6 +12,7 @@ const viewportSettings = {
   selectionWindowFill: "rgba(75, 155, 210, 0.10)", selectionCrossingFill: "rgba(78, 170, 112, 0.10)",
   draftPointColor: "#e8edf4",
   acceptedDraftColor: "#e8edf4",
+  moveSourceGhostColor: "rgba(160, 177, 193, 0.35)", moveGuideColor: "rgba(242, 207, 114, 0.72)",
 }
 
 const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettings.initialZoom)
@@ -77,6 +78,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getCirclePreview: () => getActiveCommandSession()?.getCirclePreview?.() || null,
   getArcPreview: () => getActiveCommandSession()?.getArcPreview?.() || null,
   getEllipsePreview: () => getActiveCommandSession()?.getEllipsePreview?.() || null,
+  getMovePreview: () => getActiveCommandSession()?.getMovePreview?.() || null,
   getDraftPoints: () => getActiveCommandSession()?.getDraftPoints?.() || [],
   getSnapResult: () => activeSnapResult,
   getSelectedIds: selection.selectedIds,
@@ -206,6 +208,66 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     getSnapCandidates, hasPointerPreview, get options() { return options() },
     get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
+}
+
+function createMoveCommandSession({ setPrompt = () => {} } = {}) {
+  let phase = selection.selectedIds().length ? "base" : "selection"
+  let selectedRecordIds = phase === "base" ? selection.selectedIds() : Object.freeze([])
+  let basePoint = null, candidatePoint = null
+  let promptPresentation = createCommandPrompt("Move", phase === "selection" ? "Select objects" : "Specify base point")
+  function updatePrompt(instruction) { promptPresentation=createCommandPrompt("Move",instruction);setPrompt(promptPresentation.text,promptPresentation) }
+  function selectedRecords() {
+    const selected=new Set(selectedRecordIds)
+    return modelReader.records().filter(record=>selected.has(record.id))
+  }
+  function confirmSelection() {
+    const ids=selection.selectedIds()
+    if(!ids.length)return Object.freeze({status:"invalid-input",reason:"empty-selection",command:"Move",message:"Select at least one object"})
+    selectedRecordIds=ids;phase="base";updatePrompt("Specify base point");requestRender()
+    return Object.freeze({status:"input-accepted",command:"Move",kind:"selection",recordIds:selectedRecordIds})
+  }
+  function commitTarget(point) {
+    candidatePoint=Object.freeze({x:point.x,y:point.y})
+    const dx=candidatePoint.x-basePoint.x,dy=candidatePoint.y-basePoint.y
+    if(dx===0&&dy===0){clearSnap();candidatePoint=null;requestRender();return Object.freeze({status:"command-completed",command:"Move",outcome:Object.freeze({status:"no-op"})})}
+    let replacements
+    try { replacements=selectedRecords().map(record=>window.CaderactGeometryTransform.translateRecord(record,dx,dy)) }
+    catch(error){return Object.freeze({status:"invalid-input",reason:"invalid-translation",command:"Move",message:error.message})}
+    if(replacements.length!==selectedRecordIds.length)return Object.freeze({status:"invalid-input",reason:"missing-selection",command:"Move",message:"A selected object is no longer available"})
+    const outcome=recordGateway.replaceAll(replacements)
+    if(outcome.status!=="committed"){requestRender();return Object.freeze({status:"invalid-input",reason:"commit-failed",command:"Move",message:"Unable to move; preview preserved",outcome})}
+    clearSnap();candidatePoint=null;requestRender()
+    return Object.freeze({status:"command-completed",command:"Move",outcome,dx,dy})
+  }
+  function acceptPoint(point) {
+    if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-not-confirmed",command:"Move"})
+    if(phase==="base"){basePoint=Object.freeze({x:point.x,y:point.y});candidatePoint=basePoint;phase="target";updatePrompt("Specify second point");requestRender();return Object.freeze({status:"input-accepted",command:"Move",kind:"base-point",point:basePoint})}
+    return commitTarget(point)
+  }
+  function handlePointerDown(point){return acceptPoint(point)}
+  function handlePointerMove(point){if(phase==="target")candidatePoint=Object.freeze({x:point.x,y:point.y});requestRender()}
+  function handlePointerLeave(){candidatePoint=null;clearSnap();requestRender()}
+  function handleInput(input){
+    if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Move",message:"Press Enter to confirm selection"})
+    clearSnap()
+    const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor:phase==="target"?basePoint:null})
+    if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Move",message:"Enter a point as x,y"})
+    return acceptPoint(Object.freeze({x:parsed.x,y:parsed.y}))
+  }
+  function finish(){if(phase==="selection")return confirmSelection();return Object.freeze({status:"invalid-input",reason:"point-required",command:"Move",message:phase==="base"?"Specify a base point":"Specify a second point"})}
+  function cancel(){candidatePoint=null;clearSnap();requestRender();return Object.freeze({status:"command-cancelled",command:"Move"})}
+  function getMovePreview(){
+    if(phase!=="target"||!candidatePoint)return null
+    const dx=candidatePoint.x-basePoint.x,dy=candidatePoint.y-basePoint.y
+    const sourceRecords=selectedRecords()
+    return Object.freeze({recordIds:selectedRecordIds,basePoint,candidatePoint,dx,dy,sourceRecords:Object.freeze(sourceRecords),
+      records:Object.freeze(sourceRecords.map(record=>window.CaderactGeometryTransform.translateRecord(record,dx,dy)))})
+  }
+  requestRender()
+  return Object.freeze({name:"Move",finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,getMovePreview,
+    hasPointerPreview:()=>phase!=="selection",getExcludedSnapRecordIds:()=>phase==="target"?selectedRecordIds:Object.freeze([]),
+    get isSelectionPhase(){return phase==="selection"},get phase(){return phase},get selectedRecordIds(){return selectedRecordIds},get basePoint(){return basePoint},get candidatePoint(){return candidatePoint},
+    get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
 function createCircleCommandSession({ setPrompt = () => {} } = {}) {
@@ -588,7 +650,7 @@ function subscribeSnapModes(listener) {
 
 function clearSnap() { activeSnapResult = null; interactionVisuals.setSnapAcquired(false) }
 
-function resolvePointerSnap(point, { excludedFeatureIds = [], transientCandidates = [], bypass = false } = {}) {
+function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds = [], transientCandidates = [], bypass = false } = {}) {
   if (Array.isArray(arguments[1])) {
     excludedFeatureIds = arguments[1]
     transientCandidates = (arguments[2] || []).map((candidate, index) => ({
@@ -610,6 +672,7 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], transientCandidate
     gridSpacing: sceneBuilder.getAdaptiveGridSpacing(),
     enabled: snapModes,
     excludedFeatureIds,
+    excludedRecordIds,
   })
   return activeSnapResult
 }
@@ -651,7 +714,7 @@ bindSelectionDocument()
 
 function setCommandActive(active) {
   if (active) cancelGripEdit()
-  interactionVisuals.setMode(active ? "point" : "select")
+  interactionVisuals.setMode(active && !getActiveCommandSession()?.isSelectionPhase ? "point" : "select")
 }
 function getInteractionVisualState() { return interactionVisuals.snapshot() }
 function releaseGripPointerCapture(pointerId) {
@@ -667,7 +730,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()
@@ -710,7 +773,7 @@ function updateSnapAtPointer({ bypass = isShiftBypassed } = {}) {
     return
   }
   if (session?.handlePointerMove && hasCommandPointerPreview(session) && !navigation.isActive()) {
-    const snap = resolvePointerSnap(worldPoint, { transientCandidates: getCommandSnapCandidates(session), bypass })
+    const snap = resolvePointerSnap(worldPoint, { transientCandidates: getCommandSnapCandidates(session), excludedRecordIds:session.getExcludedSnapRecordIds?.()||[], bypass })
     interactionVisuals.setSnapAcquired(snap.snapped)
     session.handlePointerMove(snap.point)
     requestRender()
@@ -723,19 +786,22 @@ function onViewportPointerDown(event) {
   const point = getCanvasPoint(event)
   lastKnownPointerScreen = point
   const bypass = Boolean(event.shiftKey)
-  if (session?.handlePointerDown) {
+  if (session?.handlePointerDown && !session.isSelectionPhase) {
     const snap = resolvePointerSnap(screenToWorld(point.x, point.y), {
       transientCandidates: getCommandSnapCandidates(session),
+      excludedRecordIds: session.getExcludedSnapRecordIds?.() || [],
       bypass,
     })
     window.caderactCommandRouter.submitActivePointer(snap.point)
     return
   }
-  const gripOutcome = grips.begin(point, event.pointerId)
-  if (gripOutcome.status === "grip-edit-started") {
-    canvas.setPointerCapture?.(event.pointerId)
-    clearSnap()
-    return
+  if (!session) {
+    const gripOutcome = grips.begin(point, event.pointerId)
+    if (gripOutcome.status === "grip-edit-started") {
+      canvas.setPointerCapture?.(event.pointerId)
+      clearSnap()
+      return
+    }
   }
   const hit = window.CaderactSelection.hitTestRecords({screenPoint:point,records:modelReader.records(),worldToScreen})
   const toggle = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey)
@@ -751,7 +817,7 @@ function onCommandPointerMove(event) {
   lastKnownPointerScreen = point
   const bypass = Boolean(event.shiftKey)
   isShiftBypassed = bypass
-  interactionVisuals.setMode(getActiveCommandSession() ? "point" : "select")
+  interactionVisuals.setMode(getActiveCommandSession() && !getActiveCommandSession()?.isSelectionPhase ? "point" : "select")
   interactionVisuals.move(getViewportPoint(event))
   if(selectionBox.isPending){selectionBox.update(point);requestRender();return}
   const session = getActiveCommandSession()
@@ -768,6 +834,7 @@ function onCommandPointerMove(event) {
   if (!session?.handlePointerMove || !hasCommandPointerPreview(session) || navigation.isActive()) return
   const snap = resolvePointerSnap(screenToWorld(point.x, point.y), {
     transientCandidates: getCommandSnapCandidates(session),
+    excludedRecordIds: session.getExcludedSnapRecordIds?.() || [],
     bypass,
   })
   interactionVisuals.setSnapAcquired(snap.snapped)
@@ -775,7 +842,7 @@ function onCommandPointerMove(event) {
 }
 
 function onViewportPointerEnter(event) {
-  interactionVisuals.setMode(getActiveCommandSession() ? "point" : "select")
+  interactionVisuals.setMode(getActiveCommandSession() && !getActiveCommandSession()?.isSelectionPhase ? "point" : "select")
   interactionVisuals.move(getViewportPoint(event))
 }
 

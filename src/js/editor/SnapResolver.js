@@ -6,7 +6,7 @@
   const freezePoint = point => Object.freeze({ x: point.x, y: point.y })
 
   function createResolver({ tolerancePx = DEFAULT_TOLERANCE_PX, priorityWindowPx = PRIORITY_WINDOW_PX } = {}) {
-    function resolve({ rawWorldPoint, worldToScreen, records = [], transientCandidates = [], draftPoints = [], gridSpacing, enabled = {}, excludedFeatureIds = [] }) {
+    function resolve({ rawWorldPoint, worldToScreen, records = [], transientCandidates = [], draftPoints = [], gridSpacing, enabled = {}, excludedFeatureIds = [], excludedRecordIds = [] }) {
       const rawPoint = freezePoint(rawWorldPoint)
       if (!Number.isFinite(rawPoint.x) || !Number.isFinite(rawPoint.y) || typeof worldToScreen !== "function") {
         return Object.freeze({ snapped: false, point: rawPoint })
@@ -15,6 +15,7 @@
       if (!Number.isFinite(rawScreen.x) || !Number.isFinite(rawScreen.y)) return Object.freeze({ snapped: false, point: rawPoint })
       const candidates = []
       const excluded = new Set(excludedFeatureIds)
+      const excludedRecords = new Set(excludedRecordIds)
       function add(kind, point, stableKey, reference = null) {
         if (enabled[kind] === false || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return
         const screen = worldToScreen(point.x, point.y)
@@ -23,7 +24,7 @@
         if (!Number.isFinite(distancePx) || distancePx > tolerancePx) return
         candidates.push({ kind, point: freezePoint(point), distancePx, stableKey, reference })
       }
-      const ordered = Array.from(records).filter(record => record?.type === "line" || record?.type === "arc" || record?.type === "polyline").sort((a, b) => a.id.localeCompare(b.id))
+      const ordered = Array.from(records).filter(record => !excludedRecords.has(record?.id) && (record?.type === "line" || record?.type === "arc" || record?.type === "polyline")).sort((a, b) => a.id.localeCompare(b.id))
       for (const record of ordered) {
         if(record.type==="polyline"){
           for(const vertex of [...record.vertices].sort((a,b)=>a.featureId.localeCompare(b.featureId))){if(!excluded.has(vertex.featureId))add("endpoint",vertex,`endpoint:${record.id}:${vertex.featureId}`,window.CaderactReferences.createEndpointReference(record.id,vertex.featureId))}
