@@ -2,6 +2,11 @@
 (() => {
   const DEFAULT_HIT_TOLERANCE_PX = 8
   const result = (status, details = {}) => Object.freeze({ status, ...details })
+  function segmentDistance(point,x1,y1,x2,y2){
+    const dx=x2-x1,dy=y2-y1,lengthSquared=dx*dx+dy*dy
+    const t=lengthSquared===0?0:Math.max(0,Math.min(1,((point.x-x1)*dx+(point.y-y1)*dy)/lengthSquared))
+    return Math.hypot(point.x-(x1+t*dx),point.y-(y1+t*dy))
+  }
 
   function hitTestLines({ screenPoint, records = [], worldToScreen, tolerancePx = DEFAULT_HIT_TOLERANCE_PX }) {
     if (!Number.isFinite(screenPoint?.x) || !Number.isFinite(screenPoint?.y) || typeof worldToScreen !== "function") {
@@ -49,6 +54,17 @@
             && distancePx<=tolerancePx && window.CaderactArcGeometry.angleOnSweep(worldAngle,startAngle,record.sweep)) {
           hits.push({recordId:record.id,distancePx})
         }
+      } else if(record?.type === "ellipse"){
+        const center=worldToScreen(record.center.x,record.center.y)
+        const axisEnd=worldToScreen(record.center.x+record.majorAxis.x,record.center.y+record.majorAxis.y)
+        const minorEnd=worldToScreen(record.center.x-record.majorAxis.y/Math.hypot(record.majorAxis.x,record.majorAxis.y)*record.minorRadius,
+          record.center.y+record.majorAxis.x/Math.hypot(record.majorAxis.x,record.majorAxis.y)*record.minorRadius)
+        const projected={center,radiusX:Math.hypot(axisEnd.x-center.x,axisEnd.y-center.y),radiusY:Math.hypot(minorEnd.x-center.x,minorEnd.y-center.y),
+          rotation:Math.atan2(axisEnd.y-center.y,axisEnd.x-center.x)}
+        const segments=window.CaderactEllipseTessellation.createSegments(projected)
+        let distancePx=Infinity
+        for(let index=0;index<segments.length;index+=4)distancePx=Math.min(distancePx,segmentDistance(screenPoint,...segments.slice(index,index+4)))
+        if(distancePx<=tolerancePx)hits.push({recordId:record.id,distancePx})
       }
     }
     hits.sort((a,b)=>a.distancePx-b.distancePx||a.recordId.localeCompare(b.recordId))

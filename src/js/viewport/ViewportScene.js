@@ -1,5 +1,5 @@
 (() => {
-  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getPreviewLines = null, getCirclePreview = () => null, getArcPreview = () => null, getDraftPoints = () => [], getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null }) {
+  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getPreviewLines = null, getCirclePreview = () => null, getArcPreview = () => null, getEllipsePreview = () => null, getDraftPoints = () => [], getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null }) {
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
     const MAX_GRID_LINES_PER_AXIS = 512
@@ -60,12 +60,20 @@
       const idleGrips = [], hoverGrips = [], activeGrips = []
       const committedCircles = [], previewCircles = [], selectedCircles = []
       const committedArcs = [], previewArcs = [], selectedArcs = []
+      const committedEllipses = [], previewEllipses = [], selectedEllipses = []
       function projectArc(record) {
         const center=camera.worldToScreen(record.center.x,record.center.y)
         const start=camera.worldToScreen(record.start.x,record.start.y)
         return Object.freeze({recordId:record.id,center:Object.freeze({x:center.x,y:center.y}),
           radius:Math.hypot(start.x-center.x,start.y-center.y),
           startAngle:Math.atan2(start.y-center.y,start.x-center.x),sweep:-record.sweep})
+      }
+      function projectEllipse(record) {
+        const center=camera.worldToScreen(record.center.x,record.center.y)
+        const axisEnd=camera.worldToScreen(record.center.x+record.majorAxis.x,record.center.y+record.majorAxis.y)
+        const radiusX=Math.hypot(axisEnd.x-center.x,axisEnd.y-center.y)
+        return Object.freeze({recordId:record.id,center:Object.freeze({x:center.x,y:center.y}),radiusX,
+          radiusY:record.minorRadius*camera.state.zoom,rotation:Math.atan2(axisEnd.y-center.y,axisEnd.x-center.x)})
       }
       const topLeft = camera.screenToWorld(0, 0)
       const bottomRight = camera.screenToWorld(viewportWidth, viewportHeight)
@@ -135,6 +143,9 @@
         } else if (record?.type === "arc") {
           const arc=projectArc(record);committedArcs.push(arc)
           if(selectedIds.has(record.id))selectedArcs.push(arc)
+        } else if(record?.type === "ellipse") {
+          const ellipse=projectEllipse(record);committedEllipses.push(ellipse)
+          if(selectedIds.has(record.id))selectedEllipses.push(ellipse)
         }
       }
 
@@ -166,6 +177,9 @@
         const previewRecord={id:null,center:arcPreview.center,start:arcPreview.start,sweep:arcPreview.sweep}
         previewArcs.push(projectArc(previewRecord))
       }
+      const ellipsePreview=getEllipsePreview()
+      if(ellipsePreview?.valid)previewEllipses.push(projectEllipse({id:null,center:ellipsePreview.center,
+        majorAxis:ellipsePreview.majorAxis,minorRadius:ellipsePreview.minorRadius}))
 
       if (gripPreview) {
         const a = camera.worldToScreen(gripPreview.start.x, gripPreview.start.y)
@@ -255,6 +269,8 @@
       }))
       const arcGroups=lineGroups.map((group,index)=>Object.freeze({color:group.color,colorData:group.colorData,lineWidth:group.lineWidth,
         arcs:Object.freeze(index===4?committedArcs:index===6?previewArcs:index===7?selectedArcs:[])}))
+      const ellipseGroups=lineGroups.map((group,index)=>Object.freeze({color:group.color,colorData:group.colorData,lineWidth:group.lineWidth,
+        ellipses:Object.freeze(index===4?committedEllipses:index===6?previewEllipses:index===7?selectedEllipses:[])}))
       return {
         width: viewportWidth, height: viewportHeight, deviceScale: scale,
         backgroundColor: viewportSettings.backgroundColor,
@@ -275,8 +291,9 @@
         circleOverlay: Object.freeze({ committed: Object.freeze(committedCircles), preview: Object.freeze(previewCircles),
           selected: Object.freeze(selectedCircles) }),
         arcOverlay:Object.freeze({committed:Object.freeze(committedArcs),preview:Object.freeze(previewArcs),selected:Object.freeze(selectedArcs)}),
-        lineGroups, circleGroups, arcGroups,
-        drawGroups: Object.freeze(lineGroups.map((lineGroup, index) => Object.freeze({ lineGroup, circleGroup: circleGroups[index],arcGroup:arcGroups[index] }))),
+        ellipseOverlay:Object.freeze({committed:Object.freeze(committedEllipses),preview:Object.freeze(previewEllipses),selected:Object.freeze(selectedEllipses)}),
+        lineGroups, circleGroups, arcGroups, ellipseGroups,
+        drawGroups: Object.freeze(lineGroups.map((lineGroup, index) => Object.freeze({ lineGroup, circleGroup: circleGroups[index],arcGroup:arcGroups[index],ellipseGroup:ellipseGroups[index] }))),
       }
     }
 

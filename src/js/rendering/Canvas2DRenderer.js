@@ -19,7 +19,7 @@ class Canvas2DRenderer extends window.CaderactRenderer {
     context.fillRect(0, 0, scene.width, scene.height)
 
     const drawGroups = scene.drawGroups || scene.lineGroups.map(lineGroup => ({ lineGroup, circleGroup: null }))
-    for (const { lineGroup, circleGroup, arcGroup } of drawGroups) {
+    for (const { lineGroup, circleGroup, arcGroup, ellipseGroup } of drawGroups) {
       if (lineGroup.segments.length > 0) {
         context.beginPath()
         context.strokeStyle = lineGroup.color
@@ -46,6 +46,14 @@ class Canvas2DRenderer extends window.CaderactRenderer {
           const end=arc.startAngle+arc.sweep
           context.moveTo(arc.center.x+Math.cos(arc.startAngle)*arc.radius,arc.center.y+Math.sin(arc.startAngle)*arc.radius)
           context.arc(arc.center.x,arc.center.y,arc.radius,arc.startAngle,end,arc.sweep<0)
+        }
+        context.stroke()
+      }
+      if(ellipseGroup?.ellipses.length>0){
+        context.beginPath();context.strokeStyle=ellipseGroup.color;context.lineWidth=ellipseGroup.lineWidth/scene.deviceScale
+        for(const ellipse of ellipseGroup.ellipses){
+          context.moveTo(ellipse.center.x+Math.cos(ellipse.rotation)*ellipse.radiusX,ellipse.center.y+Math.sin(ellipse.rotation)*ellipse.radiusX)
+          context.ellipse(ellipse.center.x,ellipse.center.y,ellipse.radiusX,ellipse.radiusY,ellipse.rotation,0,Math.PI*2)
         }
         context.stroke()
       }

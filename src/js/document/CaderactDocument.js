@@ -16,6 +16,7 @@
     endpoint: fields(["x", "y", "featureId"]),
     circle: fields(["id", "type", "layerId", "center", "radius"]),
     arc: fields(["id", "type", "layerId", "center", "radius", "start", "end", "sweep"]),
+    ellipse: fields(["id", "type", "layerId", "center", "majorAxis", "minorRadius"]),
     coordinate: fields(["x", "y"]),
   })
   function unknownFields(value, allowedFields) {
@@ -103,6 +104,13 @@
             if (Math.hypot(expected.x-record.end.x,expected.y-record.end.y)>1e-9*Math.max(1,record.radius)) errors.push("Arc end: endpoint does not match sweep")
           }
         }
+      } else if (record.type === "ellipse") {
+        closedShape(record, V1_FIELDS.ellipse, "Ellipse")
+        point(record.center, "Ellipse center"); point(record.majorAxis, "Ellipse major axis")
+        closedShape(record.center, V1_FIELDS.coordinate, "Ellipse center")
+        closedShape(record.majorAxis, V1_FIELDS.coordinate, "Ellipse major axis")
+        if (!(Math.hypot(record.majorAxis?.x, record.majorAxis?.y) > 0)) errors.push("Ellipse: major axis must be finite and greater than zero")
+        if (!Number.isFinite(record.minorRadius) || record.minorRadius <= 0) errors.push("Ellipse: minor radius must be finite and greater than zero")
       } else errors.push("Unsupported object type")
     }
     return errors
@@ -217,6 +225,12 @@
           center: { x: geometry.center?.x, y: geometry.center?.y }, radius: geometry.radius,
           start: { x: geometry.start?.x, y: geometry.start?.y, featureId: newId() },
           end: { x: geometry.end?.x, y: geometry.end?.y, featureId: newId() }, sweep: geometry.sweep,
+        })
+      },
+      createEllipse(geometry) {
+        return freeze({ id: newId(), type: "ellipse", layerId: state.currentLayerId,
+          center: { x: geometry.center?.x, y: geometry.center?.y },
+          majorAxis: { x: geometry.majorAxis?.x, y: geometry.majorAxis?.y }, minorRadius: geometry.minorRadius,
         })
       },
       createAll(records) {

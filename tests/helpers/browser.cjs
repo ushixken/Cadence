@@ -89,7 +89,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   let bounds = { left: 20, top: 40, width: 800, height: 600 };
   viewportHost.getBoundingClientRect = () => ({ left: 10, top: 30, width: bounds.width + 10, height: bounds.height + 10 });
   const drawCalls = [];
-  const context2d = Object.fromEntries(['setTransform', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'arc', 'stroke'].map(name => [name, (...args) => drawCalls.push([name, ...args])]));
+  const context2d = Object.fromEntries(['setTransform', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'arc', 'ellipse', 'stroke'].map(name => [name, (...args) => drawCalls.push([name, ...args])]));
   function configureCanvas(target) {
     target.parent = viewportHost; target.owner = document;
     target.getBoundingClientRect = () => ({ ...bounds });
@@ -122,8 +122,10 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const run = expression => vm.runInContext(expression, context);
   const load = file => vm.runInContext(fs.readFileSync(path.join(__dirname, '../../', file), 'utf8'), context, { filename: file });
   load('src/js/geometry/ArcGeometry.js');
+  load('src/js/geometry/EllipseGeometry.js');
   load('src/js/geometry/PolygonGeometry.js');
   load('src/js/rendering/CircleTessellation.js');
+  load('src/js/rendering/EllipseTessellation.js');
   if (realRenderer) {
     for (const name of ['Renderer', 'Canvas2DRenderer', 'createCaderactRenderer']) load(`src/js/rendering/${name}.js`);
   }
@@ -144,6 +146,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/PolylineDraftSession.js');
   load('src/js/editor/CircleDraftSession.js');
   load('src/js/editor/ArcDraftSession.js');
+  load('src/js/editor/EllipseDraftSession.js');
   load('src/js/editor/PolygonDraftSession.js');
   load('src/js/editor/PointInput.js');
   load('src/js/editor/SnapResolver.js');

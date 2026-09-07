@@ -28,6 +28,11 @@
       start: { x: record.start?.x, y: record.start?.y, featureId: record.start?.featureId },
       end: { x: record.end?.x, y: record.end?.y, featureId: record.end?.featureId }, sweep: record.sweep,
     }
+    if (record.type === "ellipse") return {
+      id: record.id, type: record.type, layerId: record.layerId,
+      center: { x: record.center?.x, y: record.center?.y },
+      majorAxis: { x: record.majorAxis?.x, y: record.majorAxis?.y }, minorRadius: record.minorRadius,
+    }
     return { id: record.id, type: record.type }
   }
   function payloadFor(document) {
@@ -86,6 +91,11 @@
             rejectUnknown(item.center, fields.coordinate, "Arc center")
             rejectUnknown(item.start, fields.endpoint, "Arc start")
             rejectUnknown(item.end, fields.endpoint, "Arc end")
+          } else if (item.type === "ellipse") {
+            rejectUnknown(item, fields.ellipse, "Ellipse record")
+            if (!isRecord(item.center) || !isRecord(item.majorAxis)) invalid("Ellipse center and major axis must be objects")
+            rejectUnknown(item.center, fields.coordinate, "Ellipse center")
+            rejectUnknown(item.majorAxis, fields.coordinate, "Ellipse major axis")
           } else invalid(`unsupported record type ${String(item.type)}`)
         }
         if (typeof item.id !== "string" || item.id.trim() === "") invalid(`${label} entry is missing an ID`)
