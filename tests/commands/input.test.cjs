@@ -36,7 +36,7 @@ test('unknown command returns deterministic feedback without document mutation',
 test('registry is the single deterministic autocomplete and routing source', async () => {
   const b = await browser();
   assert.deepEqual(b.read('window.caderactCommandRegistry.commands().map(command=>({name:command.name,aliases:command.aliases}))'), [
-    { name: 'Arc', aliases: ['A'] }, { name: 'Circle', aliases: ['C'] }, { name: 'Ellipse', aliases: ['EL'] }, { name: 'Line', aliases: ['L'] }, { name: 'Move', aliases: ['M'] }, { name: 'Polygon', aliases: ['PG'] }, { name: 'Polyline', aliases: ['Pline', 'PL'] },
+    { name: 'Arc', aliases: ['A'] }, { name: 'Circle', aliases: ['C'] }, { name: 'Copy', aliases: ['CP'] }, { name: 'Ellipse', aliases: ['EL'] }, { name: 'Line', aliases: ['L'] }, { name: 'Move', aliases: ['M'] }, { name: 'Polygon', aliases: ['PG'] }, { name: 'Polyline', aliases: ['Pline', 'PL'] },
     { name: 'Rectangle', aliases: ['Rect'] },
   ]);
   assert.deepEqual(b.read('window.caderactCommandRegistry.matches("Li").map(command=>command.name)'), ['Line']);

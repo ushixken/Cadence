@@ -131,7 +131,7 @@
       // A6 persistent projection: query the authoritative document read-side on
       // every scene build. Unknown record types are skipped deterministically.
       const records = getRecords(), selectedIds = new Set(getSelectedIds()), gripPreview = getGripPreview(), movePreview = getMovePreview()
-      const movingIds = new Set(movePreview?.records?.map(record => record.id) || [])
+      const movingIds = new Set(movePreview?.mode === "move" ? movePreview.records.map(record => record.id) : [])
       for (const record of records) {
         if (movingIds.has(record.id)) continue
         if (record?.type === "line") {
@@ -204,7 +204,7 @@
         } else if(record.type === "arc") previewArcs.push(projectArc(record))
         else if(record.type === "ellipse") previewEllipses.push(projectEllipse(record))
       }
-      for (const record of movePreview?.sourceRecords || []) {
+      for (const record of movePreview?.mode === "move" ? movePreview.sourceRecords : []) {
         if(record.type === "line") {
           const a=camera.worldToScreen(record.start.x,record.start.y),b=camera.worldToScreen(record.end.x,record.end.y);addSegment(moveSourceGhost,a.x,a.y,b.x,b.y)
         } else if(record.type === "polyline") {
@@ -376,6 +376,7 @@
         arcOverlay:Object.freeze({committed:Object.freeze(committedArcs),preview:Object.freeze(previewArcs),selected:Object.freeze(selectedArcs)}),
         ellipseOverlay:Object.freeze({committed:Object.freeze(committedEllipses),preview:Object.freeze(previewEllipses),selected:Object.freeze(selectedEllipses)}),
         selectionBoxOverlay,
+        transformOverlay:moveOverlay,
         moveOverlay,
         polylineOverlay:Object.freeze({committed:Object.freeze(committedPolylines),selected:Object.freeze(selectedPolylines)}),
         lineGroups, circleGroups, arcGroups, ellipseGroups,

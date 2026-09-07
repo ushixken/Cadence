@@ -260,7 +260,7 @@ function createMoveCommandSession({ setPrompt = () => {} } = {}) {
     if(phase!=="target"||!candidatePoint)return null
     const dx=candidatePoint.x-basePoint.x,dy=candidatePoint.y-basePoint.y
     const sourceRecords=selectedRecords()
-    return Object.freeze({recordIds:selectedRecordIds,basePoint,candidatePoint,dx,dy,sourceRecords:Object.freeze(sourceRecords),
+    return Object.freeze({mode:"move",recordIds:selectedRecordIds,basePoint,candidatePoint,dx,dy,sourceRecords:Object.freeze(sourceRecords),
       records:Object.freeze(sourceRecords.map(record=>window.CaderactGeometryTransform.translateRecord(record,dx,dy)))})
   }
   requestRender()
@@ -268,6 +268,37 @@ function createMoveCommandSession({ setPrompt = () => {} } = {}) {
     hasPointerPreview:()=>phase!=="selection",getExcludedSnapRecordIds:()=>phase==="target"?selectedRecordIds:Object.freeze([]),
     get isSelectionPhase(){return phase==="selection"},get phase(){return phase},get selectedRecordIds(){return selectedRecordIds},get basePoint(){return basePoint},get candidatePoint(){return candidatePoint},
     get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
+}
+
+function createCopyCommandSession({ setPrompt = () => {} } = {}) {
+  let phase=selection.selectedIds().length?"base":"selection"
+  let selectedRecordIds=phase==="base"?selection.selectedIds():Object.freeze([])
+  let basePoint=null,candidatePoint=null
+  let promptPresentation=createCommandPrompt("Copy",phase==="selection"?"Select objects":"Specify base point")
+  function updatePrompt(instruction){promptPresentation=createCommandPrompt("Copy",instruction);setPrompt(promptPresentation.text,promptPresentation)}
+  function selectedRecords(){const selected=new Set(selectedRecordIds);return modelReader.records().filter(record=>selected.has(record.id))}
+  function confirmSelection(){const ids=selection.selectedIds();if(!ids.length)return Object.freeze({status:"invalid-input",reason:"empty-selection",command:"Copy",message:"Select at least one object"});selectedRecordIds=ids;phase="base";updatePrompt("Specify base point");requestRender();return Object.freeze({status:"input-accepted",command:"Copy",kind:"selection",recordIds:selectedRecordIds})}
+  function commitTarget(point){
+    candidatePoint=Object.freeze({x:point.x,y:point.y});const dx=candidatePoint.x-basePoint.x,dy=candidatePoint.y-basePoint.y
+    if(dx===0&&dy===0){clearSnap();candidatePoint=null;requestRender();return Object.freeze({status:"command-completed",command:"Copy",outcome:Object.freeze({status:"no-op"})})}
+    let copies
+    try{const source=selectedRecords();if(source.length!==selectedRecordIds.length)return Object.freeze({status:"invalid-input",reason:"missing-selection",command:"Copy",message:"A selected object is no longer available"});copies=source.map(record=>recordGateway.copyWithFreshIdentity(window.CaderactGeometryTransform.translateRecord(record,dx,dy)))}
+    catch(error){return Object.freeze({status:"invalid-input",reason:"invalid-copy",command:"Copy",message:error.message})}
+    const outcome=recordGateway.createAll(copies)
+    if(outcome.status!=="committed"){requestRender();return Object.freeze({status:"invalid-input",reason:"commit-failed",command:"Copy",message:"Unable to copy; preview preserved",outcome})}
+    selection.applyRecordIds(copies.map(record=>record.id));clearSnap();candidatePoint=null;requestRender()
+    return Object.freeze({status:"command-completed",command:"Copy",outcome,dx,dy,recordIds:Object.freeze(copies.map(record=>record.id))})
+  }
+  function acceptPoint(point){if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-not-confirmed",command:"Copy"});if(phase==="base"){basePoint=Object.freeze({x:point.x,y:point.y});candidatePoint=basePoint;phase="target";updatePrompt("Specify destination point");requestRender();return Object.freeze({status:"input-accepted",command:"Copy",kind:"base-point",point:basePoint})}return commitTarget(point)}
+  function handlePointerDown(point){return acceptPoint(point)}
+  function handlePointerMove(point){if(phase==="target")candidatePoint=Object.freeze({x:point.x,y:point.y});requestRender()}
+  function handlePointerLeave(){candidatePoint=null;clearSnap();requestRender()}
+  function handleInput(input){if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Copy",message:"Press Enter to confirm selection"});clearSnap();const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor:phase==="target"?basePoint:null});if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Copy",message:"Enter a point as x,y"});return acceptPoint(Object.freeze({x:parsed.x,y:parsed.y}))}
+  function finish(){if(phase==="selection")return confirmSelection();return Object.freeze({status:"invalid-input",reason:"point-required",command:"Copy",message:phase==="base"?"Specify a base point":"Specify a destination point"})}
+  function cancel(){candidatePoint=null;clearSnap();requestRender();return Object.freeze({status:"command-cancelled",command:"Copy"})}
+  function getMovePreview(){if(phase!=="target"||!candidatePoint)return null;const dx=candidatePoint.x-basePoint.x,dy=candidatePoint.y-basePoint.y,sourceRecords=selectedRecords();return Object.freeze({mode:"copy",recordIds:selectedRecordIds,basePoint,candidatePoint,dx,dy,sourceRecords:Object.freeze(sourceRecords),records:Object.freeze(sourceRecords.map(record=>window.CaderactGeometryTransform.translateRecord(record,dx,dy)))})}
+  requestRender()
+  return Object.freeze({name:"Copy",finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,getMovePreview,hasPointerPreview:()=>phase!=="selection",getExcludedSnapRecordIds:()=>Object.freeze([]),get isSelectionPhase(){return phase==="selection"},get phase(){return phase},get selectedRecordIds(){return selectedRecordIds},get basePoint(){return basePoint},get candidatePoint(){return candidatePoint},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
 function createCircleCommandSession({ setPrompt = () => {} } = {}) {
@@ -730,7 +761,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()

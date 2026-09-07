@@ -272,6 +272,13 @@
           return Object.freeze({ status: "commit-failed", message: error.message })
         }
       },
+      copyWithFreshIdentity(record) {
+        if(record.type==="line")return freeze({...record,id:newId(),start:{...record.start,featureId:newId()},end:{...record.end,featureId:newId()}})
+        if(record.type==="arc")return freeze({...record,id:newId(),start:{...record.start,featureId:newId()},end:{...record.end,featureId:newId()}})
+        if(record.type==="polyline")return freeze({...record,id:newId(),vertices:record.vertices.map(vertex=>({...vertex,featureId:newId()}))})
+        if(record.type==="circle"||record.type==="ellipse")return freeze({...record,id:newId()})
+        throw new Error(`Unsupported geometry type: ${record.type}`)
+      },
       updateProperties(recordId, properties) {
         return updateRecordProperties(recordId, properties)
       },
