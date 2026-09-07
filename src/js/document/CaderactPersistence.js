@@ -18,6 +18,8 @@
       start: { x: record.start?.x, y: record.start?.y, featureId: record.start?.featureId },
       end: { x: record.end?.x, y: record.end?.y, featureId: record.end?.featureId },
     }
+    if(record.type === "polyline")return {id:record.id,type:record.type,layerId:record.layerId,
+      vertices:record.vertices.map(vertex=>({x:vertex?.x,y:vertex?.y,featureId:vertex?.featureId})),closed:record.closed}
     if (record.type === "circle") return {
       id: record.id, type: record.type, layerId: record.layerId,
       center: { x: record.center?.x, y: record.center?.y }, radius: record.radius,
@@ -81,6 +83,10 @@
             if (!isRecord(item.start) || !isRecord(item.end)) invalid("Line endpoints must be objects")
             rejectUnknown(item.start, fields.endpoint, "Line start")
             rejectUnknown(item.end, fields.endpoint, "Line end")
+          } else if(item.type === "polyline") {
+            rejectUnknown(item,fields.polyline,"Polyline record")
+            if(!Array.isArray(item.vertices))invalid("Polyline vertices must be an array")
+            for(const vertex of item.vertices){if(!isRecord(vertex))invalid("Polyline vertex must be an object");rejectUnknown(vertex,fields.vertex,"Polyline vertex")}
           } else if (item.type === "circle") {
             rejectUnknown(item, fields.circle, "Circle record")
             if (!isRecord(item.center)) invalid("Circle center must be an object")

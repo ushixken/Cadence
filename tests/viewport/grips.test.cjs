@@ -4,6 +4,17 @@ const {browser,settle}=require('../helpers/browser.cjs');
 
 function typed(b,value){b.input.value=value;b.emit(b.input,'input');b.key('Enter',b.input)}
 function line(b,a,bp){b.launch();typed(b,`${a.x},${a.y}`);typed(b,`${bp.x},${bp.y}`);b.key('Enter',b.input);return b.read('modelReader.lines().at(-1)')}
+function polyline(b,points,closed=false){b.launch('Polyline');for(const p of points)typed(b,`${p.x},${p.y}`);closed?typed(b,'Close'):b.key('Enter',b.input);return b.read('modelReader.records().at(-1)')}
+
+test('selected native Polyline discovers one stable grip per unique vertex and edits one vertex atomically',async()=>{
+  const b=await browser();const record=polyline(b,[{x:-20,y:0},{x:0,y:20},{x:20,y:0}],true);b.point(400,200);b.flush();
+  const grips=b.read('window.caderactGrips.grips()');assert.equal(grips.length,3);assert.ok(grips.every(g=>g.recordId===record.id&&g.kind==='vertex'));
+  assert.deepEqual(grips.map(g=>g.featureId).sort(),record.vertices.map(v=>v.featureId).sort());
+  const before=b.read('({revision:documentController.currentRevision,history:documentController.historyInfo.entryCount})');b.point(300,300);b.point(325,275,'pointermove');b.flush();assert.equal(b.renders.at(-1).nextSegmentPreviewOverlay.segments.length,12);
+  const preview=b.read('window.caderactGrips.previewRecord()');assert.deepEqual(preview.vertices[0],{...record.vertices[0],x:-15,y:5});assert.deepEqual(preview.vertices.slice(1),record.vertices.slice(1));assert.equal(preview.closed,true);
+  b.point(325,275,'pointerup');const changed=b.read('modelReader.records()[0]');assert.equal(changed.id,record.id);assert.equal(changed.layerId,record.layerId);assert.deepEqual(changed.vertices.map(v=>v.featureId),record.vertices.map(v=>v.featureId));assert.deepEqual(changed.vertices[0],{...record.vertices[0],x:-15,y:5});
+  assert.equal(b.read('documentController.currentRevision'),before.revision+1);assert.equal(b.read('documentController.historyInfo.entryCount'),before.history+1);b.run('window.caderactHistory.undo()');assert.deepEqual(b.read('modelReader.records()[0]'),record);b.run('window.caderactHistory.redo()');assert.deepEqual(b.read('modelReader.records()[0]'),changed)
+});
 
 test('selected Lines discover two immutable stable-identity endpoint grips',async()=>{
   const b=await browser();const record=line(b,{x:-20,y:0},{x:20,y:0});b.point(400,300);b.flush();

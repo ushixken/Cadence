@@ -5,8 +5,8 @@ function begin(b,sides='4'){b.launch('Polygon');typed(b,sides)}
 function create(b,sides='4',center='0,0',radius='10,0'){begin(b,sides);typed(b,center);typed(b,radius)}
 function near(actual,expected,tolerance=1e-9){assert.ok(Math.abs(actual-expected)<=tolerance,`${actual} != ${expected}`)}
 
-test('Polygon and Pol launch, default Enter accepts four sides, and metadata is repeatable',async()=>{
-  for(const name of ['Polygon','Pol','pol']){const b=await browser();b.launch(name);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polygon');assert.equal(b.read('window.caderactFeedback.activePrompt'),'Polygon: Enter number of sides <4>');b.key('Enter',b.input);assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.sideCount'),4);assert.equal(b.read('window.caderactFeedback.activePrompt'),'Polygon: Specify center of polygon');assert.equal(b.read('window.caderactCommandRouter.lastRepeatableCommand'),'Polygon')}
+test('Polygon and PG launch, default Enter accepts four sides, and metadata is repeatable',async()=>{
+  for(const name of ['Polygon','PG','pg']){const b=await browser();b.launch(name);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polygon');assert.equal(b.read('window.caderactFeedback.activePrompt'),'Polygon: Enter number of sides <4>');b.key('Enter',b.input);assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.sideCount'),4);assert.equal(b.read('window.caderactFeedback.activePrompt'),'Polygon: Specify center of polygon');assert.equal(b.read('window.caderactCommandRouter.lastRepeatableCommand'),'Polygon')}
 });
 
 test('side-count parser accepts bounded integers and rejects every invalid category with retry',async()=>{

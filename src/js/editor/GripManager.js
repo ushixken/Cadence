@@ -17,6 +17,22 @@
     return Object.freeze(grips)
   }
 
+  function discoverPolylineGrips(records, selectedIds) {
+    const selected = new Set(selectedIds), grips = []
+    for (const record of records) {
+      if (record?.type !== "polyline" || !selected.has(record.id)) continue
+      for (const vertex of record.vertices) grips.push(Object.freeze({ recordId: record.id,
+        featureId: vertex.featureId, kind: "vertex", point: freezePoint(vertex) }))
+    }
+    grips.sort((a, b) => a.recordId.localeCompare(b.recordId) || a.featureId.localeCompare(b.featureId))
+    return Object.freeze(grips)
+  }
+
+  function discoverGeometryGrips(records, selectedIds) {
+    return Object.freeze([...discoverLineGrips(records, selectedIds), ...discoverPolylineGrips(records, selectedIds)]
+      .sort((a, b) => a.recordId.localeCompare(b.recordId) || a.featureId.localeCompare(b.featureId)))
+  }
+
   const lineAdapter = Object.freeze({
     discover: discoverLineGrips,
     preview(record, grip, point) {
@@ -35,6 +51,31 @@
     currentPoint(record, grip) { return record[grip.endpoint] },
   })
 
+  function polylineVertex(record, grip) {
+    return record?.type === "polyline" ? record.vertices.find(vertex => vertex.featureId === grip.featureId) : null
+  }
+  const polylineAdapter = Object.freeze({
+    discover: discoverPolylineGrips,
+    preview(record, grip, point) {
+      return Object.freeze({ ...record, vertices: Object.freeze(record.vertices.map(vertex =>
+        vertex.featureId === grip.featureId ? Object.freeze({ ...vertex, x: point.x, y: point.y }) : vertex)) })
+    },
+    replacement(record, grip, point) {
+      return { ...record, vertices: record.vertices.map(vertex =>
+        vertex.featureId === grip.featureId ? { ...vertex, x: point.x, y: point.y } : vertex) }
+    },
+    resolves(record, grip) { return Boolean(polylineVertex(record, grip)) },
+    currentPoint: polylineVertex,
+  })
+  const geometryAdapter = Object.freeze({
+    discover: discoverGeometryGrips,
+    target(record) { return record?.type === "line" ? lineAdapter : record?.type === "polyline" ? polylineAdapter : null },
+    preview(record, grip, point) { return this.target(record).preview(record, grip, point) },
+    replacement(record, grip, point) { return this.target(record).replacement(record, grip, point) },
+    resolves(record, grip) { return Boolean(this.target(record)?.resolves(record, grip)) },
+    currentPoint(record, grip) { return this.target(record)?.currentPoint(record, grip) },
+  })
+
   function hitTestGrips({ screenPoint, grips, worldToScreen, tolerance = 8 }) {
     let best = null
     for (const grip of grips) {
@@ -47,7 +88,7 @@
     return best ? Object.freeze({ hit: true, grip: best.grip, distanceSquared: best.distanceSquared }) : Object.freeze({ hit: false })
   }
 
-  function createManager({ getRecords, getSelectedIds, worldToScreen, replaceRecord, adapter = lineAdapter, requestRender = () => {} }) {
+  function createManager({ getRecords, getSelectedIds, worldToScreen, replaceRecord, adapter = geometryAdapter, requestRender = () => {} }) {
     let hovered = null, active = null
     const key = grip => grip ? `${grip.recordId}:${grip.featureId}` : null
     const grips = () => adapter.discover(getRecords(), getSelectedIds())
@@ -116,5 +157,6 @@
       get active() { return active }, get isActive() { return Boolean(active) } })
   }
 
-  window.CaderactGrips = Object.freeze({ discoverLineGrips, hitTestGrips, createManager, lineAdapter })
+  window.CaderactGrips = Object.freeze({ discoverLineGrips, discoverPolylineGrips, discoverGeometryGrips,
+    hitTestGrips, createManager, lineAdapter, polylineAdapter, geometryAdapter })
 })()

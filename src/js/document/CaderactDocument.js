@@ -13,6 +13,8 @@
     units: fields(["length"]),
     layer: fields(["id", "name", "visible", "locked"]),
     line: fields(["id", "type", "layerId", "start", "end"]),
+    polyline: fields(["id", "type", "layerId", "vertices", "closed"]),
+    vertex: fields(["x", "y", "featureId"]),
     endpoint: fields(["x", "y", "featureId"]),
     circle: fields(["id", "type", "layerId", "center", "radius"]),
     arc: fields(["id", "type", "layerId", "center", "radius", "start", "end", "sweep"]),
@@ -78,6 +80,12 @@
         closedShape(record.end, V1_FIELDS.endpoint, "Line end")
         identity(record.start?.featureId, "start feature")
         identity(record.end?.featureId, "end feature")
+      } else if(record.type === "polyline") {
+        closedShape(record,V1_FIELDS.polyline,"Polyline")
+        if(!Array.isArray(record.vertices)||(record.closed?record.vertices.length<3:record.vertices.length<2))errors.push("Polyline: invalid vertex count")
+        else for(const vertex of record.vertices){point(vertex,"Polyline vertex");closedShape(vertex,V1_FIELDS.vertex,"Polyline vertex");identity(vertex?.featureId,"Polyline vertex feature")}
+        if(typeof record.closed!=="boolean")errors.push("Polyline: closed must be boolean")
+        if(Array.isArray(record.vertices)&&record.vertices.length>1){for(let i=1;i<record.vertices.length;i++)if(record.vertices[i-1].x===record.vertices[i].x&&record.vertices[i-1].y===record.vertices[i].y)errors.push("Polyline: adjacent vertices must differ");if(record.closed&&record.vertices[0].x===record.vertices.at(-1).x&&record.vertices[0].y===record.vertices.at(-1).y)errors.push("Polyline: closed path must not duplicate its first vertex")}
       } else if (record.type === "circle") {
         closedShape(record, V1_FIELDS.circle, "Circle")
         point(record.center, "Circle center")
@@ -117,7 +125,7 @@
   }
 
   function freeze(value) {
-    for (const child of Object.values(value)) if (isRecord(child)) freeze(child)
+    for (const child of Object.values(value)) if (child !== null && typeof child === "object") freeze(child)
     return Object.freeze(value)
   }
 
@@ -150,7 +158,7 @@
         if (record.type === "line" || record.type === "arc") {
           allocated.add(record.start.featureId)
           allocated.add(record.end.featureId)
-        }
+        } else if(record.type === "polyline")for(const vertex of record.vertices)allocated.add(vertex.featureId)
       }
       state = freeze(candidate)
     } else {
@@ -214,6 +222,10 @@
           start: { x: start?.x, y: start?.y, featureId: newId() },
           end: { x: end?.x, y: end?.y, featureId: newId() },
         })
+      },
+      createPolyline(vertices,closed=false) {
+        return freeze({id:newId(),type:"polyline",layerId:state.currentLayerId,
+          vertices:Array.from(vertices,vertex=>({x:vertex?.x,y:vertex?.y,featureId:newId()})),closed:Boolean(closed)})
       },
       createCircle(center, radius) {
         return freeze({ id: newId(), type: "circle", layerId: state.currentLayerId,

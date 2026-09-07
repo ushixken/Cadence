@@ -9,10 +9,14 @@ function points(b){return b.read('window.caderactCommandRouter.activeSession.dra
 function segments(b){return b.read('window.caderactCommandRouter.activeSession.draft.draftSegments().map(({start,end})=>({start:{x:start.x,y:start.y},end:{x:end.x,y:end.y}}))')}
 
 test('Polyline, Pline, and PL launch through the command registry',async()=>{
-  for(const name of ['Polyline','Pline','PL','pl']){
+  for(const name of ['Polyline','Pline','PL','pl','pol','poly']){
     const b=await browser();b.launch(name);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polyline');
     assert.equal(b.read('window.caderactFeedback.activePrompt'),'Polyline: Specify first point');
   }
+});
+
+test('pol and poly resolve to Polyline while PG and Polygon resolve to Polygon with Enter or Space',async()=>{
+  for(const [token,expected] of [['pol','Polyline'],['poly','Polyline'],['pline','Polyline'],['pl','Polyline'],['pg','Polygon'],['polygon','Polygon']])for(const key of ['Enter',' ']){const b=await browser();b.launch(token,key);if(key===' ')b.emit(b.window,'keyup',{key:' ',code:'Space'});assert.equal(b.read('window.caderactCommandRouter.activeCommand'),expected)}
 });
 
 test('first point is transient and accepted segments and markers stay fixed while only preview moves',async()=>{
@@ -84,7 +88,7 @@ test('command Step Undo removes points locally and can return to first-point acq
 test('Enter with no segment publishes nothing; Enter with segments commits once and excludes preview',async()=>{
   for(const first of [false,true]){const b=await browser(),before=state(b);b.launch('Polyline');if(first)typed(b,'1,2');b.key('Enter');assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null);assert.deepEqual(state(b),before);}
   const b=await browser(),before=state(b);b.launch('Polyline');for(const value of ['1,2','4,5','8,9'])typed(b,value);b.point(500,200,'pointermove');b.key('Enter');b.flush();
-  assert.equal(b.read('modelReader.records().length'),2);assert.equal(b.read('documentController.currentRevision'),before.revision+1);
+  assert.equal(b.read('modelReader.records().length'),1);assert.equal(b.read('modelReader.records()[0].type'),'polyline');assert.equal(b.read('modelReader.records()[0].closed'),false);assert.equal(b.read('modelReader.records()[0].vertices.length'),3);assert.equal(b.read('documentController.currentRevision'),before.revision+1);
   assert.equal(b.read('documentController.historyInfo.entryCount'),before.history.entryCount+1);assert.equal(b.renders.at(-1).nextSegmentPreviewOverlay.segments.length,0);
 });
 
@@ -92,21 +96,21 @@ test('Close eligibility is enforced and valid Close adds one exact closing edge 
   const early=await browser();early.launch('Polyline');typed(early,'1,2');typed(early,'Close');
   assert.equal(early.read('window.caderactCommandRouter.lastResult.reason'),'close-unavailable');assert.equal(early.read('window.caderactCommandRouter.activeCommand'),'Polyline');
   const b=await browser();b.launch('Polyline');for(const value of ['1,2','4,5','8,9'])typed(b,value);typed(b,'cLoSe');
-  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null);assert.equal(b.read('modelReader.records().length'),3);
-  assert.ok(b.read('modelReader.records().some(({start,end})=>start.x===8&&start.y===9&&end.x===1&&end.y===2)'));
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null);assert.equal(b.read('modelReader.records().length'),1);
+  assert.equal(b.read('modelReader.records()[0].closed'),true);assert.equal(b.read('modelReader.records()[0].vertices.length'),3);
 });
 
 test('manual snap/click on P1 adds a normal closing segment and keeps Polyline active',async()=>{
   const b=await browser();b.launch('Polyline');for(const value of ['3,4','8,9','13,6'])typed(b,value);
   b.point(417,278,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'draft-point');b.point(417,278);
   assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polyline');assert.deepEqual(points(b).at(-1),{x:3,y:4});assert.equal(segments(b).length,3);
-  typed(b,'Close');assert.equal(b.read('modelReader.records().length'),3);
+  typed(b,'Close');assert.equal(b.read('modelReader.records().length'),1);assert.equal(b.read('modelReader.records()[0].closed'),true);assert.equal(b.read('modelReader.records()[0].vertices.length'),3);
 });
 
-test('one atomic publication inherits current layer and one Undo/Redo restores every exact Line',async()=>{
+test('one atomic publication inherits current layer and one Undo/Redo restores one exact Polyline',async()=>{
   const b=await browser();b.run('layerGateway.create("Path")');const id=b.read('modelReader.layers().find(layer=>layer.name==="Path").id');b.run(`layerGateway.setCurrent(${JSON.stringify(id)})`);
   const history=b.read('documentController.historyInfo.entryCount');b.launch('Polyline');for(const value of ['0,0','5,6','9,2'])typed(b,value);b.key('Enter');
-  assert.deepEqual(b.read('modelReader.records().map(record=>record.layerId)'),[id,id]);assert.equal(b.read('documentController.historyInfo.entryCount'),history+1);
+  assert.deepEqual(b.read('modelReader.records().map(record=>record.layerId)'),[id]);assert.equal(b.read('modelReader.records()[0].type'),'polyline');assert.equal(b.read('documentController.historyInfo.entryCount'),history+1);
   const committed=b.read('modelReader.records()');b.run('window.caderactHistory.undo()');assert.equal(b.read('modelReader.records().length'),0);
   b.run('window.caderactHistory.redo()');assert.deepEqual(b.read('modelReader.records()'),committed);
 });
@@ -115,15 +119,15 @@ test('failed publication is atomic, preserves draft, and retries successfully',a
   const b=await browser();b.launch('Polyline');for(const value of ['1,2','4,5','8,9'])typed(b,value);const before=state(b),draft=segments(b);
   b.run('window.__blocker=documentController.beginTransaction()');b.key('Enter');assert.equal(b.read('window.caderactCommandRouter.lastResult.reason'),'commit-failed');
   assert.deepEqual(state(b),before);assert.deepEqual(segments(b),draft);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polyline');
-  b.run('window.__blocker.rollback()');b.key('Enter');assert.equal(b.read('modelReader.records().length'),2);
+  b.run('window.__blocker.rollback()');b.key('Enter');assert.equal(b.read('modelReader.records().length'),1);
 });
 
-test('failed Close preserves one prepared closing edge and retry does not duplicate it',async()=>{
+test('failed Close preserves vertices and retry does not duplicate the first vertex',async()=>{
   const b=await browser();b.launch('Polyline');for(const value of ['1,2','4,5','8,9'])typed(b,value);
   b.run('window.__blocker=documentController.beginTransaction()');typed(b,'Close');
-  assert.equal(b.read('window.caderactCommandRouter.lastResult.reason'),'commit-failed');assert.equal(segments(b).length,3);
-  assert.deepEqual(points(b).at(-1),{x:1,y:2});assert.equal(b.read('modelReader.records().length'),0);
-  b.run('window.__blocker.rollback()');typed(b,'Close');assert.equal(b.read('modelReader.records().length'),3);
+  assert.equal(b.read('window.caderactCommandRouter.lastResult.reason'),'commit-failed');assert.equal(segments(b).length,2);
+  assert.deepEqual(points(b).at(-1),{x:8,y:9});assert.equal(b.read('modelReader.records().length'),0);
+  b.run('window.__blocker.rollback()');typed(b,'Close');assert.equal(b.read('modelReader.records().length'),1);assert.equal(b.read('modelReader.records()[0].vertices.length'),3);
 });
 
 test('pointer leave hides only preview and command replacement remains blocked',async()=>{
@@ -151,4 +155,32 @@ test('accepted point markers cover every connected renderer-neutral draft joint'
     const joint=scene.draftPointOverlay.points[index].point,accepted=Array.from(scene.acceptedDraftOverlay.segments);
     assert.ok(accepted.filter((value,i)=>i%2===0&&value===joint.x).length>=2);
   }
+});
+
+test('PersistentClose continuously closes through the one live candidate and Enter excludes that candidate',async()=>{
+  const b=await browser();b.launch('Polyline');b.run('window.caderactViewport.setGridSnapEnabled(false)');assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.options'),[{id:'persistentClose',label:'PersistentClose',value:'No',enabled:true}]);for(const p of ['0,0','10,0','10,10'])typed(b,p);b.point(475,250,'pointermove');const before=b.read('({document:modelReader.snapshot(),revision:documentController.currentRevision,history:documentController.historyInfo.entryCount})');b.emit(b.commandPrompt.children[1],'click');b.flush();assert.deepEqual(Array.from(b.renders.at(-1).nextSegmentPreviewOverlay.segments),[450,250,475,250,475,250,400,300]);b.point(500,225,'pointermove');b.flush();assert.deepEqual(Array.from(b.renders.at(-1).nextSegmentPreviewOverlay.segments),[450,250,500,225,500,225,400,300]);assert.deepEqual(b.read('({document:modelReader.snapshot(),revision:documentController.currentRevision,history:documentController.historyInfo.entryCount})'),before);b.emit(b.commandPrompt.children[1],'click');b.flush();assert.equal(b.renders.at(-1).nextSegmentPreviewOverlay.segments.length,4);b.emit(b.commandPrompt.children[1],'click');b.key('Enter');const record=b.read('modelReader.records()[0]');assert.equal(record.closed,true);assert.equal(record.vertices.length,3);assert.deepEqual(record.vertices.map(({x,y})=>({x,y})),[{x:0,y:0},{x:10,y:0},{x:10,y:10}]);b.emit(b.canvas,'pointerenter');b.key(' ',b.canvas,{code:'Space'});b.emit(b.window,'keyup',{key:' ',code:'Space'});assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.persistentClose'),false)
+});
+
+test('PersistentClose rebuilds both live edges after acceptance and Step Undo without stale geometry',async()=>{
+  const b=await browser();b.launch('Polyline');b.run('window.caderactViewport.setGridSnapEnabled(false)');for(const p of ['0,0','10,0','10,10'])typed(b,p);b.point(475,250,'pointermove');b.emit(b.commandPrompt.children[1],'click');b.point(475,250);b.point(500,225,'pointermove');b.flush();assert.deepEqual(Array.from(b.renders.at(-1).nextSegmentPreviewOverlay.segments),[475,250,500,225,500,225,400,300]);b.key('z',b.canvas,{ctrlKey:true});b.point(500,225,'pointermove');b.flush();assert.deepEqual(Array.from(b.renders.at(-1).nextSegmentPreviewOverlay.segments),[450,250,500,225,500,225,400,300]);b.emit(b.canvas,'pointerleave');b.flush();assert.equal(b.renders.at(-1).nextSegmentPreviewOverlay.segments.length,4);b.key('Escape');b.flush();assert.equal(b.renders.at(-1).nextSegmentPreviewOverlay.segments.length,0)
+});
+
+test('PersistentClose shares one snapped candidate across both edges and Shift bypasses both',async()=>{
+  const b=await browser();b.launch('Line');typed(b,'20,20');typed(b,'30,20');b.key('Enter');b.launch('Polyline');for(const p of ['0,0','10,0','10,10'])typed(b,p);b.emit(b.commandPrompt.children[1],'click');b.point(499,201,'pointermove');b.flush();assert.equal(b.read('activeSnapResult.kind'),'endpoint');assert.deepEqual(Array.from(b.renders.at(-1).nextSegmentPreviewOverlay.segments),[450,250,500,200,500,200,400,300]);b.point(499,201,'pointermove',{shiftKey:true});b.flush();assert.equal(b.read('activeSnapResult.snapped'),false);assert.deepEqual(Array.from(b.renders.at(-1).nextSegmentPreviewOverlay.segments),[450,250,499,201,499,201,400,300]);assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.acceptedPoints().length'),3);b.point(499,201,'pointercancel');b.flush();assert.equal(b.renders.at(-1).nextSegmentPreviewOverlay.segments.length,4)
+});
+
+test('clickable Close appears only with three usable vertices and commits one closed native record',async()=>{
+  const b=await browser();b.launch('Polyline');typed(b,'0,0');typed(b,'10,0');assert.equal(b.read('window.caderactCommandRouter.activeSession.options.some(x=>x.id==="close")'),false);typed(b,'10,10');assert.equal(b.read('window.caderactCommandRouter.activeSession.options.some(x=>x.id==="close")'),true);const close=b.commandPrompt.children.find(child=>child.dataset.optionId==='close');assert.equal(close.textContent,'Close');b.emit(close,'click');assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null);assert.equal(b.read('modelReader.records().length'),1);assert.equal(b.read('modelReader.records()[0].closed'),true)
+});
+
+test('native Polyline vertices resolve and snap as endpoints while every segment supplies a midpoint',async()=>{
+  const b=await browser();b.launch('Polyline');for(const value of ['0,0','10,0','10,10'])typed(b,value);b.key('Enter');const record=b.read('modelReader.records()[0]');b.run('window.__poly=modelReader.records()[0];window.__ref=window.CaderactReferences.createEndpointReference(window.__poly.id,window.__poly.vertices[1].featureId);window.__resolved=window.CaderactReferences.createResolver(modelReader).resolve(window.__ref)');assert.equal(b.read('window.__resolved.status'),'resolved');assert.equal(b.read('window.__resolved.role'),'vertex');b.launch('Line');b.point(451,299);assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.currentPoint'),{x:10,y:0});b.point(426,299,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'midpoint');assert.equal(new Set(record.vertices.map(vertex=>vertex.featureId)).size,3)
+});
+
+test('native Polyline persistence is strict and preserves open/closed order and feature identities',async()=>{
+  for(const closed of [false,true]){const b=await browser();b.launch('Polyline');for(const value of ['0,0','10,0','10,10'])typed(b,value);closed?typed(b,'Close'):b.key('Enter');const original=b.read('modelReader.records()[0]'),serialized=b.run('window.CaderactPersistence.serializeDocument(modelReader.snapshot())');b.run(`window.__loaded=window.CaderactPersistence.loadStore(${JSON.stringify(serialized)})`);assert.deepEqual(b.read('window.__loaded.reader.records()[0]'),original);assert.equal(JSON.parse(serialized).fileVersion,1);const payload=JSON.parse(serialized);for(const mutate of [x=>x.document.records[0].vertices=[],x=>x.document.records[0].vertices[0].x=null,x=>x.document.records[0].vertices[0].extra=true,x=>x.document.records[0].extra=true]){const invalid=structuredClone(payload);mutate(invalid);assert.throws(()=>b.run(`window.CaderactPersistence.loadStore(${JSON.stringify(JSON.stringify(invalid))})`),/Invalid Caderact file/)}}
+});
+
+test('click and D3A select one whole native Polyline and selected overlay covers every segment',async()=>{
+  const b=await browser();b.launch('Polyline');for(const value of ['-10,0','0,10','10,0'])typed(b,value);b.key('Enter');const id=b.read('modelReader.records()[0].id');b.point(375,275);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[id]);b.flush();assert.equal(b.renders.at(-1).selectionOverlay.segments.length,8);assert.equal(b.renders.at(-1).polylineOverlay.selected.length,1);b.point(700,500);b.point(700,500,'pointerup');b.point(340,240);b.point(460,310,'pointermove');b.point(460,310,'pointerup');assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[id]);b.point(700,500);b.point(700,500,'pointerup');b.point(390,270);b.point(370,280,'pointermove');b.point(370,280,'pointerup');assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[id])
 });

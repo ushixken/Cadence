@@ -21,8 +21,8 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Circle", aliases: ["C"], repeatable: true, activate: context => window.caderactViewport.createCircleCommandSession(context) },
   { name: "Ellipse", aliases: ["EL"], repeatable: true, activate: context => window.caderactViewport.createEllipseCommandSession(context) },
   { name: "Line", aliases: ["L"], repeatable: true, activate: context => window.caderactViewport.createLineCommandSession(context) },
-  { name: "Polyline", aliases: ["Pline", "PL"], repeatable: true, activate: context => window.caderactViewport.createPolylineCommandSession(context) },
-  { name: "Polygon", aliases: ["Pol"], repeatable: true, activate: context => window.caderactViewport.createPolygonCommandSession(context) },
+  { name: "Polyline", aliases: ["Pline", "PL"], priority: 10, repeatable: true, activate: context => window.caderactViewport.createPolylineCommandSession(context) },
+  { name: "Polygon", aliases: ["PG"], repeatable: true, activate: context => window.caderactViewport.createPolygonCommandSession(context) },
   { name: "Rectangle", aliases: ["Rect"], repeatable: true, activate: context => window.caderactViewport.createRectangleCommandSession(context) },
 ])
 const commandRouter = window.CaderactCommandRouter.createRouter({ registry: commandRegistry, setPrompt: setCommandHint })
@@ -44,8 +44,8 @@ feedbackController = window.CaderactCommandFeedback.createController({
       }
       for (const option of options) {
         const button=document.createElement("button");button.type="button";button.classList.add("command-option")
-        button.dataset.optionId=option.id;button.textContent=`${option.label}=${option.value}`;button.disabled=option.enabled===false
-        button.setAttribute("aria-label",`${option.label}, current value ${option.value}`);commandPrompt.appendChild(button)
+        button.dataset.optionId=option.id;button.textContent=option.showValue===false?option.label:`${option.label}=${option.value}`;button.disabled=option.enabled===false
+        button.setAttribute("aria-label",option.showValue===false?option.label:`${option.label}, current value ${option.value}`);commandPrompt.appendChild(button)
       }
     }
     commandInput.placeholder = active ? "" : "Type a command..."

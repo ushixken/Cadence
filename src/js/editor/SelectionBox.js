@@ -34,6 +34,12 @@
       const a=worldToScreen(record.start.x,record.start.y),b=worldToScreen(record.end.x,record.end.y)
       return mode==="window"?pointInRect(a,rect)&&pointInRect(b,rect):segmentIntersectsRect(a,b,rect)
     }
+    if(record?.type==="polyline"){
+      const vertices=record.vertices.map(vertex=>worldToScreen(vertex.x,vertex.y)),count=record.closed?vertices.length:vertices.length-1
+      if(mode==="window")return vertices.every(vertex=>pointInRect(vertex,rect))
+      for(let index=0;index<count;index++)if(segmentIntersectsRect(vertices[index],vertices[(index+1)%vertices.length],rect))return true
+      return false
+    }
     if(record?.type==="circle"){
       const center=worldToScreen(record.center.x,record.center.y),edge=worldToScreen(record.center.x+record.radius,record.center.y)
       const radius=Math.hypot(edge.x-center.x,edge.y-center.y)

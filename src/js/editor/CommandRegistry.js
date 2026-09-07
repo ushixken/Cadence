@@ -49,7 +49,8 @@
       }
       const name = source.name.trim()
       const aliases = Object.freeze(Array.from(source.aliases || [], alias => String(alias).trim()).filter(Boolean))
-      const definition = Object.freeze({ name, aliases, repeatable: source.repeatable === true, activate: source.activate })
+      const priority = Number.isFinite(source.priority) ? source.priority : 0
+      const definition = Object.freeze({ name, aliases, priority, repeatable: source.repeatable === true, activate: source.activate })
       for (const candidate of [name, ...aliases]) {
         const key = normalize(candidate)
         if (names.has(key)) throw new Error(`Duplicate command name or alias ${candidate}`)
@@ -82,7 +83,7 @@
         results.push(Object.freeze({ command, category: match.category, field: match.field,
           candidate: match.candidate, indices: match.indices, start: match.start, gaps: match.gaps }))
       }
-      results.sort((a, b) => a.category - b.category || a.start - b.start || a.gaps - b.gaps ||
+      results.sort((a, b) => a.category - b.category || (a.category === 2 ? b.command.priority - a.command.priority : 0) || a.start - b.start || a.gaps - b.gaps ||
         a.candidate.length - b.candidate.length || a.command.name.localeCompare(b.command.name))
       return Object.freeze(results.slice(0, limit))
     }

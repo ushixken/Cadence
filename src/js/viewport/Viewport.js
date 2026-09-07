@@ -450,8 +450,8 @@ function createRectangleCommandSession({ setPrompt = () => {} } = {}) {
 
 function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
   const draft = window.CaderactPolylineDraftSession.createSession({
-    createSegment: recordGateway.createLine,
-    commitSegments: recordGateway.createAll,
+    createPolyline: recordGateway.createPolyline,
+    commitRecords: recordGateway.createAll,
   })
   let promptPresentation = createCommandPrompt("Polyline", "Specify first point")
   function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Polyline", instruction); setPrompt(promptPresentation.text, promptPresentation) }
@@ -472,9 +472,9 @@ function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
       return Object.freeze({ status: "command-completed", command: "Polyline", outcome })
     }
     if (outcome.status === "close-unavailable") {
-      updatePrompt("Close requires at least one segment")
+      updatePrompt("Close requires at least three vertices")
       return Object.freeze({ status: "invalid-input", reason: "close-unavailable", command: "Polyline",
-        message: "Close requires at least two accepted points", outcome })
+        message: "Close requires at least three distinct vertices", outcome })
     }
     updatePrompt("Unable to commit; draft preserved")
     return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Polyline", outcome })
@@ -519,13 +519,19 @@ function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
       reference: Object.freeze({ kind: "draft-point", index }),
     }))
   }
-  function getPreviewLines() { const preview = draft.preview(); return preview ? [preview] : [] }
+  function getPreviewLines() { return draft.previewEdges() }
+  function handleOption(optionId){
+    if(optionId==="persistentClose"){draft.setPersistentClose(!draft.persistentClose);requestRender();return Object.freeze({status:"option-updated",command:"Polyline",optionId})}
+    if(optionId==="close")return presentPublication(draft.close())
+    return Object.freeze({status:"option-unavailable",reason:"unknown-option",command:"Polyline",optionId})
+  }
+  function options(){const result=[Object.freeze({id:"persistentClose",label:"PersistentClose",value:draft.persistentClose?"Yes":"No",enabled:true})];if(draft.canClose)result.push(Object.freeze({id:"close",label:"Close",value:"",showValue:false,enabled:true}));return Object.freeze(result)}
   requestRender()
   return Object.freeze({
-    name: "Polyline", draft, finish, cancel, stepUndo, handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
+    name: "Polyline", draft, finish, cancel, stepUndo, handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,handleOption,
     getDraftLines: draft.draftSegments, getPreview: draft.preview, getPreviewLines,
     getDraftPoints: draft.acceptedPoints, getSnapCandidates, hasPointerPreview: () => draft.hasFirstPoint,
-    get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
+    get options(){return options()},get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
 }
 
@@ -791,6 +797,7 @@ function onViewportPointerUp(event) {
 }
 
 function onViewportPointerCancel(event) {
+  getActiveCommandSession()?.handlePointerLeave?.()
   if(selectionBox.isPending&&selectionBox.snapshot().pointerId===event.pointerId){selectionBox.clear();releaseGripPointerCapture(event.pointerId);requestRender();return}
   if (!grips.isActive || grips.active.pointerId !== event.pointerId) return
   grips.cancel(); clearSnap(); releaseGripPointerCapture(event.pointerId)

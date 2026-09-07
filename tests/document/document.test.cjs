@@ -104,7 +104,7 @@ const invalidCases = [
   ['duplicate feature ID', (d, l) => { l.end.featureId = l.start.featureId; }],
   ['cross-line duplicate feature ID', (d, l) => { Object.values(d.geometry.objects)[1].start.featureId = l.end.featureId; }],
   ['missing feature ID', (d, l) => { delete l.start.featureId; }],
-  ['unsupported type', (d, l) => { l.type = 'polyline'; }],
+  ['unsupported type', (d, l) => { l.type = 'spline'; }],
   ['invalid layer reference', (d, l) => { l.layerId = 'missing'; }],
   ['invalid current layer', d => { d.currentLayerId = 'missing'; }],
   ['invalid start structure', (d, l) => { l.start = [0, 0]; }],

@@ -23,8 +23,14 @@
         if (!Number.isFinite(distancePx) || distancePx > tolerancePx) return
         candidates.push({ kind, point: freezePoint(point), distancePx, stableKey, reference })
       }
-      const ordered = Array.from(records).filter(record => record?.type === "line" || record?.type === "arc").sort((a, b) => a.id.localeCompare(b.id))
+      const ordered = Array.from(records).filter(record => record?.type === "line" || record?.type === "arc" || record?.type === "polyline").sort((a, b) => a.id.localeCompare(b.id))
       for (const record of ordered) {
+        if(record.type==="polyline"){
+          for(const vertex of [...record.vertices].sort((a,b)=>a.featureId.localeCompare(b.featureId))){if(!excluded.has(vertex.featureId))add("endpoint",vertex,`endpoint:${record.id}:${vertex.featureId}`,window.CaderactReferences.createEndpointReference(record.id,vertex.featureId))}
+          const count=record.closed?record.vertices.length:record.vertices.length-1
+          for(let index=0;index<count;index++){const a=record.vertices[index],b=record.vertices[(index+1)%record.vertices.length];add("midpoint",{x:(a.x+b.x)/2,y:(a.y+b.y)/2},`midpoint:${record.id}:${index}`)}
+          continue
+        }
         for (const endpoint of [record.start, record.end].sort((a, b) => a.featureId.localeCompare(b.featureId))) {
           if (excluded.has(endpoint.featureId)) continue
           add("endpoint", endpoint, `endpoint:${record.id}:${endpoint.featureId}`,

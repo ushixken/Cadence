@@ -36,6 +36,10 @@
       if (record?.type === "line") {
         const hit = hitTestLines({ screenPoint, records: [record], worldToScreen, tolerancePx })
         if (hit.hit) hits.push({ recordId: record.id, distancePx: hit.distancePx })
+      } else if(record?.type === "polyline"){
+        let distancePx=Infinity,count=record.closed?record.vertices.length:record.vertices.length-1
+        for(let index=0;index<count;index++){const start=worldToScreen(record.vertices[index].x,record.vertices[index].y),end=worldToScreen(record.vertices[(index+1)%record.vertices.length].x,record.vertices[(index+1)%record.vertices.length].y);distancePx=Math.min(distancePx,segmentDistance(screenPoint,start.x,start.y,end.x,end.y))}
+        if(distancePx<=tolerancePx)hits.push({recordId:record.id,distancePx})
       } else if (record?.type === "circle") {
         const center = worldToScreen(record.center.x, record.center.y)
         const radiusPoint = worldToScreen(record.center.x + record.radius, record.center.y)

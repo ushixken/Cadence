@@ -63,6 +63,7 @@
       const committedCircles = [], previewCircles = [], selectedCircles = []
       const committedArcs = [], previewArcs = [], selectedArcs = []
       const committedEllipses = [], previewEllipses = [], selectedEllipses = []
+      const committedPolylines = [], selectedPolylines = []
       function projectArc(record) {
         const center=camera.worldToScreen(record.center.x,record.center.y)
         const start=camera.worldToScreen(record.start.x,record.start.y)
@@ -135,6 +136,12 @@
           const b = camera.worldToScreen(record.end.x, record.end.y)
           addSegment(geometry, a.x, a.y, b.x, b.y)
           if(selectedIds.has(record.id))addSegment(selection,a.x,a.y,b.x,b.y)
+        } else if(record?.type === "polyline") {
+          const vertices=record.vertices.map(vertex=>{const point=camera.worldToScreen(vertex.x,vertex.y);return Object.freeze({x:point.x,y:point.y,featureId:vertex.featureId})})
+          const polyline=Object.freeze({recordId:record.id,vertices:Object.freeze(vertices),closed:record.closed})
+          committedPolylines.push(polyline);if(selectedIds.has(record.id))selectedPolylines.push(polyline)
+          const count=record.closed?vertices.length:vertices.length-1
+          for(let index=0;index<count;index++){const a=vertices[index],b=vertices[(index+1)%vertices.length];addSegment(geometry,a.x,a.y,b.x,b.y);if(selectedIds.has(record.id))addSegment(selection,a.x,a.y,b.x,b.y)}
         } else if (record?.type === "circle") {
           const center = camera.worldToScreen(record.center.x, record.center.y)
           const edge = camera.worldToScreen(record.center.x + record.radius, record.center.y)
@@ -184,9 +191,19 @@
         majorAxis:ellipsePreview.majorAxis,minorRadius:ellipsePreview.minorRadius}))
 
       if (gripPreview) {
-        const a = camera.worldToScreen(gripPreview.start.x, gripPreview.start.y)
-        const b = camera.worldToScreen(gripPreview.end.x, gripPreview.end.y)
-        addSegment(nextPreview, a.x, a.y, b.x, b.y)
+        if (gripPreview.type === "line") {
+          const a = camera.worldToScreen(gripPreview.start.x, gripPreview.start.y)
+          const b = camera.worldToScreen(gripPreview.end.x, gripPreview.end.y)
+          addSegment(nextPreview, a.x, a.y, b.x, b.y)
+        } else if (gripPreview.type === "polyline") {
+          const count = gripPreview.closed ? gripPreview.vertices.length : gripPreview.vertices.length - 1
+          for (let index = 0; index < count; index++) {
+            const a = camera.worldToScreen(gripPreview.vertices[index].x, gripPreview.vertices[index].y)
+            const next = gripPreview.vertices[(index + 1) % gripPreview.vertices.length]
+            const b = camera.worldToScreen(next.x, next.y)
+            addSegment(nextPreview, a.x, a.y, b.x, b.y)
+          }
+        }
       }
 
       const snap = getSnapResult()
@@ -322,6 +339,7 @@
         arcOverlay:Object.freeze({committed:Object.freeze(committedArcs),preview:Object.freeze(previewArcs),selected:Object.freeze(selectedArcs)}),
         ellipseOverlay:Object.freeze({committed:Object.freeze(committedEllipses),preview:Object.freeze(previewEllipses),selected:Object.freeze(selectedEllipses)}),
         selectionBoxOverlay,
+        polylineOverlay:Object.freeze({committed:Object.freeze(committedPolylines),selected:Object.freeze(selectedPolylines)}),
         lineGroups, circleGroups, arcGroups, ellipseGroups,
         drawGroups: Object.freeze(lineGroups.map((lineGroup, index) => Object.freeze({ lineGroup, circleGroup: circleGroups[index],arcGroup:arcGroups[index],ellipseGroup:ellipseGroups[index] }))),
       }

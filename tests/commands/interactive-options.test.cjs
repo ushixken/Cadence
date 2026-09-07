@@ -4,8 +4,8 @@ function state(b){return b.read('({document:modelReader.snapshot(),revision:docu
 function tapSpace(b){b.emit(b.canvas,'pointerenter');b.key(' ',b.input,{code:'Space'});b.emit(b.window,'keyup',{key:' ',code:'Space'})}
 function promptText(b){const name=b.document.querySelector('#command-name').textContent;const instruction=b.commandPrompt.children[0]?.textContent||b.input.placeholder;return [name,instruction].filter(Boolean).join(' ')}
 
-test('po plus Enter launches deterministic top Polygon suggestion exactly once without invalid feedback',async()=>{
-  const b=await browser();b.input.value='po';b.emit(b.input,'input');assert.deepEqual(b.read('window.caderactCommandRegistry.search("po").map(x=>x.command.name).slice(0,2)'),['Polygon','Polyline']);b.key('Enter',b.input);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polygon');assert.equal(b.read('window.caderactCommandRouter.lastResult.status'),'command-started');assert.equal(b.commandHistory.children.filter(child=>child.textContent==='Polygon').length,1);
+test('po plus Enter launches deterministic top Polyline suggestion exactly once without invalid feedback',async()=>{
+  const b=await browser();b.input.value='po';b.emit(b.input,'input');assert.deepEqual(b.read('window.caderactCommandRegistry.search("po").map(x=>x.command.name).slice(0,2)'),['Polyline','Polygon']);b.key('Enter',b.input);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polyline');assert.equal(b.read('window.caderactCommandRouter.lastResult.status'),'command-started');assert.equal(b.commandHistory.children.filter(child=>child.textContent==='Polyline').length,1);
 });
 
 test('prompt and interactive options are composed inside the same command-field shell',async()=>{
@@ -25,14 +25,14 @@ test('command-field CSS keeps prompt muted, typed input bright, and options inte
 });
 
 test('quick Space shares Enter autocomplete acceptance for top, exact, and alias matches',async()=>{
-  for(const value of ['po','Polygon','Pol']){
-    const b=await browser();b.input.value=value;b.emit(b.input,'input');tapSpace(b);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polygon');assert.equal(b.input.value,'');assert.equal(b.suggestions.hidden,true);assert.equal(b.commandHistory.children.filter(child=>child.textContent==='Polygon').length,1);
+  for(const [value,command] of [['po','Polyline'],['Polygon','Polygon'],['PG','Polygon']]){
+    const b=await browser();b.input.value=value;b.emit(b.input,'input');tapSpace(b);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),command);assert.equal(b.input.value,'');assert.equal(b.suggestions.hidden,true);assert.equal(b.commandHistory.children.filter(child=>child.textContent===command).length,1);
   }
 });
 
 test('Space launches exact and aliased commands plus the explicitly selected autocomplete result',async()=>{
   for(const [value,command] of [['rect','Rectangle'],['circle','Circle'],['A','Arc']]){const b=await browser();b.input.value=value;b.emit(b.input,'input');tapSpace(b);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),command);}
-  const selected=await browser();selected.input.value='po';selected.emit(selected.input,'input');selected.key('ArrowDown',selected.input);tapSpace(selected);assert.equal(selected.read('window.caderactCommandRouter.activeCommand'),'Polyline');
+  const selected=await browser();selected.input.value='po';selected.emit(selected.input,'input');selected.key('ArrowDown',selected.input);tapSpace(selected);assert.equal(selected.read('window.caderactCommandRouter.activeCommand'),'Polygon');
 });
 
 test('quick Space submits active text and empty defaults through the Enter path without inserting a space',async()=>{
@@ -56,8 +56,8 @@ test('non-empty command Space hold and drag remain navigation-only',async()=>{
 });
 
 test('Arrow selection and mouse suggestion activation retain the one router launch path',async()=>{
-  const keyboard=await browser();keyboard.input.value='po';keyboard.emit(keyboard.input,'input');keyboard.key('ArrowDown',keyboard.input);keyboard.key('Enter',keyboard.input);assert.equal(keyboard.read('window.caderactCommandRouter.activeCommand'),'Polyline');
-  const mouse=await browser();mouse.input.value='po';mouse.emit(mouse.input,'input');mouse.emit(mouse.suggestions.children[0],'click');assert.equal(mouse.read('window.caderactCommandRouter.activeCommand'),'Polygon');
+  const keyboard=await browser();keyboard.input.value='po';keyboard.emit(keyboard.input,'input');keyboard.key('ArrowDown',keyboard.input);keyboard.key('Enter',keyboard.input);assert.equal(keyboard.read('window.caderactCommandRouter.activeCommand'),'Polygon');
+  const mouse=await browser();mouse.input.value='po';mouse.emit(mouse.input,'input');mouse.emit(mouse.suggestions.children[0],'click');assert.equal(mouse.read('window.caderactCommandRouter.activeCommand'),'Polyline');
 });
 
 test('editable text, active prompt, and semantic options are separate presentation state',async()=>{
