@@ -64,7 +64,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const unitsWrap = new Element(); const unitsTrigger = new Element('button'); const unitsMenu = new Element(); const unitValue = new Element('strong');
   const unitOptions = ['mm','cm','m','in','ft'].map(unit => { const option=new Element('button'); option.dataset.unit=unit; return option; });
   const layersList = new Element(); const layerCreateButton = new Element('button');
-  const gridSnapButton = new Element('button'); gridSnapButton.classList.add('footer-tool', 'is-active'); gridSnapButton.setAttribute('aria-pressed', 'true');
+  const gridSnapButton = new Element('button'); gridSnapButton.classList.add('footer-tool'); gridSnapButton.setAttribute('aria-pressed', 'false');
   const commandArea = new Element(); const commandWrap = new Element();
   commandArea.classList.add('command-area'); commandWrap.classList.add('command-input-wrap');
   commandArea.parent=document; commandArea.owner=document; commandWrap.parent=commandArea; commandWrap.owner=document;

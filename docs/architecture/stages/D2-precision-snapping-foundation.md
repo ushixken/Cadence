@@ -16,7 +16,7 @@ Only candidates inside tolerance participate. Candidates more than 0.75 pixels a
 
 Line start/end candidates use current authoritative endpoint coordinates and attach the canonical frozen A10 `{kind:"feature", recordId, featureId}` reference. Midpoints are derived at full precision with `start + (end - start) / 2` and receive no persistent identity. Grid candidates round each raw world component to the nearest current U4 adaptive minor-spacing multiple, anchored at world origin; pan is absent from that calculation.
 
-All three kinds are enabled by default. The viewport owns an immutable transient enabled-mode snapshot and passes it into the pure resolver. The existing Grid Snap status button changes only `grid`; endpoint and midpoint remain enabled. This state creates no transaction or persistence field, survives ordinary drawing, and resets to ON through the existing New/Open viewport reset because no user-preference store exists yet. Independent snap spacing and a full settings model remain future policy.
+Endpoint and Midpoint are enabled by default while Grid starts disabled. The viewport owns an immutable transient enabled-mode snapshot and passes it into the pure resolver. The existing Grid Snap status button changes only `grid`; endpoint and midpoint remain enabled. This state creates no transaction or persistence field, survives ordinary drawing, and resets to OFF through the existing New/Open viewport reset because no user-preference store exists yet. Independent snap spacing and a full settings model remain future policy.
 
 ## Transient marker contract
 

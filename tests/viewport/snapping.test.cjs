@@ -102,17 +102,18 @@ test('Grid Snap button toggles transient grid acquisition while endpoints, midpo
   const b=await browser();typed(b,'Line');typed(b,'10,10');typed(b,'30,10');b.key('Enter',b.input);b.flush();
   const before=b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo,dirty:documentController.isDirty})');
   const gridSegments=b.renders.at(-1).grid.minorSegments.length+b.renders.at(-1).grid.majorSegments.length;
-  assert.equal(b.gridSnapButton.classList.contains('is-active'),true);assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'true');
-  assert.equal(b.emit(b.gridSnapButton,'mousedown').defaultPrevented,true);b.emit(b.gridSnapButton,'click');b.flush();
   assert.equal(b.gridSnapButton.classList.contains('is-active'),false);assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'false');
+  assert.ok(gridSegments>0);assert.equal(b.emit(b.gridSnapButton,'mousedown').defaultPrevented,true);
   assert.equal(b.renders.at(-1).grid.minorSegments.length+b.renders.at(-1).grid.majorSegments.length,gridSegments);
   b.launch();typed(b,'0,0');b.point(403,353,'pointermove');assert.equal(b.read('activeSnapResult.snapped'),false);
   b.point(450,250,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');
   b.point(500,250,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'midpoint');
   b.emit(b.gridSnapButton,'click');b.point(403,353,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'grid');
   assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'true');assert.deepEqual(b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo,dirty:documentController.isDirty})'),before);
-  b.key('Escape');b.emit(b.gridSnapButton,'click');b.run('window.caderactViewport.resetForDocumentReplacement()');
-  assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'true');
+  b.emit(b.gridSnapButton,'click');b.point(403,353,'pointermove');assert.equal(b.read('activeSnapResult.snapped'),false);
+  b.point(450,250,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');
+  b.key('Escape');b.run('window.caderactViewport.setGridSnapEnabled(true);window.caderactViewport.resetForDocumentReplacement()');
+  assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'false');
 });
 
 test('nearest distance dominates and endpoint priority resolves close collisions deterministically',async()=>{
@@ -138,6 +139,7 @@ test('crowded near ties are selected from one nearest-distance window without co
 
 test('real pointer path bypasses and immediately reacquires every supported snap kind with Shift',async()=>{
   const b=await browser();
+  b.emit(b.gridSnapButton,'click');
   b.run('recordGateway.createAll([recordGateway.createLine({x:20,y:20},{x:40,y:20})])');
   b.launch();typed(b,'7,7');
   for(const target of [

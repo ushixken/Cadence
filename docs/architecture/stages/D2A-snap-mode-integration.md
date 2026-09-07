@@ -8,7 +8,7 @@ Endpoint candidates use the current authoritative Line coordinates and stable A1
 
 ## Mode behavior
 
-Endpoint and Midpoint are currently always available. Draft Point is automatic whenever an active drawing session supplies candidates. The existing Grid Snap footer button controls only Grid participation and reflects the transient state through its active style and `aria-pressed`. Turning Grid Snap off does not hide the visual grid or disable Endpoint, Midpoint, or Draft Point. With no user-preference system, New and Open retain the established behavior of resetting Grid Snap to ON.
+Endpoint and Midpoint are currently always available. Draft Point is automatic whenever an active drawing session supplies candidates. The existing Grid Snap footer button controls only Grid participation and reflects the transient state through its active style and `aria-pressed`. Turning Grid Snap off does not hide the visual grid or disable Endpoint, Midpoint, or Draft Point. With no user-preference system, fresh sessions, New, and Open reset Grid Snap to OFF.
 
 Holding Shift bypasses all candidate types and sends the raw pointer world coordinate to the active interaction without changing mode state. Pressing or releasing Shift while the pointer is stationary immediately reevaluates the last known pointer, so normal acquisition returns on release.
 

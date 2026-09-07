@@ -27,7 +27,7 @@ let renderer = null, isInitialized = false, isRenderScheduled = false
 let rendererStatus = "initializing", rendererError = null, recoveryPromise = null
 let navigation = null, resizeObserver = null
 let activeSnapResult = null
-let snapModes = Object.freeze({ endpoint: true, midpoint: true, grid: true })
+let snapModes = Object.freeze({ endpoint: true, midpoint: true, grid: false })
 const snapModeListeners = new Set()
 const viewportHost = canvas.parentElement || canvas.parent
 const interactionVisuals = window.CaderactInteractionVisuals.createController({ host: viewportHost })
@@ -741,7 +741,7 @@ function resetForDocumentReplacement() {
   selectionBox.clear()
   cancelGripEdit()
   interactionVisuals.leave()
-  setGridSnapEnabled(true)
+  setGridSnapEnabled(false)
   camera.zoom = viewportSettings.initialZoom
   camera.panX = viewportWidth / 2
   camera.panY = viewportHeight / 2

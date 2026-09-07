@@ -39,7 +39,7 @@ test('repeated, collinear, and near-collinear points reject without mutation and
 test('Arc reuses D2A endpoint, grid toggle, Draft Point, and Shift bypass',async()=>{
   const b=await browser();b.run('recordGateway.createAll([recordGateway.createLine({x:20,y:20},{x:40,y:20})])');b.launch('Arc');typed(b,'0,0');
   b.point(502,201,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');b.point(401,299,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'draft-point');
-  b.point(451,249,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'grid');b.emit(b.gridSnapButton,'click');b.point(451,249,'pointermove');assert.equal(b.read('activeSnapResult.snapped'),false);
+  b.emit(b.gridSnapButton,'click');b.point(451,249,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'grid');b.emit(b.gridSnapButton,'click');b.point(451,249,'pointermove');assert.equal(b.read('activeSnapResult.snapped'),false);
   b.key('Shift',b.document,{code:'ShiftLeft'});assert.equal(b.read('activeSnapResult.snapped'),false);b.emit(b.document,'keyup',{key:'Shift',code:'ShiftLeft'});
 });
 

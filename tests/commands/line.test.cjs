@@ -330,6 +330,7 @@ test('adjacent segment continuity holds at world coordinate level and screen pro
 
 test('snapping to grid, endpoint, and midpoint records exact draft point markers', async () => {
   const b = await browser();
+  b.emit(b.gridSnapButton, 'click');
   // Create an existing line to snap to: (10, 20) to (30, 20)
   b.run('recordGateway.createAll([recordGateway.createLine({x:10,y:20},{x:30,y:20})])');
 
@@ -544,7 +545,7 @@ test('Shift temporarily disables all snapping (endpoint, draft-point, midpoint, 
   assert.equal(b.read('activeSnapResult?.snapped'), false);
   assert.equal(b.renders.at(-1).snapOverlay, null);
   // Grid snap button and persistent state unchanged
-  assert.equal(b.gridSnapButton.getAttribute('aria-pressed'), 'true');
+  assert.equal(b.gridSnapButton.getAttribute('aria-pressed'), 'false');
 
   // 3. Release shift -> snap restored immediately
   b.point(403, 302, 'pointermove', { shiftKey: false });
@@ -560,7 +561,7 @@ test('Shift temporarily disables all snapping (endpoint, draft-point, midpoint, 
   b.flush();
   const lastSegment = b.read('window.caderactCommandRouter.activeSession.draft.draftSegments().at(-1)');
   assert.deepEqual({ x: lastSegment.end.x, y: lastSegment.end.y }, { x: 0.6, y: -0.4 });
-  assert.equal(b.gridSnapButton.getAttribute('aria-pressed'), 'true');
+  assert.equal(b.gridSnapButton.getAttribute('aria-pressed'), 'false');
 });
 
 test('Stationary Shift keydown and keyup triggers dynamic snap re-evaluation and rerender', async () => {
@@ -721,7 +722,7 @@ test('Snapping to current/latest draft point P4 collapses preview to zero-length
   // 1. Move away from P4
   b.point(500, 200, 'pointermove');
   b.flush();
-  assert.notEqual(b.read('activeSnapResult?.kind'), 'draft-point');
+  assert.notEqual(b.read('activeSnapResult?.kind ?? null'), 'draft-point');
   assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.preview().start'), { x: 0, y: 10 });
   assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.preview().end'), { x: 20, y: 20 });
 
@@ -739,7 +740,7 @@ test('Snapping to current/latest draft point P4 collapses preview to zero-length
   // 3. Move away again -> preview extends normally
   b.point(500, 200, 'pointermove');
   b.flush();
-  assert.notEqual(b.read('activeSnapResult?.kind'), 'draft-point');
+  assert.notEqual(b.read('activeSnapResult?.kind ?? null'), 'draft-point');
   assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.preview().start'), { x: 0, y: 10 });
   assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.preview().end'), { x: 20, y: 20 });
 

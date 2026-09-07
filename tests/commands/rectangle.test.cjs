@@ -67,7 +67,7 @@ test('Endpoint, Midpoint, Grid toggle, and Shift all flow through D2A for Rectan
   const midpoint=await browser();midpoint.run('recordGateway.createAll([recordGateway.createLine({x:20,y:20},{x:40,y:20})])');
   midpoint.launch('Rectangle');typed(midpoint,'1,1');midpoint.point(552,201,'pointermove');assert.equal(midpoint.read('activeSnapResult.kind'),'midpoint');
 
-  const grid=await browser();grid.launch('Rectangle');typed(grid,'1,1');grid.point(451,249,'pointermove');assert.equal(grid.read('activeSnapResult.kind'),'grid');
+  const grid=await browser();grid.emit(grid.gridSnapButton,'click');grid.launch('Rectangle');typed(grid,'1,1');grid.point(451,249,'pointermove');assert.equal(grid.read('activeSnapResult.kind'),'grid');
   grid.emit(grid.gridSnapButton,'click');grid.point(451,249,'pointermove');assert.equal(grid.read('activeSnapResult.snapped'),false);grid.point(451,249);
   assert.ok(endpoints(grid).some(edge=>edge.end.x===10.2&&edge.end.y===10.2));
 

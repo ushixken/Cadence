@@ -45,7 +45,7 @@ test('pointer, relative typed, and mixed input share the same Polyline draft',as
   const typedOnly=await browser();typedOnly.launch('Polyline');typed(typedOnly,'10,20');typed(typedOnly,'@5,-7');
   assert.deepEqual(points(typedOnly),[{x:10,y:20},{x:15,y:13}]);
   const mixed=await browser();mixed.launch('Polyline');mixed.point(400,300);typed(mixed,'@7,8');mixed.point(460,250);
-  assert.deepEqual(points(mixed),[{x:0,y:0},{x:7,y:8},{x:10,y:10}]);
+  assert.deepEqual(points(mixed),[{x:0,y:0},{x:7,y:8},{x:12,y:10}]);
 });
 
 test('Polyline reuses Endpoint, Midpoint, Grid toggle, and Shift bypass',async()=>{
@@ -54,7 +54,7 @@ test('Polyline reuses Endpoint, Midpoint, Grid toggle, and Shift bypass',async()
   assert.deepEqual(points(endpoint).at(-1),{x:20,y:20});
   endpoint.point(552,201,'pointermove');assert.equal(endpoint.read('activeSnapResult.kind'),'midpoint');
 
-  const grid=await browser();grid.launch('Polyline');typed(grid,'1,1');grid.point(451,249,'pointermove');assert.equal(grid.read('activeSnapResult.kind'),'grid');
+  const grid=await browser();grid.emit(grid.gridSnapButton,'click');grid.launch('Polyline');typed(grid,'1,1');grid.point(451,249,'pointermove');assert.equal(grid.read('activeSnapResult.kind'),'grid');
   grid.emit(grid.gridSnapButton,'click');grid.point(451,249,'pointermove');assert.equal(grid.read('activeSnapResult.snapped'),false);
 
   const shifted=await browser();shifted.run('recordGateway.createAll([recordGateway.createLine({x:20,y:20},{x:40,y:20})])');
