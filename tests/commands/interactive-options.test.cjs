@@ -13,6 +13,13 @@ test('prompt and interactive options are composed inside the same command-field 
   typed(b,'5');assert.equal(b.commandPrompt.children[1].tag,'button');assert.equal(b.commandPrompt.children[1].parent,b.commandPrompt);assert.notEqual(promptText(b),b.input.value);
 });
 
+test('command shell, prefix, and prompt clicks focus input while option clicks retain ownership',async()=>{
+  const idle=await browser();const shell=idle.input.parent.parent;idle.emit(shell,'click');assert.equal(idle.document.activeElement,idle.input);
+  const active=await browser();active.launch('Polygon');active.document.activeElement=null;active.emit(active.commandPrompt.children[0],'click');assert.equal(active.document.activeElement,active.input);active.document.activeElement=null;active.emit(active.document.querySelector('#command-name'),'click');assert.equal(active.document.activeElement,active.input);
+  typed(active,'5');const option=active.commandPrompt.children[1];active.document.activeElement=null;active.emit(option,'click');assert.equal(active.read('window.caderactCommandRouter.activeSession.acceptsEmptyInput'),true);assert.equal(active.document.activeElement,active.input);
+  typed(active,'2');active.advance(2000);active.document.activeElement=null;active.emit(active.commandPrompt.children[0],'click');assert.equal(active.document.activeElement,active.input);
+});
+
 test('command-field CSS keeps prompt muted, typed input bright, and options interactive',()=>{
   const css=fs.readFileSync('src/css/editor-page.css','utf8');assert.match(css,/\.command-name\s*\{[^}]*color:var\(--mainText\)/);assert.match(css,/\.command-prompt-instruction\s*\{[^}]*color:var\(--secondaryText\)/);assert.match(css,/\.command-input-wrap\.has-typed-input \.command-prompt-instruction,[\s\S]*?\.command-input-wrap\.has-typed-input \.command-option\s*\{\s*display:none/);assert.doesNotMatch(css,/has-typed-input \.command-prompt\s*\{[^}]*visibility:hidden/);assert.match(css,/\.command-input\s*\{[^}]*color:\s*var\(--mainText\)/);assert.match(css,/\.command-input::placeholder\s*\{[^}]*color:var\(--secondaryText\)/);assert.match(css,/\.command-option\s*\{[^}]*color:#9dc8ef/);assert.match(css,/\.command-option:hover:not\(:disabled\)\s*\{[^}]*color:var\(--mainText\)/);assert.match(css,/\.command-option:focus-visible\s*\{[^}]*outline:/);
 });
@@ -21,6 +28,26 @@ test('quick Space shares Enter autocomplete acceptance for top, exact, and alias
   for(const value of ['po','Polygon','Pol']){
     const b=await browser();b.input.value=value;b.emit(b.input,'input');tapSpace(b);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polygon');assert.equal(b.input.value,'');assert.equal(b.suggestions.hidden,true);assert.equal(b.commandHistory.children.filter(child=>child.textContent==='Polygon').length,1);
   }
+});
+
+test('Space launches exact and aliased commands plus the explicitly selected autocomplete result',async()=>{
+  for(const [value,command] of [['rect','Rectangle'],['circle','Circle'],['A','Arc']]){const b=await browser();b.input.value=value;b.emit(b.input,'input');tapSpace(b);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),command);}
+  const selected=await browser();selected.input.value='po';selected.emit(selected.input,'input');selected.key('ArrowDown',selected.input);tapSpace(selected);assert.equal(selected.read('window.caderactCommandRouter.activeCommand'),'Polyline');
+});
+
+test('quick Space submits active text and empty defaults through the Enter path without inserting a space',async()=>{
+  const polygon=await browser();polygon.launch('Polygon');polygon.input.value='5';polygon.emit(polygon.input,'input');const down=polygon.key(' ',polygon.input,{code:'Space'});assert.equal(down.defaultPrevented,true);assert.equal(polygon.input.value,'5');polygon.emit(polygon.window,'keyup',{key:' ',code:'Space'});assert.equal(polygon.input.value,'');assert.equal(polygon.read('window.caderactCommandRouter.activeSession.draft.sideCount'),5);assert.equal(polygon.read('window.caderactFeedback.activePrompt'),'Polygon: Specify center of polygon');
+  const defaults=await browser();defaults.launch('Polygon');defaults.key(' ',defaults.input,{code:'Space'});defaults.emit(defaults.window,'keyup',{key:' ',code:'Space'});assert.equal(defaults.read('window.caderactCommandRouter.activeSession.draft.sideCount'),4);
+  const line=await browser();line.launch('Line');line.input.value='100,200';line.emit(line.input,'input');line.key(' ',line.input,{code:'Space'});line.emit(line.window,'keyup',{key:' ',code:'Space'});assert.deepEqual(line.read('window.caderactCommandRouter.activeSession.draft.acceptedPoints()'),[{x:100,y:200}]);assert.equal(line.input.value,'');
+});
+
+test('active input Space hold, drag, and key repeat never submit',async()=>{
+  const held=await browser();held.launch('Polygon');held.input.value='5';held.emit(held.input,'input');held.key(' ',held.input,{code:'Space'});held.advance(220);held.emit(held.window,'keyup',{key:' ',code:'Space'});assert.equal(held.read('window.caderactCommandRouter.activeSession.draft.sideCount'),null);assert.equal(held.input.value,'5');
+  const dragged=await browser();dragged.launch('Polygon');dragged.input.value='5';dragged.emit(dragged.input,'input');dragged.key(' ',dragged.input,{code:'Space'});dragged.key(' ',dragged.input,{code:'Space',repeat:true});dragged.point(100,100,'pointerdown');dragged.point(120,100,'pointermove');dragged.point(120,100,'pointerup');dragged.emit(dragged.window,'keyup',{key:' ',code:'Space'});assert.equal(dragged.read('window.caderactCommandRouter.activeSession.draft.sideCount'),null);assert.equal(dragged.input.value,'5');
+});
+
+test('passive command-field regions use a text cursor while native options remain pointers',()=>{
+  const css=fs.readFileSync('src/css/editor-page.css','utf8');for(const selector of ['command-input-wrap','command-name','command-input-area','command-prompt','command-input'])assert.match(css,new RegExp(`\\.${selector}\\s*\\{[^}]*cursor:\\s*text`));assert.match(css,/\.command-option\s*\{[^}]*cursor:pointer/);
 });
 
 test('non-empty command Space hold and drag remain navigation-only',async()=>{

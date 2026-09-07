@@ -56,9 +56,9 @@ test('keyboard repeat events cannot launch duplicates',async()=>{
   const session=b.window.caderactCommandRouter.activeSession;spaceDown(b,{repeat:true});spaceUp(b);assert.equal(b.window.caderactCommandRouter.activeSession,session);
 });
 
-test('active command has priority and Space cannot launch or replace another session',async()=>{
-  const b=await browser();b.launch('Line');const session=b.window.caderactCommandRouter.activeSession;enterViewport(b);tapSpace(b);
-  assert.equal(b.window.caderactCommandRouter.activeSession,session);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Line');
+test('active command has priority and Space submits rather than repeating another session',async()=>{
+  const b=await browser();b.launch('Line');enterViewport(b);tapSpace(b);
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null);assert.equal(b.read('window.caderactCommandRouter.lastResult.status'),'command-completed');
 });
 
 test('Escape preserves the last drawing command for repetition',async()=>{

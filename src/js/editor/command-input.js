@@ -148,7 +148,27 @@ function acceptIdleCommandSuggestion() {
   return true
 }
 
-window.caderactCommandInput = Object.freeze({ acceptIdleCommandSuggestion })
+function submitActiveCommandInput() {
+  if (!commandRouter.isActive) return false
+  if (commandInput.value.trim() !== "") {
+    const outcome = commandRouter.submitActiveInput(commandInput.value)
+    commandInput.value = ""; syncCommandInputPresentation(); hideSuggestions()
+    if (outcome.status === "command-completed") commandInput.blur()
+  } else if (commandRouter.activeSession?.acceptsEmptyInput) {
+    const outcome = commandRouter.submitActiveInput("")
+    commandInput.value = ""; syncCommandInputPresentation(); hideSuggestions()
+    if (outcome.status === "command-completed") commandInput.blur()
+  } else {
+    applyCommandResult(commandRouter.finishActive()); resetCommandInput()
+  }
+  return true
+}
+
+function submitCurrentInput() {
+  return commandRouter.isActive ? submitActiveCommandInput() : acceptIdleCommandSuggestion()
+}
+
+window.caderactCommandInput = Object.freeze({ acceptIdleCommandSuggestion, submitCurrentInput })
 
 function resetCommandInput() {
   commandInput.value = ""
@@ -162,6 +182,11 @@ commandPrompt.addEventListener("click", event => {
   if(!button||button.disabled||!commandRouter.isActive)return
   commandRouter.activateOption(button.dataset.optionId)
   commandInput.value="";syncCommandInputPresentation();hideSuggestions();commandInput.focus()
+})
+
+commandInputWrap?.addEventListener("click", event => {
+  if (event.target.closest?.(".command-option")) return
+  commandInput.focus()
 })
 
 function isTypingInAnotherField(target) {
@@ -178,19 +203,7 @@ commandInput.addEventListener("keydown", (event) => {
   const matches = getMatchingCommands(commandInput.value)
   if (commandRouter.isActive && event.key === "Enter") {
     event.preventDefault()
-    if (commandInput.value.trim() !== "") {
-      const outcome = commandRouter.submitActiveInput(commandInput.value)
-      commandInput.value = ""
-      syncCommandInputPresentation()
-      hideSuggestions()
-      if (outcome.status === "command-completed") commandInput.blur()
-    } else if (commandRouter.activeSession?.acceptsEmptyInput) {
-      const outcome = commandRouter.submitActiveInput("")
-      commandInput.value = ""; syncCommandInputPresentation(); hideSuggestions()
-      if (outcome.status === "command-completed") commandInput.blur()
-    } else {
-      applyCommandResult(commandRouter.finishActive()); resetCommandInput()
-    }
+    submitCurrentInput()
     return
   }
   if (commandRouter.isActive && event.key === "Escape") {
@@ -204,7 +217,7 @@ commandInput.addEventListener("keydown", (event) => {
     event.preventDefault(); confirmSelectedCommand()
   } else if (event.key === "Enter" && !commandRouter.isActive && commandInput.value.trim() !== "") {
     event.preventDefault()
-    acceptIdleCommandSuggestion()
+    submitCurrentInput()
   } else if (event.key === "Enter" && !commandRouter.isActive && commandInput.value.trim() === "") {
     if (window.caderactSelection?.selectedIds().length > 0) {
       event.preventDefault()

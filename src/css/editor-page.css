@@ -129,13 +129,14 @@ canvas.is-navigating {
   background-color: #172738;
   border: 1px solid #20364a;
   border-radius: 0.35rem;
+  cursor: text;
 }
 
 .command-input-wrap:focus-within { border-color: var(--activeText); }
-.command-name { flex:none; padding-left:11px; color:var(--mainText); font-size:10px; white-space:nowrap; }
+.command-name { flex:none; padding-left:11px; color:var(--mainText); font-size:10px; white-space:nowrap; cursor:text; }
 .command-name:empty { display:none; }
-.command-input-area { position:relative; flex:1 1 auto; min-width:0; }
-.command-prompt { display:flex; position:absolute; z-index:2; inset:0; align-items:center; gap:5px; min-width:0; padding:0 11px 0 5px; overflow:hidden; color:var(--secondaryText); font-size:10px; white-space:nowrap; pointer-events:none; }
+.command-input-area { position:relative; flex:1 1 auto; min-width:0; cursor:text; }
+.command-prompt { display:flex; position:absolute; z-index:2; inset:0; align-items:center; gap:5px; min-width:0; padding:0 11px 0 5px; overflow:hidden; color:var(--secondaryText); font-size:10px; white-space:nowrap; pointer-events:none; cursor:text; }
 .command-prompt:empty { display:none; }
 .command-input-wrap.has-typed-input .command-prompt-instruction,
 .command-input-wrap.has-typed-input .command-option { display:none; }
@@ -165,6 +166,7 @@ canvas.is-navigating {
   border: 0;
   font: inherit;
   outline: none;
+  cursor: text;
 }
 
 .command-input::placeholder { color:var(--secondaryText); opacity:1; }

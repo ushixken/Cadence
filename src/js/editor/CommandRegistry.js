@@ -1,9 +1,20 @@
 // U1: immutable command definitions, case-insensitive lookup, and autocomplete.
 (() => {
-  const normalize = value => typeof value === "string" ? value.trim().toLowerCase() : ""
+  const normalize = value => typeof value === "string" ? value.trim().toLowerCase().replace(/[-_]/g, "") : ""
+
+  function normalizedCandidate(value) {
+    const source = String(value).trim().toLowerCase()
+    const map = [], characters = []
+    for (let index = 0; index < source.length; index++) {
+      if (source[index] === "-" || source[index] === "_") continue
+      characters.push(source[index]); map.push(index)
+    }
+    return { value: characters.join(""), map }
+  }
 
   function matchCandidate(query, candidate, field) {
-    const value = normalize(candidate)
+    const normalized = normalizedCandidate(candidate)
+    const value = normalized.value
     let category, indices
     if (value === query) category = field === "canonical" ? 0 : 1
     else if (value.startsWith(query)) category = field === "canonical" ? 2 : 3
@@ -27,7 +38,7 @@
     }
     const start = indices[0] ?? 0
     const gaps = indices.length > 1 ? indices.at(-1) - start + 1 - indices.length : 0
-    return { category, indices: Object.freeze(indices), start, gaps, candidate, field }
+    return { category, indices: Object.freeze(indices.map(index => normalized.map[index])), start, gaps, candidate, field }
   }
 
   function createRegistry(definitions) {
@@ -78,5 +89,5 @@
     return Object.freeze({ resolve, matches, search, commands: () => ordered })
   }
 
-  window.CaderactCommandRegistry = Object.freeze({ createRegistry, matchCandidate })
+  window.CaderactCommandRegistry = Object.freeze({ createRegistry, matchCandidate, normalizeCommandToken: normalize })
 })()

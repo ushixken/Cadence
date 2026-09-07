@@ -769,12 +769,11 @@ function bindCanvas(nextCanvas) {
   navigation = window.CaderactViewportNavigation.bindViewportNavigation({
     canvas, camera: viewportCamera, viewportSettings, getCanvasPoint, requestRender,
     onStateChange: state => interactionVisuals.setNavigating(state.navigationMode !== null || state.isSpacePressed),
-    isSpaceEditableTarget: target => target === document.querySelector("#command-input") &&
-      !window.caderactCommandRouter?.isActive && target.value.trim() !== "",
+    isSpaceEditableTarget: target => target === document.querySelector("#command-input"),
     onSpaceTap: () => {
       const router = window.caderactCommandRouter
-      if (!router || router.isActive) return
-      if (!window.caderactCommandInput?.acceptIdleCommandSuggestion()) router.repeatLastCommand()
+      if (!router) return
+      if (!window.caderactCommandInput?.submitCurrentInput()) router.repeatLastCommand()
     },
   })
   canvas.addEventListener("pointerdown", onViewportPointerDown)

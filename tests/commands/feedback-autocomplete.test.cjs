@@ -80,3 +80,7 @@ test('autocomplete renders matcher-provided highlighted indices without innerHTM
   assert.equal(button.dataset.commandIndex,'0');
   assert.deepEqual(button.children.map(child=>[child.tag,child.textContent]),[['span','L'],['strong','i'],['span','n'],['strong','e']]);
 });
+
+test('command-token normalization accepts compact, hyphen, and underscore forms but not spaces',async()=>{
+  const b=await browser();b.run(`window.__normalized=window.CaderactCommandRegistry.createRegistry([{name:'TestCommand',aliases:['Test-Cmd'],activate:()=>({})}])`);for(const value of ['TestCommand','testcommand','test-command','test_command'])assert.equal(b.run(`window.__normalized.resolve(${JSON.stringify(value)}).name`),'TestCommand');assert.equal(b.run(`window.__normalized.resolve('test command')`),null);assert.equal(b.run(`window.__normalized.resolve('test_cmd').name`),'TestCommand');assert.equal(b.read(`window.__normalized.search('test-comm').map(result=>result.command.name)`)[0],'TestCommand');
+});

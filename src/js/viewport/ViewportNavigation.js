@@ -78,8 +78,9 @@
     const onPointerLeave = () => canvas.classList.remove("is-hovered")
 
     function onKeyDown(event) {
-      if (event.code !== "Space" || !canvas.classList.contains("is-hovered") || event.defaultPrevented ||
-          (isEditable(event.target) && !isSpaceEditableTarget(event.target))) return
+      const ownedEditable = isSpaceEditableTarget(event.target)
+      if (event.code !== "Space" || (!canvas.classList.contains("is-hovered") && !ownedEditable) || event.defaultPrevented ||
+          (isEditable(event.target) && !ownedEditable)) return
       if (event.repeat) { event.preventDefault(); return }
       if (isSpacePressed) { event.preventDefault(); return }
       isSpacePressed = true
