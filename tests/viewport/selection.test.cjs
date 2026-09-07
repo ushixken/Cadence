@@ -46,9 +46,9 @@ test('idle click, replacement click, empty click, and Ctrl/Meta toggles follow s
   b.point(400,200);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[second]);
   b.point(400,300,'pointerdown',{ctrlKey:true});assert.deepEqual(b.read('window.caderactSelection.selectedIds()').sort(),[first,second].sort());
   b.point(400,200,'pointerdown',{ctrlKey:true});assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[first]);
-  b.point(700,500,'pointerdown',{ctrlKey:true});assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[first]);
+  b.point(700,500,'pointerdown',{ctrlKey:true});b.point(700,500,'pointerup',{ctrlKey:true});assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[first]);
   b.point(400,200,'pointerdown',{metaKey:true});assert.deepEqual(b.read('window.caderactSelection.selectedIds()').sort(),[first,second].sort());
-  b.point(700,500);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);
+  b.point(700,500);b.point(700,500,'pointerup');assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);
   assert.deepEqual(b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo,dirty:documentController.isDirty})'),persistent);
 });
 
@@ -64,7 +64,7 @@ test('active Line owns clicks and snapping while selection stays unchanged, then
   b.launch();b.point(471,215);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[id]);
   assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.currentPoint'),{x:13,y:17});
   b.key('Enter');b.point(465,215);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[id]);
-  b.launch();b.point(400,300);b.key('Escape');b.point(700,500);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);
+  b.launch();b.point(400,300);b.key('Escape');b.point(700,500);b.point(700,500,'pointerup');assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);
 });
 
 test('selected committed Line keeps its renderer-neutral highlight and exposes endpoint grips',async()=>{

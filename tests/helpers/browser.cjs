@@ -151,6 +151,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/PointInput.js');
   load('src/js/editor/SnapResolver.js');
   load('src/js/editor/SelectionManager.js');
+  load('src/js/editor/SelectionBox.js');
   load('src/js/editor/GripManager.js');
   load('src/js/editor/CommandRegistry.js');
   load('src/js/editor/CommandRouter.js');

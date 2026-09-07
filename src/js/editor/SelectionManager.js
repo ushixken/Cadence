@@ -98,8 +98,14 @@
       for(const id of selected)if(!valid.has(id)){selected.delete(id);changed=true}
       return changed?publish("selection-pruned"):result("selection-unchanged",{selectedIds:snapshot()})
     }
+    function applyRecordIds(recordIds,{toggle=false}={}){
+      const ids=Array.from(new Set(recordIds)).filter(id=>typeof id==="string"&&id).sort()
+      if(toggle){if(ids.length===0)return result("selection-unchanged",{selectedIds:snapshot()});for(const id of ids)selected.has(id)?selected.delete(id):selected.add(id)}
+      else{selected.clear();for(const id of ids)selected.add(id)}
+      return publish(toggle?"selection-toggled":"selection-replaced")
+    }
     function subscribe(listener){if(typeof listener!=="function")throw new Error("Selection listener must be a function");listeners.add(listener);return()=>listeners.delete(listener)}
-    return Object.freeze({selectOnly,toggle,clear,has:id=>selected.has(id),selectedIds:snapshot,pruneAgainstDocument,subscribe})
+    return Object.freeze({selectOnly,toggle,clear,applyRecordIds,has:id=>selected.has(id),selectedIds:snapshot,pruneAgainstDocument,subscribe})
   }
   window.CaderactSelection=Object.freeze({createSelection,hitTestLines,hitTestRecords,DEFAULT_HIT_TOLERANCE_PX})
 })()

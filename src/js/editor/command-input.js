@@ -237,6 +237,7 @@ commandSuggestions.addEventListener("click", (event) => {
 })
 
 document.addEventListener("keydown", (event) => {
+  if (event.caderactSelectionBoxHandled) return
   if (event.key === "Escape" && window.caderactGrips?.isActive) {
     window.caderactViewport.cancelGripEdit(); event.preventDefault(); return
   }

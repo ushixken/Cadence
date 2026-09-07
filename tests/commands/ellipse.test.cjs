@@ -37,7 +37,7 @@ test('strict v1 persistence round-trips Ellipse and rejects malformed closed sha
 });
 
 test('committed Ellipse has no endpoint snap features and curve selection is screen-space',async()=>{
-  const b=await browser();createEllipse(b);const id=b.read('modelReader.records()[0].id');assert.deepEqual(b.read('Object.keys(modelReader.records()[0])'),['id','type','layerId','center','majorAxis','minorRadius']);b.launch('Line');b.point(450,300,'pointermove');assert.notEqual(b.read('activeSnapResult?.kind||null'),'endpoint');b.key('Escape');b.point(450,300);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[id]);b.point(400,300);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);b.point(400,200);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[])
+  const b=await browser();createEllipse(b);const id=b.read('modelReader.records()[0].id');assert.deepEqual(b.read('Object.keys(modelReader.records()[0])'),['id','type','layerId','center','majorAxis','minorRadius']);b.launch('Line');b.point(450,300,'pointermove');assert.notEqual(b.read('activeSnapResult?.kind||null'),'endpoint');b.key('Escape');b.point(450,300);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[id]);b.point(400,300);b.point(400,300,'pointerup');assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);b.point(400,200);b.point(400,200,'pointerup');assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[])
 });
 
 test('Ellipse reuses Endpoint, Midpoint, Grid toggle, Draft Point, and Shift bypass',async()=>{
@@ -45,7 +45,7 @@ test('Ellipse reuses Endpoint, Midpoint, Grid toggle, Draft Point, and Shift byp
 });
 
 test('rotated and eccentric Ellipse selection hits the curve but not its interior',async()=>{
-  const b=await browser();b.run('window.__g=window.CaderactEllipseGeometry.fromAxisEndpoints({x:-3,y:-4},{x:3,y:4},{x:-8,y:6});recordGateway.createAll([recordGateway.createEllipse(window.__g)])');const id=b.read('modelReader.records()[0].id');b.point(415,280);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[id]);b.point(400,300);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);b.run('window.__g2=window.CaderactEllipseGeometry.fromAxisEndpoints({x:-20,y:0},{x:20,y:0},{x:0,y:1});recordGateway.createAll([recordGateway.createEllipse(window.__g2)])');const hit=b.run('window.CaderactSelection.hitTestRecords({screenPoint:{x:500,y:300},records:modelReader.records(),worldToScreen})');assert.equal(hit.hit,true)
+  const b=await browser();b.run('window.__g=window.CaderactEllipseGeometry.fromAxisEndpoints({x:-3,y:-4},{x:3,y:4},{x:-8,y:6});recordGateway.createAll([recordGateway.createEllipse(window.__g)])');const id=b.read('modelReader.records()[0].id');b.point(415,280);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[id]);b.point(400,300);b.point(400,300,'pointerup');assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);b.run('window.__g2=window.CaderactEllipseGeometry.fromAxisEndpoints({x:-20,y:0},{x:20,y:0},{x:0,y:1});recordGateway.createAll([recordGateway.createEllipse(window.__g2)])');const hit=b.run('window.CaderactSelection.hitTestRecords({screenPoint:{x:500,y:300},records:modelReader.records(),worldToScreen})');assert.equal(hit.hit,true)
 });
 
 test('Escape, pointer leave, failed publication, and Space repeat preserve lifecycle',async()=>{

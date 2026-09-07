@@ -1,5 +1,5 @@
 (() => {
-  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getPreviewLines = null, getCirclePreview = () => null, getArcPreview = () => null, getEllipsePreview = () => null, getDraftPoints = () => [], getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null }) {
+  function createSceneBuilder({ viewportSettings, camera, getViewportSize, getDocumentUnit = () => "mm", getRecords, getDraftLines = () => [], getPreview = () => null, getPreviewLines = null, getCirclePreview = () => null, getArcPreview = () => null, getEllipsePreview = () => null, getDraftPoints = () => [], getSnapResult = () => null, getSelectedIds = () => [], getGrips = () => [], getGripPreview = () => null, getSelectionBox = () => null }) {
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
     const MAX_GRID_LINES_PER_AXIS = 512
@@ -57,6 +57,8 @@
       const scale = window.devicePixelRatio || 1
       const extent = viewportSettings.gridExtent
       const minorGrid = [], majorGrid = [], boundary = [], xAxis = [], yAxis = [], geometry = [], acceptedDraft = [], nextPreview = [], snapMarker = [], selection = []
+      const selectionWindow = [], selectionCrossing = []
+      const selectionWindowFill = [], selectionCrossingFill = []
       const idleGrips = [], hoverGrips = [], activeGrips = []
       const committedCircles = [], previewCircles = [], selectedCircles = []
       const committedArcs = [], previewArcs = [], selectedArcs = []
@@ -246,6 +248,29 @@
         }))
       }
 
+      const box=getSelectionBox()
+      let selectionBoxOverlay=null
+      if(box?.active){
+        const rect=window.CaderactSelectionBox.normalizeRect(box.start,box.current)
+        const target=box.mode==="window"?selectionWindow:selectionCrossing
+        const fillTarget=box.mode==="window"?selectionWindowFill:selectionCrossingFill
+        function addEdge(x1,y1,x2,y2){
+          if(box.mode==="window"){addSegment(target,x1,y1,x2,y2);return}
+          const length=Math.hypot(x2-x1,y2-y1),dash=6,gap=4
+          if(length===0)return
+          for(let offset=0;offset<length;offset+=dash+gap){const a=offset/length,b=Math.min(length,offset+dash)/length
+            addSegment(target,x1+(x2-x1)*a,y1+(y2-y1)*a,x1+(x2-x1)*b,y1+(y2-y1)*b)}
+        }
+        addEdge(rect.left,rect.top,rect.right,rect.top);addEdge(rect.right,rect.top,rect.right,rect.bottom)
+        addEdge(rect.right,rect.bottom,rect.left,rect.bottom);addEdge(rect.left,rect.bottom,rect.left,rect.top)
+        const fillTop=Math.max(0,rect.top),fillBottom=Math.min(viewportHeight,rect.bottom)
+        const fillLeft=Math.max(0,rect.left),fillRight=Math.min(viewportWidth,rect.right)
+        if(fillLeft<=fillRight&&fillTop<=fillBottom)for(let y=Math.ceil(fillTop);y<=fillBottom;y+=1)addSegment(fillTarget,fillLeft,y,fillRight,y)
+        selectionBoxOverlay=Object.freeze({kind:"selection-box",mode:box.mode,...rect,
+          fill:Object.freeze({color:box.mode==="window"?(viewportSettings.selectionWindowFill||"rgba(75, 155, 210, 0.10)"):(viewportSettings.selectionCrossingFill||"rgba(78, 170, 112, 0.10)"),
+            segments:new Float32Array(fillTarget)}),segments:new Float32Array(target)})
+      }
+
       // The ordered groups are a renderer input, never authoritative geometry.
       const combinedMajorGrid = majorGrid.concat(boundary)
       const lineGroups = [
@@ -261,6 +286,10 @@
         lineGroup(viewportSettings.gripHoverColor || viewportSettings.snapMarkerColor, hoverGrips),
         lineGroup(viewportSettings.gripActiveColor || viewportSettings.selectionColor, activeGrips),
         lineGroup(viewportSettings.draftPointColor || viewportSettings.geometryColor, draftPoints),
+        lineGroup(viewportSettings.selectionWindowFill || "rgba(75, 155, 210, 0.10)", selectionWindowFill),
+        lineGroup(viewportSettings.selectionCrossingFill || "rgba(78, 170, 112, 0.10)", selectionCrossingFill),
+        lineGroup(viewportSettings.selectionWindowColor || viewportSettings.selectionColor, selectionWindow),
+        lineGroup(viewportSettings.selectionCrossingColor || viewportSettings.selectionColor, selectionCrossing),
         lineGroup(viewportSettings.snapMarkerColor || viewportSettings.previewColor, snapMarker),
       ]
       const circleGroups = lineGroups.map((group, index) => Object.freeze({
@@ -292,6 +321,7 @@
           selected: Object.freeze(selectedCircles) }),
         arcOverlay:Object.freeze({committed:Object.freeze(committedArcs),preview:Object.freeze(previewArcs),selected:Object.freeze(selectedArcs)}),
         ellipseOverlay:Object.freeze({committed:Object.freeze(committedEllipses),preview:Object.freeze(previewEllipses),selected:Object.freeze(selectedEllipses)}),
+        selectionBoxOverlay,
         lineGroups, circleGroups, arcGroups, ellipseGroups,
         drawGroups: Object.freeze(lineGroups.map((lineGroup, index) => Object.freeze({ lineGroup, circleGroup: circleGroups[index],arcGroup:arcGroups[index],ellipseGroup:ellipseGroups[index] }))),
       }

@@ -8,6 +8,8 @@ const viewportSettings = {
   majorGridColor: "rgba(167, 175, 187, 0.45)", gridBoundaryColor: "rgba(167, 175, 187, 0.55)", xAxisColor: "#984b51",
   yAxisColor: "#3b7658", geometryColor: "#e8edf4", previewColor: "rgba(232, 237, 244, 0.65)", snapMarkerColor: "#f2cf72", selectionColor: "#63b7e6",
   gripColor: "#e8edf4", gripHoverColor: "#f2cf72", gripActiveColor: "#63b7e6",
+  selectionWindowColor: "#63b7e6", selectionCrossingColor: "#70c58b",
+  selectionWindowFill: "rgba(75, 155, 210, 0.10)", selectionCrossingFill: "rgba(78, 170, 112, 0.10)",
   draftPointColor: "#e8edf4",
   acceptedDraftColor: "#e8edf4",
 }
@@ -29,6 +31,7 @@ const viewportHost = canvas.parentElement || canvas.parent
 const interactionVisuals = window.CaderactInteractionVisuals.createController({ host: viewportHost })
 const snapResolver = window.CaderactSnapResolver.createResolver()
 const selection = window.CaderactSelection.createSelection()
+const selectionBox = window.CaderactSelectionBox.createInteraction()
 const grips = window.CaderactGrips.createManager({
   getRecords: () => modelReader.records(), getSelectedIds: selection.selectedIds, worldToScreen,
   replaceRecord: (id, record) => recordGateway.replace(id, record), requestRender,
@@ -79,6 +82,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getSelectedIds: selection.selectedIds,
   getGrips: () => getActiveCommandSession() ? [] : grips.displayGrips(),
   getGripPreview: grips.previewRecord,
+  getSelectionBox: () => selectionBox.snapshot(),
 })
 
 function createScene() {
@@ -592,6 +596,7 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], transientCandidate
 }
 
 function resetForDocumentReplacement() {
+  selectionBox.clear()
   cancelGripEdit()
   interactionVisuals.leave()
   setGridSnapEnabled(true)
@@ -695,7 +700,7 @@ function updateSnapAtPointer({ bypass = isShiftBypassed } = {}) {
 
 function onViewportPointerDown(event) {
   const session = getActiveCommandSession()
-  if (event.button !== 0 || navigation.isActive()) return
+  if (event.button !== 0 || navigation.isActive() || selectionBox.isPending) return
   const point = getCanvasPoint(event)
   lastKnownPointerScreen = point
   const bypass = Boolean(event.shiftKey)
@@ -716,7 +721,10 @@ function onViewportPointerDown(event) {
   const hit = window.CaderactSelection.hitTestRecords({screenPoint:point,records:modelReader.records(),worldToScreen})
   const toggle = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey)
   if (hit.hit) toggle ? selection.toggle(hit.recordId) : selection.selectOnly(hit.recordId)
-  else if (!toggle) selection.clear()
+  else {
+    selectionBox.begin(point,event.pointerId,toggle)
+    canvas.setPointerCapture?.(event.pointerId)
+  }
 }
 
 function onCommandPointerMove(event) {
@@ -726,6 +734,7 @@ function onCommandPointerMove(event) {
   isShiftBypassed = bypass
   interactionVisuals.setMode(getActiveCommandSession() ? "point" : "select")
   interactionVisuals.move(getViewportPoint(event))
+  if(selectionBox.isPending){selectionBox.update(point);requestRender();return}
   const session = getActiveCommandSession()
   if (grips.isActive) {
     const snap = resolvePointerSnap(screenToWorld(point.x, point.y), {
@@ -761,6 +770,13 @@ function onCommandPointerLeave() {
 }
 
 function onViewportPointerUp(event) {
+  if(selectionBox.isPending&&selectionBox.snapshot().pointerId===event.pointerId){
+    const box=selectionBox.update(getCanvasPoint(event))
+    if(box.active){const outcome=window.CaderactSelectionBox.query({start:box.start,current:box.current,records:modelReader.records(),worldToScreen})
+      selection.applyRecordIds(outcome.recordIds,{toggle:box.modifier})
+    }else if(!box.modifier)selection.clear()
+    selectionBox.clear();releaseGripPointerCapture(event.pointerId);requestRender();return
+  }
   if (!grips.isActive || grips.active.pointerId !== event.pointerId) return
   const point = getCanvasPoint(event)
   lastKnownPointerScreen = point
@@ -775,11 +791,13 @@ function onViewportPointerUp(event) {
 }
 
 function onViewportPointerCancel(event) {
+  if(selectionBox.isPending&&selectionBox.snapshot().pointerId===event.pointerId){selectionBox.clear();releaseGripPointerCapture(event.pointerId);requestRender();return}
   if (!grips.isActive || grips.active.pointerId !== event.pointerId) return
   grips.cancel(); clearSnap(); releaseGripPointerCapture(event.pointerId)
 }
 
 function onDocumentKeyDown(event) {
+  if(event.key==="Escape"&&selectionBox.isPending){const pointerId=selectionBox.snapshot().pointerId;selectionBox.clear();releaseGripPointerCapture(pointerId);requestRender();event.caderactSelectionBoxHandled=true;event.preventDefault();return}
   if (event.key === "Shift" && !isShiftBypassed) {
     isShiftBypassed = true
     updateSnapAtPointer({ bypass: true })
@@ -837,6 +855,7 @@ function installRenderer(createdRenderer) {
 }
 
 function failRenderer(error, failedRenderer = null) {
+  selectionBox.clear()
   if (failedRenderer && renderer === failedRenderer) {
     renderer = null
     failedRenderer.destroy?.()
@@ -853,6 +872,7 @@ function recoverRenderer(failedRenderer) {
   if (failedRenderer !== renderer) return Promise.resolve(Object.freeze({ status: "stale-recovery" }))
   if (recoveryPromise) return recoveryPromise
   renderer = null
+  selectionBox.clear()
   cancelGripEdit()
   rendererStatus = "recovering"
   failedRenderer.destroy?.()

@@ -56,7 +56,7 @@ test('strict v1 persistence round-trips Arc and rejects malformed and unknown fi
 });
 
 test('selection hits only the visible angular span and selected Arc has no grips',async()=>{
-  const b=await browser();createArc(b);const id=b.read('modelReader.records()[0].id');b.point(400,250);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[id]);b.flush();assert.equal(b.renders.at(-1).arcOverlay.selected.length,1);assert.equal(b.renders.at(-1).gripOverlay.grips.length,0);b.point(400,350);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);b.point(400,300);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);
+  const b=await browser();createArc(b);const id=b.read('modelReader.records()[0].id');b.point(400,250);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[id]);b.flush();assert.equal(b.renders.at(-1).arcOverlay.selected.length,1);assert.equal(b.renders.at(-1).gripOverlay.grips.length,0);b.point(400,350);b.point(400,350,'pointerup');assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);b.point(400,300);b.point(400,300,'pointerup');assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);
 });
 
 test('Escape/Enter, pointer leave, failed publication, recovery, and Space repeat preserve lifecycle',async()=>{

@@ -100,5 +100,5 @@ test('Circle persistence round-trips exact v1 geometry and rejects malformed clo
 test('Circle circumference selection hits only the ring and selected rendering adds no grips',async()=>{
   const b=await browser();b.run('recordGateway.createAll([recordGateway.createCircle({x:0,y:0},20)])');const id=b.read('modelReader.records()[0].id');
   b.point(500,300);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[id]);b.flush();assert.equal(b.renders.at(-1).circleOverlay.selected.length,1);assert.equal(b.renders.at(-1).gripOverlay.grips.length,0);
-  b.point(400,300);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);b.point(550,300);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);
+  b.point(400,300);b.point(400,300,'pointerup');assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);b.point(550,300);b.point(550,300,'pointerup');assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[]);
 });

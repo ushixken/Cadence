@@ -167,7 +167,7 @@ test('Line preview and click use exact snapped point and transient marker clears
   const persistentBefore=b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo})');
   b.launch();b.point(400,300);b.point(471,215,'pointermove');b.flush();
   assert.equal(b.read('activeSnapResult.kind'),'endpoint');assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.preview().end'),{x:13,y:17});
-  assert.equal(b.renders.at(-1).snapOverlay.kind,'endpoint');assert.equal(b.renders.at(-1).lineGroups[12].segments.length,16);
+  assert.equal(b.renders.at(-1).snapOverlay.kind,'endpoint');assert.equal(b.renders.at(-1).lineGroups[16].segments.length,16);
   assert.deepEqual(b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo})'),persistentBefore);
   b.point(490,240,'pointermove');b.flush();assert.equal(b.read('activeSnapResult.snapped'),false);assert.equal(b.renders.at(-1).snapOverlay,null);
   b.point(471,215,'pointerdown');assert.deepEqual(b.read('(({x,y})=>({x,y}))(window.caderactCommandRouter.activeSession.draft.draftSegments()[0].end)'),{x:13,y:17});
@@ -186,7 +186,7 @@ test('Escape clears markers, typed coordinates bypass snapping, and mixed input 
 test('authoritative Undo/New state immediately changes available endpoint candidates without permanent dots',async()=>{
   const b=await browser();b.launch();typed(b,'13,17');typed(b,'33,17');b.key('Enter',b.input);b.flush();
   b.run('window.__snapFile=window.CaderactPersistence.serializeDocument(modelReader.snapshot())');
-  assert.equal(b.renders.at(-1).lineGroups[12].segments.length,0);
+  assert.equal(b.renders.at(-1).lineGroups[16].segments.length,0);
   b.launch();b.point(400,300);b.point(471,215,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');b.key('Escape');
   b.run('window.caderactHistory.undo()');b.launch();b.point(400,300);b.point(471,215,'pointermove');assert.notEqual(b.read('activeSnapResult')?.kind,'endpoint');b.key('Escape');
   b.run('window.caderactHistory.redo()');b.launch();b.point(400,300);b.point(471,215,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');b.key('Escape');
