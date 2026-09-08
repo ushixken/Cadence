@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-test('Production entrypoint index.html loads all M6 geometry modules in correct dependency order', () => {
+test('Production entrypoint index.html loads all M6/M7 geometry modules in correct dependency order', () => {
   const indexPath = path.join(__dirname, '../../index.html');
   const html = fs.readFileSync(indexPath, 'utf8');
 
@@ -24,6 +24,7 @@ test('Production entrypoint index.html loads all M6 geometry modules in correct 
     'src/js/geometry/IntersectionClassifier.js',
     'src/js/geometry/TrimIntervals.js',
     'src/js/geometry/TrimPlanner.js',
+    'src/js/geometry/ExtendPlanner.js',
   ];
 
   // 1. Assert all 6 modules are present in index.html
@@ -37,7 +38,9 @@ test('Production entrypoint index.html loads all M6 geometry modules in correct 
   // 2. Assert dependency ordering:
   // Pre-requisites must appear before TrimPlanner.js
   const trimPlannerIndex = scriptSources.indexOf('src/js/geometry/TrimPlanner.js');
+  const extendPlannerIndex = scriptSources.indexOf('src/js/geometry/ExtendPlanner.js');
   assert.ok(trimPlannerIndex !== -1, 'TrimPlanner.js must be present in index.html');
+  assert.ok(extendPlannerIndex !== -1, 'ExtendPlanner.js must be present in index.html');
 
   for (const dep of [
     'src/js/geometry/CurveDescriptor.js',
@@ -51,6 +54,10 @@ test('Production entrypoint index.html loads all M6 geometry modules in correct 
       depIndex < trimPlannerIndex,
       `${dep} (index ${depIndex}) must be loaded before TrimPlanner.js (index ${trimPlannerIndex}) in index.html`
     );
+    assert.ok(
+      depIndex < extendPlannerIndex,
+      `${dep} (index ${depIndex}) must be loaded before ExtendPlanner.js (index ${extendPlannerIndex}) in index.html`
+    );
   }
 
   // TrimPlanner.js must appear before Viewport.js which relies on window.CaderactTrimPlanner
@@ -59,6 +66,10 @@ test('Production entrypoint index.html loads all M6 geometry modules in correct 
   assert.ok(
     trimPlannerIndex < viewportIndex,
     `TrimPlanner.js (index ${trimPlannerIndex}) must be loaded before Viewport.js (index ${viewportIndex}) in index.html`
+  );
+  assert.ok(
+    extendPlannerIndex < viewportIndex,
+    `ExtendPlanner.js (index ${extendPlannerIndex}) must be loaded before Viewport.js (index ${viewportIndex}) in index.html`
   );
 
   // 3. Execution verification in clean VM context following index.html order up to Viewport.js
@@ -81,7 +92,13 @@ test('Production entrypoint index.html loads all M6 geometry modules in correct 
         context.CaderactTrimPlanner,
         'window.CaderactTrimPlanner must exist on window before Viewport.js is executed'
       );
+      assert.ok(
+        context.CaderactExtendPlanner,
+        'window.CaderactExtendPlanner must exist on window before Viewport.js is executed'
+      );
       assert.equal(typeof context.CaderactTrimPlanner.planTrim, 'function');
+      assert.equal(typeof context.CaderactTrimPlanner.planExtend, 'undefined');
+      assert.equal(typeof context.CaderactExtendPlanner.planExtend, 'function');
       break;
     }
     const fullPath = path.join(__dirname, '../../', src);

@@ -12,7 +12,7 @@ Cutting-edge selection reuses existing selection machinery verbatim — no new s
 
 ## Geometry engine
 
-`CurveParameter`, `CurveIntersection`, `IntersectionClassifier`, and `TrimIntervals`/`TrimPlanner` are framework-independent: they take curve descriptors and return intersection parameters, interval sets, and plan objects, with no dependency on Viewport, DOM, Canvas2D, WebGPU, CommandRouter, SelectionManager, SnapResolver, DocumentController, or persistent-ID allocation. `TrimPlanner` performs interval/topology selection only — it never touches document records or IDs. Curve intersection, classification, and parameterization are reusable as-is by a future M7 Extend; only the "remove the enclosing interval" step is Trim-specific.
+`CurveParameter`, `CurveIntersection`, `IntersectionClassifier`, and `TrimIntervals`/`TrimPlanner` are framework-independent: they take curve descriptors and return intersection parameters, interval sets, and plan objects, with no dependency on Viewport, DOM, Canvas2D, WebGPU, CommandRouter, SelectionManager, SnapResolver, DocumentController, or persistent-ID allocation. `TrimPlanner` performs Trim interval/topology selection only — it never touches document records or IDs. Curve intersection, classification, and parameterization are shared infrastructure used by later Modify planners; only the "remove the enclosing interval" step is Trim-specific.
 
 ## Document publication and identity
 
@@ -42,4 +42,4 @@ Line, Circle, Arc, Ellipse (cutting-edge only), and native Polyline all particip
 
 ## Deferred (not implemented in M6)
 
-Fence, Project, Edge Extend/No Extend, Quick Trim, 3D projection, Erase option, Shift-select Extend, and the Trim Undo sub-option are all deferred. M7 Extend itself is not implemented; it is expected to reuse the geometry engine's curve intersection, finite-domain classification, and parameterization.
+Fence, Project, Edge Extend/No Extend, Quick Trim, 3D projection, Erase option, Shift-select Extend, and the Trim Undo sub-option are all deferred.
