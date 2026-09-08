@@ -17,6 +17,7 @@ const MODULE_FILES = [
   'CurveIntersection.js',
   'IntersectionClassifier.js',
   'TrimIntervals.js',
+  'TrimPlanner.js',
 ];
 
 // Evaluated with `new Function` (host realm, not vm.createContext) so the
