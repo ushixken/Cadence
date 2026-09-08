@@ -368,6 +368,85 @@ function createDeleteCommandSession({ setPrompt = () => {} } = {}) {
   return Object.freeze({name:"Delete",finish,cancel,handlePointerLeave:()=>requestRender(),get isSelectionPhase(){return true},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
+function createTrimCommandSession({ setPrompt = () => {} } = {}) {
+  let phase = "cutting-edges"
+  let confirmedCuttingEdgeIds = Object.freeze([])
+  let hoveredTargetId = null, pendingPlan = null, pointerLocation = null
+  let promptPresentation = createCommandPrompt("Trim", "Select cutting edges, then press Enter")
+  function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Trim", instruction); setPrompt(promptPresentation.text, promptPresentation) }
+
+  function resolveCuttingEdges() {
+    const byId = new Map(modelReader.records().map(record => [record.id, record]))
+    const resolved = []
+    for (const id of confirmedCuttingEdgeIds) { const record = byId.get(id); if (record) resolved.push(record) }
+    return resolved
+  }
+
+  function confirmCuttingEdges() {
+    const ids = selection.selectedIds()
+    if (!ids.length) return Object.freeze({ status: "invalid-input", reason: "empty-selection", command: "Trim", message: "Select at least one cutting edge" })
+    confirmedCuttingEdgeIds = ids
+    phase = "targets"
+    updatePrompt("Select object to trim, or press Enter to finish")
+    requestRender()
+    return Object.freeze({ status: "input-accepted", command: "Trim", kind: "cutting-edges", recordIds: confirmedCuttingEdgeIds })
+  }
+
+  function handlePointerDown(point) {
+    hoveredTargetId = null
+    pendingPlan = null
+    const screenPoint = lastKnownPointerScreen || worldToScreen(point.x, point.y)
+    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records: modelReader.records(), worldToScreen })
+    if (!hit.hit) { requestRender(); return Object.freeze({ status: "input-accepted", command: "Trim", kind: "target-miss" }) }
+    const targetRecord = modelReader.records().find(record => record.id === hit.recordId)
+    if (!targetRecord) { requestRender(); return Object.freeze({ status: "input-accepted", command: "Trim", kind: "target-missing" }) }
+    hoveredTargetId = targetRecord.id
+    const cuttingEdges = resolveCuttingEdges()
+    const plan = window.CaderactTrimPlanner.planTrim({ target: targetRecord, cuttingEdges, pickPoint: point })
+    if (plan.status !== "planned") {
+      requestRender()
+      return Object.freeze({ status: "input-accepted", command: "Trim", kind: "no-op", planStatus: plan.status, reason: plan.reason })
+    }
+    pendingPlan = plan
+    const outcome = recordGateway.publishTrimPlan(plan)
+    if (outcome.status !== "committed") {
+      pendingPlan = null
+      updatePrompt("Unable to trim; cutting edges preserved")
+      requestRender()
+      return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Trim", message: "Unable to trim; cutting edges preserved", outcome })
+    }
+    pendingPlan = null
+    updatePrompt("Select object to trim, or press Enter to finish")
+    requestRender()
+    return Object.freeze({ status: "input-accepted", command: "Trim", kind: "trimmed", outcome, plan })
+  }
+
+  function handlePointerMove(point) { pointerLocation = Object.freeze({ x: point.x, y: point.y }); requestRender() }
+  function handlePointerLeave() { pointerLocation = null; hoveredTargetId = null; clearSnap(); requestRender() }
+
+  function finish() {
+    if (phase === "cutting-edges") return confirmCuttingEdges()
+    clearSnap(); pointerLocation = null; hoveredTargetId = null; requestRender()
+    return Object.freeze({ status: "command-completed", command: "Trim" })
+  }
+  function cancel() {
+    clearSnap(); pointerLocation = null; hoveredTargetId = null; pendingPlan = null; requestRender()
+    return Object.freeze({ status: "command-cancelled", command: "Trim" })
+  }
+
+  requestRender()
+  return Object.freeze({
+    name: "Trim", finish, cancel, handlePointerDown, handlePointerMove, handlePointerLeave,
+    hasPointerPreview: () => phase === "targets",
+    getExcludedSnapRecordIds: () => Object.freeze([]),
+    getTrimPreview: () => null,
+    get isSelectionPhase() { return phase === "cutting-edges" },
+    get phase() { return phase },
+    get confirmedCuttingEdgeIds() { return confirmedCuttingEdgeIds },
+    get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
+  })
+}
+
 function createCircleCommandSession({ setPrompt = () => {} } = {}) {
   const draft = window.CaderactCircleDraftSession.createSession({
     createCircle: recordGateway.createCircle,
@@ -828,7 +907,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createScaleCommandSession, createDeleteCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()

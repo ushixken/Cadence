@@ -30,6 +30,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Rectangle", aliases: ["Rect"], repeatable: true, activate: context => window.caderactViewport.createRectangleCommandSession(context) },
   { name: "Rotate", aliases: ["RO"], repeatable: true, activate: context => window.caderactViewport.createRotateCommandSession(context) },
   { name: "Scale", aliases: ["SC"], repeatable: true, activate: context => window.caderactViewport.createScaleCommandSession(context) },
+  { name: "Trim", aliases: ["TR"], repeatable: true, activate: context => window.caderactViewport.createTrimCommandSession(context) },
 ])
 const commandRouter = window.CaderactCommandRouter.createRouter({ registry: commandRegistry, setPrompt: setCommandHint })
 window.caderactCommandRegistry = commandRegistry

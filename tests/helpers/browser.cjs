@@ -124,6 +124,12 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/geometry/ArcGeometry.js');
   load('src/js/geometry/EllipseGeometry.js');
   load('src/js/geometry/PolygonGeometry.js');
+  load('src/js/geometry/CurveDescriptor.js');
+  load('src/js/geometry/CurveParameter.js');
+  load('src/js/geometry/CurveIntersection.js');
+  load('src/js/geometry/IntersectionClassifier.js');
+  load('src/js/geometry/TrimIntervals.js');
+  load('src/js/geometry/TrimPlanner.js');
   load('src/js/rendering/CircleTessellation.js');
   load('src/js/rendering/EllipseTessellation.js');
   if (realRenderer) {
