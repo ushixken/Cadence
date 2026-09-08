@@ -293,6 +293,76 @@
       updateProperties(recordId, properties) {
         return updateRecordProperties(recordId, properties)
       },
+      // M6P4: publishes an already-computed CaderactTrimPlanner result
+      // (`{ target, cuttingEdges, pickPoint } -> plan`) as exactly one atomic
+      // document transaction. Pure translation: TrimPlan -> allocate required
+      // persistent identities (via the same `newId()` allocator every other
+      // record/feature ID in this store goes through) -> construct valid
+      // persistent records -> one transaction -> publish. Contains no curve
+      // intersection/tolerance math, no pointer/interval logic, no renderer
+      // logic -- the plan is trusted as-is.
+      publishTrimPlan(plan) {
+        if (!plan || plan.status !== "planned") {
+          // Any non-"planned" Phase 3 result (no-op, invalid-target,
+          // unsupported-target-result, or a missing/malformed plan) is a
+          // pure no-op here: no transaction begins, no ID is allocated, no
+          // revision/history changes.
+          return Object.freeze({ status: "no-op", planStatus: plan?.status ?? null, reason: plan?.reason ?? "missing-plan" })
+        }
+        const original = state.geometry.objects[plan.targetRecordId]
+        if (!original) return Object.freeze({ status: "missing-record", recordId: plan.targetRecordId })
+        const layerId = original.layerId
+
+        function resolveFeatureId(intent) {
+          if (!intent || typeof intent !== "object") throw new Error("Invalid feature identity intent")
+          if (intent.role === "preserve-existing-feature") return intent.featureId
+          if (intent.role === "allocate-new-feature") return newId()
+          throw new Error(`Unknown feature identity intent role: ${intent.role}`)
+        }
+        function buildEndpoint(point, intent) {
+          return { x: point.x, y: point.y, featureId: resolveFeatureId(intent) }
+        }
+        // Translates one planner "piece" (the replacement or one create) into
+        // a persistent record under `recordId`, resolving every identity
+        // intent it carries at this moment -- never earlier, never reused.
+        function buildRecord(recordId, piece) {
+          const geometry = piece.geometry
+          if (geometry.type === "line") {
+            return freeze({ id: recordId, type: "line", layerId,
+              start: buildEndpoint(geometry.start, piece.featureIdentityIntent.start),
+              end: buildEndpoint(geometry.end, piece.featureIdentityIntent.end) })
+          }
+          if (geometry.type === "arc") {
+            return freeze({ id: recordId, type: "arc", layerId,
+              center: { x: geometry.center.x, y: geometry.center.y }, radius: geometry.radius,
+              start: buildEndpoint(geometry.start, piece.featureIdentityIntent.start),
+              end: buildEndpoint(geometry.end, piece.featureIdentityIntent.end),
+              sweep: geometry.sweep })
+          }
+          if (geometry.type === "polyline") {
+            return freeze({ id: recordId, type: "polyline", layerId,
+              vertices: geometry.vertices.map((vertex, index) => buildEndpoint(vertex, piece.featureIdentityIntent.vertices[index])),
+              closed: Boolean(geometry.closed) })
+          }
+          throw new Error(`Unsupported trim replacement geometry type: ${geometry.type}`)
+        }
+
+        let transaction
+        try {
+          // Replacement first, reusing the original record ID exactly (never
+          // allocated); sibling creates get fresh record IDs in the exact
+          // deterministic order TrimPlanner supplied them in.
+          const replacementRecord = buildRecord(plan.targetRecordId, plan.replacement)
+          const createRecords = plan.creates.map(piece => buildRecord(newId(), piece))
+          transaction = controller.beginTransaction()
+          transaction.replace(plan.targetRecordId, replacementRecord)
+          for (const record of createRecords) transaction.create(record.id, record)
+          return transaction.publish()
+        } catch (error) {
+          if (transaction?.isOpen) transaction.rollback()
+          return Object.freeze({ status: "commit-failed", message: error.message })
+        }
+      },
       setLayer(recordId, layerId) {
         if (!has(state.layers, layerId)) return Object.freeze({ status: "unknown-layer", layerId })
         return updateRecordProperties(recordId, { layerId })
