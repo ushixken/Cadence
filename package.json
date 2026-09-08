@@ -2,7 +2,7 @@
   "name": "caderact",
   "private": true,
   "scripts": {
-    "test": "node --test tests/commands/*.test.cjs tests/viewport/*.test.cjs tests/rendering/*.test.cjs tests/document/*.test.cjs"
+    "test": "node --test tests/commands/*.test.cjs tests/viewport/*.test.cjs tests/rendering/*.test.cjs tests/document/*.test.cjs tests/geometry/*.test.cjs"
   },
   "engines": { "node": ">=22" }
 }
