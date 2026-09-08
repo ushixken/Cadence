@@ -370,10 +370,17 @@ function createDeleteCommandSession({ setPrompt = () => {} } = {}) {
 }
 
 function createTrimCommandSession({ setPrompt = () => {} } = {}) {
-  let phase = "cutting-edges"
-  let confirmedCuttingEdgeIds = Object.freeze([])
+  // M6P6-fast-path: mirrors Move/Copy/Rotate/Scale's existing preselection
+  // convention (`phase = selection.selectedIds().length ? <post-selection
+  // phase> : <selection phase>`). Only IDs that resolve against CURRENT
+  // committed records are honored -- stale/missing preselected IDs are
+  // dropped, and if nothing valid remains Trim falls back to the normal
+  // "cutting-edges" phase exactly as if nothing had been preselected.
+  const initialSelectedIds = selection.selectedIds().filter(id => modelReader.records().some(record => record.id === id))
+  let phase = initialSelectedIds.length ? "targets" : "cutting-edges"
+  let confirmedCuttingEdgeIds = phase === "targets" ? Object.freeze(initialSelectedIds) : Object.freeze([])
   let hoveredTargetId = null, pendingPlan = null, pointerLocation = null
-  let promptPresentation = createCommandPrompt("Trim", "Select cutting edges, then press Enter")
+  let promptPresentation = createCommandPrompt("Trim", phase === "targets" ? "Select object to trim, or press Enter to finish" : "Select cutting edges, then press Enter")
   function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Trim", instruction); setPrompt(promptPresentation.text, promptPresentation) }
 
   function resolveCuttingEdges() {

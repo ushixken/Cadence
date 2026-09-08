@@ -23,8 +23,100 @@ test('Trim resolves canonical name and TR alias, is repeatable, and activates in
 test('Trim activation respects existing preselection, mirroring Move/Copy/Rotate/Scale/Delete convention',async()=>{
   const b=await browser(),line=createLine(b,{x:-10,y:0},{x:10,y:0});add(b,[line])
   b.run(`window.caderactSelection.selectOnly(${JSON.stringify(line.id)})`)
-  b.launch('Trim');assert.equal(b.read('window.caderactCommandRouter.activeSession.isSelectionPhase'),true)
+  b.launch('Trim');assert.equal(b.read('window.caderactCommandRouter.activeSession.isSelectionPhase'),false)
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.phase'),'targets')
+  assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.confirmedCuttingEdgeIds'),[line.id])
   assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),[line.id])
+});
+
+test('Preselection fast-path: select one Line, activate Trim, land immediately in targets phase with no Enter',async()=>{
+  const b=await browser(),line=createLine(b,{x:-10,y:0},{x:10,y:0});add(b,[line])
+  b.run(`window.caderactSelection.selectOnly(${JSON.stringify(line.id)})`)
+  b.launch('Trim')
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.phase'),'targets')
+  assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.confirmedCuttingEdgeIds'),[line.id])
+});
+
+test('Preselection fast-path via TR alias: immediate click on target commits a trim with no Enter',async()=>{
+  const b=await browser()
+  const edge=createLine(b,{x:0,y:-10},{x:0,y:10})
+  const target=createLine(b,{x:-10,y:0},{x:10,y:0})
+  add(b,[edge,target])
+  b.run(`window.caderactSelection.selectOnly(${JSON.stringify(edge.id)})`)
+  const before=state(b)
+  b.launch('TR')
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.phase'),'targets')
+  b.point(sx(-5),sy(0),'pointerdown')
+  const after=state(b)
+  assert.equal(after.history,before.history+1)
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Trim')
+  const remaining=plain(b.read('modelReader.records()'))
+  assert.ok(remaining.some(record=>record.id===target.id&&record.type==='line'))
+});
+
+test('Preselected trim keeps Trim active for further trims',async()=>{
+  const b=await browser()
+  const edge=createLine(b,{x:0,y:-10},{x:0,y:10})
+  const target1=createLine(b,{x:-10,y:0},{x:10,y:0})
+  const target2=createLine(b,{x:-10,y:5},{x:10,y:5})
+  add(b,[edge,target1,target2])
+  b.run(`window.caderactSelection.selectOnly(${JSON.stringify(edge.id)})`)
+  b.launch('Trim')
+  b.point(sx(-5),sy(0),'pointerdown')
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Trim')
+  b.point(sx(-5),sy(5),'pointerdown')
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Trim')
+});
+
+test('Enter after preselected activation finishes Trim immediately (already in target phase)',async()=>{
+  const b=await browser(),line=createLine(b,{x:-10,y:0},{x:10,y:0});add(b,[line])
+  b.run(`window.caderactSelection.selectOnly(${JSON.stringify(line.id)})`)
+  b.launch('Trim')
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.phase'),'targets')
+  finish(b)
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null)
+});
+
+test('Escape after preselected activation cancels cleanly with no mutation',async()=>{
+  const b=await browser(),line=createLine(b,{x:-10,y:0},{x:10,y:0});add(b,[line])
+  b.run(`window.caderactSelection.selectOnly(${JSON.stringify(line.id)})`)
+  const before=state(b)
+  b.launch('Trim')
+  b.key('Escape',b.document)
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null)
+  const after=state(b)
+  assert.equal(after.history,before.history)
+  assert.equal(after.revision,before.revision)
+});
+
+test('Multiple preselected cutting edges are accepted immediately into targets phase',async()=>{
+  const b=await browser()
+  const a=createLine(b,{x:0,y:-10},{x:0,y:10})
+  const c=createLine(b,{x:-10,y:5},{x:10,y:5})
+  const target=createLine(b,{x:-10,y:0},{x:10,y:0})
+  add(b,[a,c,target])
+  b.run(`window.caderactSelection.applyRecordIds(${JSON.stringify([a.id,c.id])})`)
+  b.launch('Trim')
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.phase'),'targets')
+  assert.deepEqual(new Set(b.read('window.caderactCommandRouter.activeSession.confirmedCuttingEdgeIds')),new Set([a.id,c.id]))
+});
+
+test('Empty preselection still starts Trim in cutting-edges phase',async()=>{
+  const b=await browser()
+  b.launch('Trim')
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.phase'),'cutting-edges')
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.isSelectionPhase'),true)
+  assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.confirmedCuttingEdgeIds'),[])
+});
+
+test('Invalid/missing preselected IDs fall back safely to cutting-edges phase',async()=>{
+  const b=await browser(),line=createLine(b,{x:-10,y:0},{x:10,y:0});add(b,[line])
+  b.run(`window.caderactSelection.selectOnly(${JSON.stringify(line.id)})`)
+  b.run(`recordGateway.removeAll(${JSON.stringify([line.id])})`)
+  b.launch('Trim')
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.phase'),'cutting-edges')
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.isSelectionPhase'),true)
+  assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.confirmedCuttingEdgeIds'),[])
 });
 
 test('Trim cutting-edge phase reuses click, Window, Crossing, and Ctrl/Meta selection semantics',async()=>{
