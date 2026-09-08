@@ -102,3 +102,21 @@ test('Canvas2D and WebGPU consume the same ordered line-group scene contract', a
     5,6,1,0,0,1, 7,8,1,0,0,1,
   ]);
 });
+
+test('ViewportScene draws Trim survivor preview via the real getTrimPreview wiring (regression: M6P6 preview must not be a no-op)', async () => {
+  const b = await browser();
+  const result = b.run(`(() => {
+    const trimPreview = { phase: 'targets', sourceRecordId: 'ignored', records: [
+      { type: 'line', id: null, start: { x: 0, y: 0 }, end: { x: 10, y: 0 } },
+    ] };
+    const scene = window.CaderactViewportScene.createSceneBuilder({
+      viewportSettings, camera: viewportCamera,
+      getViewportSize: () => ({width:800,height:600}),
+      getRecords: () => [],
+      getDraftLines: () => [], getPreview: () => null,
+      getTrimPreview: () => trimPreview,
+    }).createScene();
+    return scene;
+  })()`);
+  assert.deepEqual(Array.from(result.lineGroups[6].segments), [400, 300, 450, 300]);
+});
