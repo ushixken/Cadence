@@ -363,6 +363,68 @@
           return Object.freeze({ status: "commit-failed", message: error.message })
         }
       },
+      publishExtendPlan(plan) {
+        if (!plan || plan.status !== "planned" || plan.kind !== "extend") {
+          return Object.freeze({ status: "no-op", planStatus: plan?.status ?? null, reason: plan?.reason ?? "missing-plan" })
+        }
+        const original = state.geometry.objects[plan.targetRecordId]
+        if (!original) return Object.freeze({ status: "missing-record", recordId: plan.targetRecordId })
+        const layerId = original.layerId
+
+        function geometrySnapshot(record) {
+          if (record?.type === "line") return { type: "line", start: { x: record.start.x, y: record.start.y }, end: { x: record.end.x, y: record.end.y } }
+          if (record?.type === "arc") return { type: "arc", center: { x: record.center.x, y: record.center.y }, radius: record.radius, start: { x: record.start.x, y: record.start.y }, end: { x: record.end.x, y: record.end.y }, sweep: record.sweep }
+          if (record?.type === "polyline") return { type: "polyline", closed: Boolean(record.closed), vertices: record.vertices.map(vertex => ({ x: vertex.x, y: vertex.y })) }
+          if (record?.type === "circle") return { type: "circle", center: { x: record.center.x, y: record.center.y }, radius: record.radius }
+          if (record?.type === "ellipse") return { type: "ellipse", center: { x: record.center.x, y: record.center.y }, majorAxis: { x: record.majorAxis.x, y: record.majorAxis.y }, minorRadius: record.minorRadius }
+          return null
+        }
+        if (JSON.stringify(geometrySnapshot(original)) !== JSON.stringify(plan.sourceGeometry)) {
+          return Object.freeze({ status: "stale-plan", recordId: plan.targetRecordId })
+        }
+
+        function resolveFeatureId(intent) {
+          if (!intent || typeof intent !== "object") throw new Error("Invalid feature identity intent")
+          if (intent.role === "preserve-existing-feature") return intent.featureId
+          if (intent.role === "allocate-new-feature") return newId()
+          throw new Error(`Unknown feature identity intent role: ${intent.role}`)
+        }
+        function buildEndpoint(point, intent) {
+          return { x: point.x, y: point.y, featureId: resolveFeatureId(intent) }
+        }
+        function buildRecord(recordId, piece) {
+          const geometry = piece.geometry
+          if (geometry.type === "line") {
+            return freeze({ id: recordId, type: "line", layerId,
+              start: buildEndpoint(geometry.start, piece.featureIdentityIntent.start),
+              end: buildEndpoint(geometry.end, piece.featureIdentityIntent.end) })
+          }
+          if (geometry.type === "arc") {
+            return freeze({ id: recordId, type: "arc", layerId,
+              center: { x: geometry.center.x, y: geometry.center.y }, radius: geometry.radius,
+              start: buildEndpoint(geometry.start, piece.featureIdentityIntent.start),
+              end: buildEndpoint(geometry.end, piece.featureIdentityIntent.end),
+              sweep: geometry.sweep })
+          }
+          if (geometry.type === "polyline") {
+            return freeze({ id: recordId, type: "polyline", layerId,
+              vertices: geometry.vertices.map((vertex, index) => buildEndpoint(vertex, piece.featureIdentityIntent.vertices[index])),
+              closed: Boolean(geometry.closed) })
+          }
+          throw new Error(`Unsupported extend replacement geometry type: ${geometry.type}`)
+        }
+
+        let transaction
+        try {
+          const replacementRecord = buildRecord(plan.targetRecordId, plan.replacement)
+          transaction = controller.beginTransaction()
+          transaction.replace(plan.targetRecordId, replacementRecord)
+          return transaction.publish()
+        } catch (error) {
+          if (transaction?.isOpen) transaction.rollback()
+          return Object.freeze({ status: "commit-failed", message: error.message })
+        }
+      },
       setLayer(recordId, layerId) {
         if (!has(state.layers, layerId)) return Object.freeze({ status: "unknown-layer", layerId })
         return updateRecordProperties(recordId, { layerId })

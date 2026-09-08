@@ -13,6 +13,7 @@
     getEllipsePreview = () => null,
     getMovePreview = () => null,
     getTrimPreview = () => null,
+    getExtendPreview = () => null,
     getDraftPoints = () => [],
     getSnapResult = () => null,
     getSelectedIds = () => [],
@@ -455,10 +456,30 @@
           }
         } else if (record.type === "arc") previewArcs.push(projectArc(record))
       }
+      const extendPreview = getExtendPreview()
+      for (const record of extendPreview?.records || []) {
+        if (record.type === "line") {
+          const a = camera.worldToScreen(record.start.x, record.start.y),
+            b = camera.worldToScreen(record.end.x, record.end.y)
+          addSegment(nextPreview, a.x, a.y, b.x, b.y)
+        } else if (record.type === "polyline") {
+          const count = record.closed
+            ? record.vertices.length
+            : record.vertices.length - 1
+          for (let index = 0; index < count; index++) {
+            const a = record.vertices[index],
+              b = record.vertices[(index + 1) % record.vertices.length],
+              pa = camera.worldToScreen(a.x, a.y),
+              pb = camera.worldToScreen(b.x, b.y)
+            addSegment(nextPreview, pa.x, pa.y, pb.x, pb.y)
+          }
+        } else if (record.type === "arc") previewArcs.push(projectArc(record))
+      }
 
-      for (const record of movePreview?.mode !== "copy"
-        ? movePreview?.sourceRecords || []
-        : []) {
+      for (const record of [
+        ...(movePreview?.mode !== "copy" ? movePreview?.sourceRecords || [] : []),
+        ...(extendPreview?.sourceRecords || []),
+      ]) {
         if (record.type === "line") {
           const a = camera.worldToScreen(record.start.x, record.start.y),
             b = camera.worldToScreen(record.end.x, record.end.y)

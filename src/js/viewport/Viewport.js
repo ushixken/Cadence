@@ -81,6 +81,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getEllipsePreview: () => getActiveCommandSession()?.getEllipsePreview?.() || null,
   getMovePreview: () => getActiveCommandSession()?.getMovePreview?.() || null,
   getTrimPreview: () => getActiveCommandSession()?.getTrimPreview?.() || null,
+  getExtendPreview: () => getActiveCommandSession()?.getExtendPreview?.() || null,
   getDraftPoints: () => getActiveCommandSession()?.getDraftPoints?.() || [],
   getSnapResult: () => activeSnapResult,
   getSelectedIds: selection.selectedIds,
@@ -515,6 +516,130 @@ function createTrimCommandSession({ setPrompt = () => {} } = {}) {
     get isSelectionPhase() { return phase === "cutting-edges" },
     get phase() { return phase },
     get confirmedCuttingEdgeIds() { return confirmedCuttingEdgeIds },
+    get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
+  })
+}
+
+function createExtendCommandSession({ setPrompt = () => {} } = {}) {
+  const initialSelectedIds = selection.selectedIds().filter(id => modelReader.records().some(record => record.id === id))
+  let phase = initialSelectedIds.length ? "targets" : "boundaries"
+  let confirmedBoundaryIds = phase === "targets" ? Object.freeze(initialSelectedIds) : Object.freeze([])
+  let hoveredTargetId = null, pendingPlan = null, pointerLocation = null
+  let promptPresentation = createCommandPrompt("Extend", phase === "targets" ? "Select object endpoint to extend, or press Enter to finish" : "Select boundary objects, then press Enter")
+  function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Extend", instruction); setPrompt(promptPresentation.text, promptPresentation) }
+
+  function resolveBoundaries() {
+    const byId = new Map(modelReader.records().map(record => [record.id, record]))
+    const resolved = []
+    for (const id of confirmedBoundaryIds) { const record = byId.get(id); if (record) resolved.push(record) }
+    return resolved
+  }
+
+  function confirmBoundaries() {
+    const ids = selection.selectedIds()
+    if (!ids.length) return Object.freeze({ status: "invalid-input", reason: "empty-selection", command: "Extend", message: "Select at least one boundary object" })
+    confirmedBoundaryIds = Object.freeze(ids)
+    phase = "targets"
+    updatePrompt("Select object endpoint to extend, or press Enter to finish")
+    requestRender()
+    return Object.freeze({ status: "input-accepted", command: "Extend", kind: "boundaries", recordIds: confirmedBoundaryIds })
+  }
+
+  function hitTestTargetAtRawPointer(fallbackModelPoint) {
+    const screenPoint = lastKnownPointerScreen || worldToScreen(fallbackModelPoint.x, fallbackModelPoint.y)
+    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records: modelReader.records(), worldToScreen })
+    if (!hit.hit) return null
+    return modelReader.records().find(record => record.id === hit.recordId) || null
+  }
+
+  function planForTarget(targetRecord, modelPoint) {
+    return window.CaderactTrimPlanner.planExtend({ target: targetRecord, cuttingEdges: resolveBoundaries(), pickPoint: modelPoint })
+  }
+
+  function toPreviewRecord(piece) {
+    const geometry = piece?.geometry
+    if (!geometry) return null
+    if (geometry.type === "line") return Object.freeze({ id: null, type: "line", start: geometry.start, end: geometry.end })
+    if (geometry.type === "arc") return Object.freeze({ id: null, type: "arc", center: geometry.center, radius: geometry.radius, start: geometry.start, end: geometry.end, sweep: geometry.sweep })
+    if (geometry.type === "polyline") return Object.freeze({ id: null, type: "polyline", vertices: geometry.vertices, closed: Boolean(geometry.closed) })
+    return null
+  }
+
+  function sourceRecord() {
+    return modelReader.records().find(record => record.id === pendingPlan?.targetRecordId) || null
+  }
+
+  function handlePointerDown(point) {
+    hoveredTargetId = null
+    pendingPlan = null
+    const targetRecord = hitTestTargetAtRawPointer(point)
+    if (!targetRecord) { requestRender(); return Object.freeze({ status: "input-accepted", command: "Extend", kind: "target-miss" }) }
+    hoveredTargetId = targetRecord.id
+    const plan = planForTarget(targetRecord, point)
+    if (plan.status !== "planned") {
+      requestRender()
+      return Object.freeze({ status: "input-accepted", command: "Extend", kind: "no-op", planStatus: plan.status, reason: plan.reason })
+    }
+    pendingPlan = plan
+    const outcome = recordGateway.publishExtendPlan(plan)
+    if (outcome.status !== "committed") {
+      updatePrompt("Unable to extend; boundaries preserved")
+      requestRender()
+      return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Extend", message: "Unable to extend; boundaries preserved", outcome })
+    }
+    pendingPlan = null
+    hoveredTargetId = null
+    updatePrompt("Select object endpoint to extend, or press Enter to finish")
+    requestRender()
+    return Object.freeze({ status: "input-accepted", command: "Extend", kind: "extended", outcome, plan })
+  }
+
+  function handlePointerMove(point) {
+    pointerLocation = Object.freeze({ x: point.x, y: point.y })
+    if (phase !== "targets") { hoveredTargetId = null; pendingPlan = null; requestRender(); return }
+    const targetRecord = hitTestTargetAtRawPointer(point)
+    if (!targetRecord) { hoveredTargetId = null; pendingPlan = null; requestRender(); return }
+    hoveredTargetId = targetRecord.id
+    const plan = planForTarget(targetRecord, point)
+    pendingPlan = plan.status === "planned" ? plan : null
+    requestRender()
+  }
+
+  function handlePointerLeave() {
+    pointerLocation = null
+    hoveredTargetId = null
+    pendingPlan = null
+    clearSnap()
+    requestRender()
+  }
+
+  function getExtendPreview() {
+    if (phase !== "targets" || !pendingPlan || pendingPlan.status !== "planned") return null
+    const record = toPreviewRecord(pendingPlan.replacement)
+    const source = sourceRecord()
+    if (!record || !source) return null
+    return Object.freeze({ records: Object.freeze([record]), sourceRecords: Object.freeze([source]), sourceRecordId: pendingPlan.targetRecordId, phase: "targets" })
+  }
+
+  function finish() {
+    if (phase === "boundaries") return confirmBoundaries()
+    clearSnap(); pointerLocation = null; hoveredTargetId = null; pendingPlan = null; requestRender()
+    return Object.freeze({ status: "command-completed", command: "Extend" })
+  }
+  function cancel() {
+    clearSnap(); pointerLocation = null; hoveredTargetId = null; pendingPlan = null; requestRender()
+    return Object.freeze({ status: "command-cancelled", command: "Extend" })
+  }
+
+  requestRender()
+  return Object.freeze({
+    name: "Extend", finish, cancel, handlePointerDown, handlePointerMove, handlePointerLeave,
+    hasPointerPreview: () => phase === "targets",
+    getExcludedSnapRecordIds: () => Object.freeze([]),
+    getExtendPreview,
+    get isSelectionPhase() { return phase === "boundaries" },
+    get phase() { return phase },
+    get confirmedBoundaryIds() { return confirmedBoundaryIds },
     get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
 }
@@ -979,7 +1104,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()
