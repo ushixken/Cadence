@@ -80,6 +80,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getArcPreview: () => getActiveCommandSession()?.getArcPreview?.() || null,
   getEllipsePreview: () => getActiveCommandSession()?.getEllipsePreview?.() || null,
   getMovePreview: () => getActiveCommandSession()?.getMovePreview?.() || null,
+  getTrimPreview: () => getActiveCommandSession()?.getTrimPreview?.() || null,
   getDraftPoints: () => getActiveCommandSession()?.getDraftPoints?.() || [],
   getSnapResult: () => activeSnapResult,
   getSelectedIds: selection.selectedIds,
@@ -392,17 +393,49 @@ function createTrimCommandSession({ setPrompt = () => {} } = {}) {
     return Object.freeze({ status: "input-accepted", command: "Trim", kind: "cutting-edges", recordIds: confirmedCuttingEdgeIds })
   }
 
+  // M6P6: hit-test the hovered target using the RAW/pre-snap screen pointer
+  // location -- never the snapped screen position -- exactly as Phase 5
+  // established for handlePointerDown. `screenPoint` intentionally ignores
+  // `point` (which may be a snapped model-space location); callers that only
+  // have a model-space point still fall back to a projection of that point.
+  function hitTestTargetAtRawPointer(fallbackModelPoint) {
+    const screenPoint = lastKnownPointerScreen || worldToScreen(fallbackModelPoint.x, fallbackModelPoint.y)
+    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records: modelReader.records(), worldToScreen })
+    if (!hit.hit) return null
+    return modelReader.records().find(record => record.id === hit.recordId) || null
+  }
+
+  // Single source of truth for both preview and commit: always re-resolves
+  // cutting edges against current committed geometry (Phase 5 semantics) and
+  // always calls TrimPlanner.planTrim -- never independently computes
+  // intersections, target side, or resulting topology.
+  function planForTarget(targetRecord, modelPoint) {
+    const cuttingEdges = resolveCuttingEdges()
+    return window.CaderactTrimPlanner.planTrim({ target: targetRecord, cuttingEdges, pickPoint: modelPoint })
+  }
+
+  // Maps one TrimPlanner geometry piece into a plain, renderer-neutral,
+  // identity-free transient record. No topology/geometry decisions are made
+  // here -- only a direct field copy of what TrimPlanner already computed.
+  function toPreviewRecord(piece) {
+    const geometry = piece?.geometry
+    if (!geometry) return null
+    if (geometry.type === "line") return Object.freeze({ id: null, type: "line", start: geometry.start, end: geometry.end })
+    if (geometry.type === "arc") return Object.freeze({ id: null, type: "arc", center: geometry.center, radius: geometry.radius, start: geometry.start, end: geometry.end, sweep: geometry.sweep })
+    if (geometry.type === "polyline") return Object.freeze({ id: null, type: "polyline", vertices: geometry.vertices, closed: Boolean(geometry.closed) })
+    return null
+  }
+
   function handlePointerDown(point) {
     hoveredTargetId = null
     pendingPlan = null
-    const screenPoint = lastKnownPointerScreen || worldToScreen(point.x, point.y)
-    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records: modelReader.records(), worldToScreen })
-    if (!hit.hit) { requestRender(); return Object.freeze({ status: "input-accepted", command: "Trim", kind: "target-miss" }) }
-    const targetRecord = modelReader.records().find(record => record.id === hit.recordId)
-    if (!targetRecord) { requestRender(); return Object.freeze({ status: "input-accepted", command: "Trim", kind: "target-missing" }) }
+    const targetRecord = hitTestTargetAtRawPointer(point)
+    if (!targetRecord) { requestRender(); return Object.freeze({ status: "input-accepted", command: "Trim", kind: "target-miss" }) }
     hoveredTargetId = targetRecord.id
-    const cuttingEdges = resolveCuttingEdges()
-    const plan = window.CaderactTrimPlanner.planTrim({ target: targetRecord, cuttingEdges, pickPoint: point })
+    // Correctness over cache reuse: recompute/validate a fresh plan at click
+    // time against current committed geometry rather than publishing a
+    // possibly-stale hover-time plan.
+    const plan = planForTarget(targetRecord, point)
     if (plan.status !== "planned") {
       requestRender()
       return Object.freeze({ status: "input-accepted", command: "Trim", kind: "no-op", planStatus: plan.status, reason: plan.reason })
@@ -415,18 +448,50 @@ function createTrimCommandSession({ setPrompt = () => {} } = {}) {
       requestRender()
       return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Trim", message: "Unable to trim; cutting edges preserved", outcome })
     }
+    // Successful commit: clear any stale pending plan/hovered target so the
+    // next pointer move recomputes strictly from current committed records.
     pendingPlan = null
+    hoveredTargetId = null
     updatePrompt("Select object to trim, or press Enter to finish")
     requestRender()
     return Object.freeze({ status: "input-accepted", command: "Trim", kind: "trimmed", outcome, plan })
   }
 
-  function handlePointerMove(point) { pointerLocation = Object.freeze({ x: point.x, y: point.y }); requestRender() }
-  function handlePointerLeave() { pointerLocation = null; hoveredTargetId = null; clearSnap(); requestRender() }
+  function handlePointerMove(point) {
+    pointerLocation = Object.freeze({ x: point.x, y: point.y })
+    if (phase !== "targets") { hoveredTargetId = null; pendingPlan = null; requestRender(); return }
+    const targetRecord = hitTestTargetAtRawPointer(point)
+    if (!targetRecord) {
+      hoveredTargetId = null
+      pendingPlan = null
+      requestRender()
+      return
+    }
+    hoveredTargetId = targetRecord.id
+    const plan = planForTarget(targetRecord, point)
+    pendingPlan = plan.status === "planned" ? plan : null
+    requestRender()
+  }
+
+  function handlePointerLeave() {
+    pointerLocation = null
+    hoveredTargetId = null
+    pendingPlan = null
+    clearSnap()
+    requestRender()
+  }
+
+  function getTrimPreview() {
+    if (phase !== "targets" || !pendingPlan || pendingPlan.status !== "planned") return null
+    const pieces = [pendingPlan.replacement, ...pendingPlan.creates]
+    const records = Object.freeze(pieces.map(toPreviewRecord).filter(Boolean))
+    if (!records.length) return null
+    return Object.freeze({ records, sourceRecordId: pendingPlan.targetRecordId, phase: "targets" })
+  }
 
   function finish() {
     if (phase === "cutting-edges") return confirmCuttingEdges()
-    clearSnap(); pointerLocation = null; hoveredTargetId = null; requestRender()
+    clearSnap(); pointerLocation = null; hoveredTargetId = null; pendingPlan = null; requestRender()
     return Object.freeze({ status: "command-completed", command: "Trim" })
   }
   function cancel() {
@@ -439,7 +504,7 @@ function createTrimCommandSession({ setPrompt = () => {} } = {}) {
     name: "Trim", finish, cancel, handlePointerDown, handlePointerMove, handlePointerLeave,
     hasPointerPreview: () => phase === "targets",
     getExcludedSnapRecordIds: () => Object.freeze([]),
-    getTrimPreview: () => null,
+    getTrimPreview,
     get isSelectionPhase() { return phase === "cutting-edges" },
     get phase() { return phase },
     get confirmedCuttingEdgeIds() { return confirmedCuttingEdgeIds },
