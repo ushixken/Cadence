@@ -553,7 +553,7 @@ function createExtendCommandSession({ setPrompt = () => {} } = {}) {
   }
 
   function planForTarget(targetRecord, modelPoint) {
-    return window.CaderactTrimPlanner.planExtend({ target: targetRecord, cuttingEdges: resolveBoundaries(), pickPoint: modelPoint })
+    return window.CaderactExtendPlanner.planExtend({ target: targetRecord, cuttingEdges: resolveBoundaries(), pickPoint: modelPoint })
   }
 
   function toPreviewRecord(piece) {
