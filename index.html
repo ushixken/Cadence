@@ -415,15 +415,24 @@
             </button>
           </div>
           <section id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
-            <button id="settings-close" type="button" aria-label="Close settings">×</button><h2 id="settings-title">Settings</h2><h3>Drafting</h3><h3>Grid</h3>
-            <label><input id="settings-grid-visible" type="checkbox"> Show Grid</label>
-            <label>Grid Color <input id="settings-grid-color" type="color"></label>
-            <label>Grid Opacity <input id="settings-grid-opacity" type="range" min="0" max="100"><output id="settings-grid-opacity-value"></output></label>
-            <label>Major Grid Color <input id="settings-major-grid-color" type="color"></label>
-            <label>Major Grid Opacity <input id="settings-major-grid-opacity" type="range" min="0" max="100"><output id="settings-major-grid-opacity-value"></output></label>
-            <label>Major Grid Interval <select id="settings-major-grid-interval"><option>2</option><option>5</option><option>10</option></select></label>
-            <h3>Axes</h3><label>X Axis Color <input id="settings-x-axis-color" type="color"></label><label>X Axis Opacity <input id="settings-x-axis-opacity" type="range" min="0" max="100"><output id="settings-x-axis-opacity-value"></output></label><label>Y Axis Color <input id="settings-y-axis-color" type="color"></label><label>Y Axis Opacity <input id="settings-y-axis-opacity" type="range" min="0" max="100"><output id="settings-y-axis-opacity-value"></output></label>
-            <button id="settings-reset" type="button">Reset to Defaults</button>
+            <header class="settings-panel-header"><div><h2 id="settings-title">Settings</h2><span>Drafting</span></div><button id="settings-close" type="button" aria-label="Close settings">×</button></header>
+            <div class="settings-panel-body">
+              <section class="settings-section" aria-labelledby="settings-grid-heading"><h3 id="settings-grid-heading">Grid</h3><div class="settings-form">
+                <div class="settings-row"><label for="settings-grid-visible">Show Grid</label><div class="settings-control settings-control-compact"><input id="settings-grid-visible" type="checkbox"></div></div>
+                <div class="settings-row"><label for="settings-grid-color">Grid Color</label><div class="settings-control settings-control-compact"><input id="settings-grid-color" type="color"></div></div>
+                <div class="settings-row"><label for="settings-grid-opacity">Grid Opacity</label><div class="settings-control settings-range-control"><input id="settings-grid-opacity" type="range" min="0" max="100"><output id="settings-grid-opacity-value" for="settings-grid-opacity"></output></div></div>
+                <div class="settings-row"><label for="settings-major-grid-color">Major Grid Color</label><div class="settings-control settings-control-compact"><input id="settings-major-grid-color" type="color"></div></div>
+                <div class="settings-row"><label for="settings-major-grid-opacity">Major Grid Opacity</label><div class="settings-control settings-range-control"><input id="settings-major-grid-opacity" type="range" min="0" max="100"><output id="settings-major-grid-opacity-value" for="settings-major-grid-opacity"></output></div></div>
+                <div class="settings-row"><label for="settings-major-grid-interval">Major Grid Interval</label><div class="settings-control settings-control-compact"><select id="settings-major-grid-interval"><option>2</option><option>5</option><option>10</option></select></div></div>
+              </div></section>
+              <section class="settings-section" aria-labelledby="settings-axes-heading"><h3 id="settings-axes-heading">Axes</h3><div class="settings-form">
+                <div class="settings-row"><label for="settings-x-axis-color">X Axis Color</label><div class="settings-control settings-control-compact"><input id="settings-x-axis-color" type="color"></div></div>
+                <div class="settings-row"><label for="settings-x-axis-opacity">X Axis Opacity</label><div class="settings-control settings-range-control"><input id="settings-x-axis-opacity" type="range" min="0" max="100"><output id="settings-x-axis-opacity-value" for="settings-x-axis-opacity"></output></div></div>
+                <div class="settings-row"><label for="settings-y-axis-color">Y Axis Color</label><div class="settings-control settings-control-compact"><input id="settings-y-axis-color" type="color"></div></div>
+                <div class="settings-row"><label for="settings-y-axis-opacity">Y Axis Opacity</label><div class="settings-control settings-range-control"><input id="settings-y-axis-opacity" type="range" min="0" max="100"><output id="settings-y-axis-opacity-value" for="settings-y-axis-opacity"></output></div></div>
+              </div></section>
+            </div>
+            <footer class="settings-panel-footer"><button id="settings-reset" type="button">Reset to Defaults</button></footer>
           </section>
           <div class="menu-actions">
             <button
