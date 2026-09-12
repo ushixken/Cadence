@@ -1,9 +1,12 @@
 # M8 — Offset
 
 Offset creates a new native record and never edits its input. The `Offset` / `O`
-command accepts a positive finite distance, selects one source curve, previews
-the side under the raw pointer, and creates one record per click. It stays in
-the select phase with the same distance until Enter or Escape.
+command starts in object selection with a transient default distance of `1`.
+`Distance=<value>` is the U5B option: selecting it enters a positive-finite
+numeric edit phase; empty Enter retains the current value, while valid input
+returns to object selection. A source curve then previews the side under the
+raw pointer and creates one record per click. The command retains its current
+distance through the persistent select/preview loop until Enter or Escape.
 
 `OffsetGeometry.js` is the authoritative, renderer-independent geometry layer.
 Lines use a normalized perpendicular. Circles and arcs change only radius;
@@ -21,6 +24,10 @@ unsafe results remain uncreated and the command stays retryable.
 
 Ellipses are deliberately unsupported because changing axes is not a
 constant-distance offset. No approximation is created.
+
+Only Distance is exposed in M8. Loose, Corner, ThroughPoint, Trim, Tolerance,
+BothSides, InPlane, Cap, OutputLayer, DeleteInput, and persistent settings are
+deliberately deferred.
 
 Preview records are transient geometry supplied to the existing viewport scene
 and never enter document state, history, selection, or snapping. Publication

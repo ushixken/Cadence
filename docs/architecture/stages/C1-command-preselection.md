@@ -9,9 +9,9 @@ commands that do not opt in simply ignore it.
 Move, Copy, Rotate, Scale, and Mirror map valid preselection to transform
 targets. Trim maps it to cutting edges and immediately enters target picking;
 Extend maps it to boundary edges. Delete continues to operate on the current
-selection. Offset retains its distance-first workflow: exactly one supported
-preselected source is remembered and becomes the side-selection source after
-distance acceptance. Invalid, stale, mixed, unsupported, or count-invalid
+selection. Offset maps exactly one supported preselected source directly to
+its side-selection phase using its current transient Distance value. Invalid,
+stale, mixed, unsupported, or count-invalid
 preselection falls back to the command's ordinary postselection workflow.
 
 Selection IDs—not geometry copies—are retained. Consumption does not mutate

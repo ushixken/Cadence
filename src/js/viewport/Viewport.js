@@ -687,8 +687,8 @@ function createOffsetCommandSession({ setPrompt = () => {}, preselectionIds = []
     const record = modelReader.records().find(candidate => candidate.id === preselectionIds[0]) || null
     return ["line", "circle", "arc", "polyline"].includes(record?.type) ? record : null
   })()
-  let distance = 10, phase = "distance", source = null, preview = null
-  let promptPresentation = createCommandPrompt("Offset", "Enter offset distance <10>")
+  let distance = 1, phase = preselectedSource ? "side" : "select", source = preselectedSource, preview = null
+  let promptPresentation = createCommandPrompt("Offset", preselectedSource ? "Move pointer to choose offset side" : "Select object to offset")
   function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Offset", instruction); setPrompt(promptPresentation.text, promptPresentation) }
   function makeRecord(geometry, layerId) {
     let record
@@ -712,13 +712,12 @@ function createOffsetCommandSession({ setPrompt = () => {}, preselectionIds = []
     return plan
   }
   function handleInput(input) {
-    if (phase !== "distance") return Object.freeze({ status: "invalid-input", reason: "distance-already-set", command: "Offset", message: "Select an object" })
+    if (phase !== "distance") return Object.freeze({ status: "invalid-input", reason: "distance-not-editing", command: "Offset", message: "Select an object or choose Distance" })
     const text = String(input ?? "").trim()
     const value = text === "" ? distance : Number(text)
     if (!(Number.isFinite(value) && value > 0)) return Object.freeze({ status: "invalid-input", reason: "invalid-distance", command: "Offset", message: "Offset distance must be a positive finite number" })
     distance = value
-    if (preselectedSource) { source = preselectedSource; phase = "side"; updatePrompt("Move pointer to choose offset side") }
-    else { phase = "select"; updatePrompt("Select object to offset") }
+    source = null; preview = null; phase = "select"; updatePrompt("Select object to offset")
     requestRender()
     return Object.freeze({ status: "input-accepted", command: "Offset", kind: "distance", distance })
   }
@@ -749,10 +748,16 @@ function createOffsetCommandSession({ setPrompt = () => {}, preselectionIds = []
     return Object.freeze({ status: "command-completed", command: "Offset" })
   }
   function cancel() { clearSnap(); preview = null; source = null; requestRender(); return Object.freeze({ status: "command-cancelled", command: "Offset" }) }
+  function handleOption(optionId) {
+    if (optionId !== "distance") return Object.freeze({ status: "option-unavailable", reason: "unknown-option", command: "Offset", optionId })
+    source = null; preview = null; phase = "distance"; updatePrompt(`Enter offset distance <${distance}>`); requestRender()
+    return Object.freeze({ status: "option-updated", command: "Offset", optionId, value: distance })
+  }
+  function options() { return Object.freeze([Object.freeze({ id: "distance", label: "Distance", value: String(distance), enabled: true })]) }
   function getOffsetPreview() { return preview && source ? Object.freeze({ mode: "offset", preserveSourceVisible: true, records: Object.freeze([Object.freeze({ id: null, ...preview })]), sourceRecords: Object.freeze([]), recordIds: Object.freeze([]) }) : null }
   requestRender()
-  return Object.freeze({ name: "Offset", finish, cancel, handleInput, handlePointerDown, handlePointerMove, handlePointerLeave,
-    hasPointerPreview: () => phase === "side", getOffsetPreview, get phase() { return phase }, get distance() { return distance }, get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation } })
+  return Object.freeze({ name: "Offset", finish, cancel, handleInput, handlePointerDown, handlePointerMove, handlePointerLeave, handleOption,
+    hasPointerPreview: () => phase === "side", getOffsetPreview, get options() { return options() }, get phase() { return phase }, get distance() { return distance }, get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation } })
 }
 
 function createCircleCommandSession({ setPrompt = () => {} } = {}) {
