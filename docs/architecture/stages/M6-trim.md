@@ -43,3 +43,8 @@ Line, Circle, Arc, Ellipse (cutting-edge only), and native Polyline all particip
 ## Deferred (not implemented in M6)
 
 Fence, Project, Edge Extend/No Extend, Quick Trim, 3D projection, Erase option, Shift-select Extend, and the Trim Undo sub-option are all deferred.
+# C1 preselection
+
+Trim maps valid existing selection to cutting edges through the shared
+[C1 command preselection](C1-command-preselection.md) contract; it then enters
+target picking rather than treating those records as trim targets.

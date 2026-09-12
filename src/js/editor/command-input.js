@@ -35,7 +35,8 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Scale", aliases: ["SC"], repeatable: true, activate: context => window.caderactViewport.createScaleCommandSession(context) },
   { name: "Trim", aliases: ["TR"], repeatable: true, activate: context => window.caderactViewport.createTrimCommandSession(context) },
 ])
-const commandRouter = window.CaderactCommandRouter.createRouter({ registry: commandRegistry, setPrompt: setCommandHint })
+const commandRouter = window.CaderactCommandRouter.createRouter({ registry: commandRegistry, setPrompt: setCommandHint,
+  getPreselectionIds: () => window.caderactSelection?.selectedIds?.() || [] })
 window.caderactCommandRegistry = commandRegistry
 window.caderactCommandRouter = commandRouter
 

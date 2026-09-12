@@ -2,7 +2,7 @@
 (() => {
   const result = (status, details = {}) => Object.freeze({ status, ...details })
 
-  function createRouter({ registry, setPrompt }) {
+  function createRouter({ registry, setPrompt, getPreselectionIds = () => [] }) {
     if (!registry || typeof registry.resolve !== "function" || typeof registry.matches !== "function") {
       throw new Error("Command router requires a registry")
     }
@@ -36,7 +36,8 @@
     function activate(definition) {
       if (activeSession) return publish(result("command-active", { command: activeSession.name }))
       let session
-      session = definition.activate({ setPrompt: (message, presentation = null) => {
+      const preselectionIds = Object.freeze(Array.from(getPreselectionIds?.() || []))
+      session = definition.activate({ preselectionIds, setPrompt: (message, presentation = null) => {
         if (activeSession === session) setPrompt(message, presentation)
       } })
       if (!session || session.name !== definition.name || typeof session.finish !== "function" || typeof session.cancel !== "function") {

@@ -28,3 +28,8 @@ uses the document record gateway, so every result receives a fresh record and
 feature identities, retains the source layer, and creates exactly one history
 entry. Repeated clicks are separate transactions; Undo and Redo therefore act
 on one created offset at a time.
+
+Offset follows the shared [C1 command preselection](C1-command-preselection.md)
+contract: one supported preselected source is retained through its distance
+phase and becomes the side-selection source afterwards; invalid or multiple
+selection falls back to ordinary source selection.

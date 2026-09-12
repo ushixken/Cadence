@@ -681,7 +681,12 @@ function createExtendCommandSession({ setPrompt = () => {} } = {}) {
   })
 }
 
-function createOffsetCommandSession({ setPrompt = () => {} } = {}) {
+function createOffsetCommandSession({ setPrompt = () => {}, preselectionIds = [] } = {}) {
+  const preselectedSource = (() => {
+    if (!Array.isArray(preselectionIds) || preselectionIds.length !== 1) return null
+    const record = modelReader.records().find(candidate => candidate.id === preselectionIds[0]) || null
+    return ["line", "circle", "arc", "polyline"].includes(record?.type) ? record : null
+  })()
   let distance = 10, phase = "distance", source = null, preview = null
   let promptPresentation = createCommandPrompt("Offset", "Enter offset distance <10>")
   function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Offset", instruction); setPrompt(promptPresentation.text, promptPresentation) }
@@ -711,7 +716,10 @@ function createOffsetCommandSession({ setPrompt = () => {} } = {}) {
     const text = String(input ?? "").trim()
     const value = text === "" ? distance : Number(text)
     if (!(Number.isFinite(value) && value > 0)) return Object.freeze({ status: "invalid-input", reason: "invalid-distance", command: "Offset", message: "Offset distance must be a positive finite number" })
-    distance = value; phase = "select"; updatePrompt("Select object to offset"); requestRender()
+    distance = value
+    if (preselectedSource) { source = preselectedSource; phase = "side"; updatePrompt("Move pointer to choose offset side") }
+    else { phase = "select"; updatePrompt("Select object to offset") }
+    requestRender()
     return Object.freeze({ status: "input-accepted", command: "Offset", kind: "distance", distance })
   }
   function handlePointerDown(point, context = {}) {

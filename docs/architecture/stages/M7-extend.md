@@ -13,3 +13,8 @@ The live Extend preview is renderer-neutral. The command session exposes source 
 Snapping remains D2/D2A-owned. Target clicks use the existing resolved point path, including Shift bypass behavior, while raw pointer hit testing identifies which committed object was clicked. No snap type, tolerance, ranking, grid behavior, or selection semantics were added for M7.
 
 Deferred: Quick Mode, edge/no-extend options, Fence, Project/UCS/View projection, 3D extension, Trim/Extend combined mode, Shift-select Trim/Extend toggle, Lengthen, Fillet/Chamfer, persistent options, and new persistence schemas.
+# C1 preselection
+
+Extend maps valid existing selection to boundary edges through the shared
+[C1 command preselection](C1-command-preselection.md) contract and proceeds
+directly to endpoint target picking.

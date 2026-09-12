@@ -16,3 +16,6 @@ second-axis snapping. Copy=No atomically replaces records, preserving record
 and feature IDs and selection. Copy=Yes creates fresh gateway identities,
 retains originals, and selects only the copies. Both paths use one transaction
 and history entry; failed publication remains retryable.
+
+Mirror maps its first selection role through the shared
+[C1 command preselection](C1-command-preselection.md) contract.
