@@ -35,6 +35,7 @@
     <script src="./src/js/document/CaderactReferences.js" defer></script>
     <script src="./src/js/document/CaderactPersistence.js" defer></script>
     <script src="./src/js/editor/DocumentSession.js" defer></script>
+    <script src="./src/js/editor/UserPreferences.js" defer></script>
     <script src="./src/js/viewport/ViewportCamera.js" defer></script>
     <script src="./src/js/viewport/GridPolicy.js" defer></script>
     <script src="./src/js/viewport/ViewportScene.js" defer></script>
@@ -61,6 +62,7 @@
     <script src="./src/js/editor/CommandFeedback.js" defer></script>
     <script src="./src/js/viewport/Viewport.js" defer></script>
     <script src="./src/js/editor/footer-controls.js" defer></script>
+    <script src="./src/js/editor/settings-panel.js" defer></script>
     <script src="./src/js/editor/command-input.js" defer></script>
     <script src="./src/js/editor/history-actions.js" defer></script>
     <script src="./src/js/editor/file-actions.js" defer></script>
@@ -388,7 +390,7 @@
             <li><button type="button">Edit</button></li>
             <li><button type="button">View</button></li>
             <li><button type="button">Tools</button></li>
-            <li><button type="button">Settings</button></li>
+            <li><button id="settings-trigger" type="button">Settings</button></li>
             <li><button type="button">Window</button></li>
             <li><button type="button">Help</button></li>
           </ul>
@@ -412,6 +414,11 @@
               ↷
             </button>
           </div>
+          <section id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+            <button id="settings-close" type="button" aria-label="Close settings">×</button><h2 id="settings-title">Settings</h2><h3>Drafting</h3><h3>Grid</h3>
+            <label><input id="settings-grid-visible" type="checkbox"> Show Grid</label>
+            <button id="settings-reset" type="button">Reset to Defaults</button>
+          </section>
           <div class="menu-actions">
             <button
               class="notification"

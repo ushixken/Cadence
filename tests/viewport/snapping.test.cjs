@@ -113,7 +113,7 @@ test('Grid Snap button toggles transient grid acquisition while endpoints, midpo
   b.emit(b.gridSnapButton,'click');b.point(403,353,'pointermove');assert.equal(b.read('activeSnapResult.snapped'),false);
   b.point(450,250,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');
   b.key('Escape');b.run('window.caderactViewport.setGridSnapEnabled(true);window.caderactViewport.resetForDocumentReplacement()');
-  assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'false');
+  assert.equal(b.gridSnapButton.getAttribute('aria-pressed'),'true');
 });
 
 test('nearest distance dominates and endpoint priority resolves close collisions deterministically',async()=>{

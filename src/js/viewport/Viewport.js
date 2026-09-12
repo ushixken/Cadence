@@ -27,13 +27,15 @@ let renderer = null, isInitialized = false, isRenderScheduled = false
 let rendererStatus = "initializing", rendererError = null, recoveryPromise = null
 let navigation = null, resizeObserver = null
 let activeSnapResult = null
-let snapModes = Object.freeze({ endpoint: true, midpoint: true, grid: false })
+const userPreferences = window.CaderactUserPreferences.create()
+window.caderactUserPreferences = userPreferences
+let snapModes = Object.freeze({ endpoint: true, midpoint: true, grid: userPreferences.value.gridSnapEnabled })
 const snapModeListeners = new Set()
-let orthoEnabled = false
+let orthoEnabled = userPreferences.value.orthoEnabled
 const orthoListeners = new Set()
 const effectiveOrthoListeners = new Set()
-let polarEnabled = false
-let polarIncrementDegrees = 45
+let polarEnabled = userPreferences.value.polarEnabled
+let polarIncrementDegrees = userPreferences.value.polarIncrementDegrees
 const polarListeners = new Set()
 const effectivePolarListeners = new Set()
 let polarGuide = null
@@ -1143,6 +1145,7 @@ function setGridSnapEnabled(enabled) {
   if (snapModes.grid === next) return snapModes
   snapModes = Object.freeze({ ...snapModes, grid: next })
   for (const listener of snapModeListeners) listener(snapModes)
+  userPreferences.set({ gridSnapEnabled: next })
   clearSnap()
   requestRender()
   return snapModes
@@ -1157,6 +1160,7 @@ function subscribeSnapModes(listener) {
 function setOrthoEnabled(enabled) {
   orthoEnabled = Boolean(enabled)
   if (orthoEnabled) polarEnabled = false
+  userPreferences.set({ orthoEnabled, polarEnabled })
   for (const listener of orthoListeners) listener(orthoEnabled)
   for (const listener of polarListeners) listener(polarEnabled)
   notifyEffectiveOrtho()
@@ -1168,12 +1172,13 @@ function subscribeOrtho(listener) { orthoListeners.add(listener); listener(ortho
 function setPolarEnabled(enabled) {
   polarEnabled = Boolean(enabled)
   if (polarEnabled) orthoEnabled = false
+  userPreferences.set({ polarEnabled, orthoEnabled })
   for (const listener of polarListeners) listener(polarEnabled)
   for (const listener of orthoListeners) listener(orthoEnabled)
   notifyEffectiveOrtho(); notifyEffectivePolar(); updateSnapAtPointer(); return polarEnabled
 }
 function subscribePolar(listener) { polarListeners.add(listener); listener(polarEnabled); return () => polarListeners.delete(listener) }
-function setPolarIncrementDegrees(degrees) { if (!Number.isFinite(degrees) || degrees <= 0 || degrees > 180) throw new Error("Invalid Polar increment"); polarIncrementDegrees = degrees; updateSnapAtPointer(); return polarIncrementDegrees }
+function setPolarIncrementDegrees(degrees) { if (!Number.isFinite(degrees) || degrees <= 0 || degrees > 180) throw new Error("Invalid Polar increment"); polarIncrementDegrees = degrees; userPreferences.set({ polarIncrementDegrees: degrees }); updateSnapAtPointer(); return polarIncrementDegrees }
 function effectiveOrtho() { return !polarEnabled && (orthoEnabled !== shiftHeld) }
 function effectivePolar() { return polarEnabled && !shiftHeld }
 function notifyEffectiveOrtho() { for (const listener of effectiveOrthoListeners) listener(effectiveOrtho()) }
@@ -1226,9 +1231,6 @@ function resetForDocumentReplacement() {
   selectionBox.clear()
   cancelGripEdit()
   interactionVisuals.leave()
-  setGridSnapEnabled(false)
-  setOrthoEnabled(false)
-  setPolarEnabled(false)
   camera.zoom = viewportSettings.initialZoom
   camera.panX = viewportWidth / 2
   camera.panY = viewportHeight / 2
