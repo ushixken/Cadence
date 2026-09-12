@@ -58,5 +58,32 @@
     if(record.type==="polyline")return Object.freeze({...record,vertices:Object.freeze(record.vertices.map(vertex=>scalePoint(vertex,base,factor)))})
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
-  window.CaderactGeometryTransform = Object.freeze({ translateRecord, rotatePoint, rotateRecord, normalizeAngle, scalePoint, scaleRecord })
+  function mirrorAxis(axisA, axisB) {
+    const dx=axisB?.x-axisA?.x,dy=axisB?.y-axisA?.y,lengthSquared=dx*dx+dy*dy
+    if(!Number.isFinite(axisA?.x)||!Number.isFinite(axisA?.y)||!Number.isFinite(dx)||!Number.isFinite(dy)||!(lengthSquared>1e-16))throw new Error("Invalid mirror axis")
+    return Object.freeze({axisA:Object.freeze({x:axisA.x,y:axisA.y}),dx,dy,lengthSquared})
+  }
+  function mirrorPoint(value, axisA, axisB) {
+    const axis=mirrorAxis(axisA,axisB);if(!Number.isFinite(value?.x)||!Number.isFinite(value?.y))throw new Error("Invalid mirror point")
+    const px=value.x-axis.axisA.x,py=value.y-axis.axisA.y,t=(px*axis.dx+py*axis.dy)/axis.lengthSquared
+    const x=axis.axisA.x+2*t*axis.dx-value.x,y=axis.axisA.y+2*t*axis.dy-value.y
+    if(!Number.isFinite(x)||!Number.isFinite(y))throw new Error("Invalid mirror result")
+    return Object.freeze({...value,x,y})
+  }
+  function mirrorVector(value, axisA, axisB) {
+    const axis=mirrorAxis(axisA,axisB);if(!Number.isFinite(value?.x)||!Number.isFinite(value?.y))throw new Error("Invalid mirror vector")
+    const t=(value.x*axis.dx+value.y*axis.dy)/axis.lengthSquared,x=2*t*axis.dx-value.x,y=2*t*axis.dy-value.y
+    if(!Number.isFinite(x)||!Number.isFinite(y))throw new Error("Invalid mirror result")
+    return Object.freeze({...value,x,y})
+  }
+  function mirrorRecord(record, axisA, axisB) {
+    mirrorAxis(axisA,axisB);if(!record)throw new Error("Invalid mirror record")
+    if(record.type==="line")return Object.freeze({...record,start:mirrorPoint(record.start,axisA,axisB),end:mirrorPoint(record.end,axisA,axisB)})
+    if(record.type==="circle")return Object.freeze({...record,center:mirrorPoint(record.center,axisA,axisB)})
+    if(record.type==="arc")return Object.freeze({...record,center:mirrorPoint(record.center,axisA,axisB),start:mirrorPoint(record.start,axisA,axisB),end:mirrorPoint(record.end,axisA,axisB),sweep:-record.sweep})
+    if(record.type==="ellipse")return Object.freeze({...record,center:mirrorPoint(record.center,axisA,axisB),majorAxis:mirrorVector(record.majorAxis,axisA,axisB)})
+    if(record.type==="polyline")return Object.freeze({...record,vertices:Object.freeze(record.vertices.map(vertex=>mirrorPoint(vertex,axisA,axisB)))})
+    throw new Error(`Unsupported geometry type: ${record.type}`)
+  }
+  window.CaderactGeometryTransform = Object.freeze({ translateRecord, rotatePoint, rotateRecord, normalizeAngle, scalePoint, scaleRecord, mirrorPoint, mirrorRecord })
 })()
