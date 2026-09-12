@@ -417,6 +417,12 @@
           <section id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
             <button id="settings-close" type="button" aria-label="Close settings">×</button><h2 id="settings-title">Settings</h2><h3>Drafting</h3><h3>Grid</h3>
             <label><input id="settings-grid-visible" type="checkbox"> Show Grid</label>
+            <label>Grid Color <input id="settings-grid-color" type="color"></label>
+            <label>Grid Opacity <input id="settings-grid-opacity" type="range" min="0" max="100"><output id="settings-grid-opacity-value"></output></label>
+            <label>Major Grid Color <input id="settings-major-grid-color" type="color"></label>
+            <label>Major Grid Opacity <input id="settings-major-grid-opacity" type="range" min="0" max="100"><output id="settings-major-grid-opacity-value"></output></label>
+            <label>Major Grid Interval <select id="settings-major-grid-interval"><option>2</option><option>5</option><option>10</option></select></label>
+            <h3>Axes</h3><label>X Axis Color <input id="settings-x-axis-color" type="color"></label><label>X Axis Opacity <input id="settings-x-axis-opacity" type="range" min="0" max="100"><output id="settings-x-axis-opacity-value"></output></label><label>Y Axis Color <input id="settings-y-axis-color" type="color"></label><label>Y Axis Opacity <input id="settings-y-axis-opacity" type="range" min="0" max="100"><output id="settings-y-axis-opacity-value"></output></label>
             <button id="settings-reset" type="button">Reset to Defaults</button>
           </section>
           <div class="menu-actions">

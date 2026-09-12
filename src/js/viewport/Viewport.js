@@ -29,6 +29,10 @@ let navigation = null, resizeObserver = null
 let activeSnapResult = null
 const userPreferences = window.CaderactUserPreferences.create()
 window.caderactUserPreferences = userPreferences
+function preferenceColor(hex, opacity) { if (opacity === 1) return hex; const value = Number.parseInt(hex.slice(1), 16); return `rgba(${value >> 16 & 255}, ${value >> 8 & 255}, ${value & 255}, ${opacity})` }
+function applyGridAppearance(value) { viewportSettings.gridVisible=value.gridVisible; viewportSettings.gridColor=preferenceColor(value.gridColor,value.gridOpacity); viewportSettings.majorGridColor=preferenceColor(value.majorGridColor,value.majorGridOpacity); viewportSettings.xAxisColor=preferenceColor(value.xAxisColor,value.xAxisOpacity); viewportSettings.yAxisColor=preferenceColor(value.yAxisColor,value.yAxisOpacity); viewportSettings.majorGridInterval=value.majorGridInterval; requestRender?.() }
+applyGridAppearance(userPreferences.value)
+userPreferences.subscribe(applyGridAppearance)
 let snapModes = Object.freeze({ endpoint: true, midpoint: true, grid: userPreferences.value.gridSnapEnabled })
 const snapModeListeners = new Set()
 let orthoEnabled = userPreferences.value.orthoEnabled

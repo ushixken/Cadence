@@ -197,7 +197,7 @@
             const index = first + offset
             if (index === 0) continue
             const coordinate = index * spacing
-            const target = index % MAJOR_MULTIPLE === 0 ? majorGrid : minorGrid
+            const target = index % (viewportSettings.majorGridInterval || MAJOR_MULTIPLE) === 0 ? majorGrid : minorGrid
             if (vertical) {
               const sx = camera.worldToScreen(coordinate, 0).x
               addSegment(
@@ -1042,7 +1042,7 @@
       }
 
       // The ordered groups are a renderer input, never authoritative geometry.
-      const combinedMajorGrid = majorGrid.concat(boundary)
+      const combinedMajorGrid = viewportSettings.gridVisible === false ? [] : majorGrid.concat(boundary)
       const polarGuide = getPolarGuide()
       if (polarGuide) {
         const origin = camera.worldToScreen(polarGuide.reference.x, polarGuide.reference.y)
@@ -1054,13 +1054,13 @@
         addSegment(nextPreview, origin.x - dx, origin.y - dy, origin.x + dx, origin.y + dy)
       }
       const lineGroups = [
-        lineGroup(viewportSettings.gridColor, minorGrid),
+        lineGroup(viewportSettings.gridColor, viewportSettings.gridVisible === false ? [] : minorGrid),
         lineGroup(
           viewportSettings.majorGridColor || viewportSettings.gridBoundaryColor,
           combinedMajorGrid,
         ),
-        lineGroup(viewportSettings.xAxisColor, xAxis),
-        lineGroup(viewportSettings.yAxisColor, yAxis),
+        lineGroup(viewportSettings.xAxisColor, viewportSettings.gridVisible === false ? [] : xAxis),
+        lineGroup(viewportSettings.yAxisColor, viewportSettings.gridVisible === false ? [] : yAxis),
         lineGroup(viewportSettings.geometryColor, geometry),
         lineGroup(
           viewportSettings.acceptedDraftColor || viewportSettings.geometryColor,
@@ -1199,8 +1199,8 @@
         grid: Object.freeze({
           unit: getDocumentUnit(),
           minorSpacing: spacing,
-          majorSpacing: spacing * MAJOR_MULTIPLE,
-          majorMultiple: MAJOR_MULTIPLE,
+          majorSpacing: spacing * (viewportSettings.majorGridInterval || MAJOR_MULTIPLE),
+          majorMultiple: viewportSettings.majorGridInterval || MAJOR_MULTIPLE,
           maxLinesPerAxis: MAX_GRID_LINES_PER_AXIS,
           minorSegments: new Float32Array(minorGrid),
           majorSegments: new Float32Array(majorGrid),
