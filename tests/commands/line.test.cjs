@@ -87,6 +87,25 @@ test('Line Close availability follows Step Undo and a naturally accepted return 
   const b=await browser();b.launch();for(const point of ['0,0','10,0','10,10'])typed(b,point);assert.equal(b.read('window.caderactCommandRouter.activeSession.options.length'),1);b.window.caderactViewport.stepUndoActiveCommand();assert.equal(b.read('window.caderactCommandRouter.activeSession.options.length'),0);typed(b,'10,10');typed(b,'0,0');const count=b.read('window.caderactCommandRouter.activeSession.draft.segmentCount');assert.equal(count,3);b.run('window.caderactCommandRouter.activateOption("close")');assert.equal(b.read('modelReader.lines().length'),3);assert.equal(b.read('modelReader.lines().filter((line,index,all)=>all.findIndex(other=>other.start.x===line.start.x&&other.start.y===line.start.y&&other.end.x===line.end.x&&other.end.y===line.end.y)===index).length'),3)
 });
 
+test('clicking the hover-snapped starting draft point closes and completes Line', async () => {
+  const b = await browser();
+  const historyBefore = b.read('documentController.historyInfo.entryCount');
+  b.launch();
+  b.point(400, 300); b.point(450, 300); b.point(450, 250);
+  b.point(402, 301, 'pointermove');
+  assert.equal(b.read('activeSnapResult.kind'), 'draft-point');
+  assert.deepEqual(b.read('activeSnapResult.reference'), { kind: 'draft-point', index: 0 });
+  b.point(402, 301);
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'), null);
+  assert.equal(b.read('modelReader.lines().length'), 3);
+  assert.deepEqual(b.read('modelReader.lines().map(line => ({ start: { x: line.start.x, y: line.start.y }, end: { x: line.end.x, y: line.end.y }}))'), [
+    { start: { x: 0, y: 0 }, end: { x: 10, y: 0 } },
+    { start: { x: 10, y: 0 }, end: { x: 10, y: 10 } },
+    { start: { x: 10, y: 10 }, end: { x: 0, y: 0 } },
+  ]);
+  assert.equal(b.read('documentController.historyInfo.entryCount'), historyBefore + 1);
+});
+
 test('Line Close failure preserves its prepared closing segment and retries without duplication', async () => {
   const b=await browser();b.launch();for(const point of ['0,0','10,0','10,10'])typed(b,point);b.run('window.__conflict=window.caderactCommandRouter.activeSession.draft.draftSegments()[0];recordGateway.createAll([window.__conflict])');const history=b.read('documentController.historyInfo.entryCount');b.run('window.caderactCommandRouter.activateOption("close")');assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Line');assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.segmentCount'),3);assert.equal(b.read('documentController.historyInfo.entryCount'),history);b.run('documentController.undo()');b.run('window.caderactCommandRouter.activateOption("close")');assert.equal(b.read('modelReader.lines().length'),3);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null)
 });
@@ -485,7 +504,7 @@ test('active Line preview originates strictly at latest accepted point and updat
   assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.currentPoint'), { x: 10, y: 0 });
 });
 
-test('rubber-band snaps to accepted draft points, including preview origin, and creates closing return segment', async () => {
+test('rubber-band snaps to accepted draft points, including preview origin, and completes when clicking P1', async () => {
   const b = await browser();
   b.launch();
   b.point(400, 300); // P1: (0, 0)
@@ -516,14 +535,14 @@ test('rubber-band snaps to accepted draft points, including preview origin, and 
   assert.equal(b.read('activeSnapResult?.kind'), 'draft-point');
   assert.deepEqual(b.read('activeSnapResult?.point'), { x: 10, y: 0 });
 
-  // Click while snapped to P1 (400, 300) -> closes polygon / creates P3 -> P1 segment
+  // Click while snapped to P1 (400, 300) -> closes and completes the Line command.
   b.point(403, 302, 'pointerdown');
   b.flush();
-  const segments = b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()');
+  const segments = b.read('modelReader.lines()');
   assert.equal(segments.length, 3);
   assert.deepEqual({ x: segments[2].start.x, y: segments[2].start.y }, { x: 10, y: 10 });
   assert.deepEqual({ x: segments[2].end.x, y: segments[2].end.y }, { x: 0, y: 0 });
-  assert.equal(b.read('window.caderactCommandRouter.activeCommand'), 'Line'); // remains active Line session
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'), null);
 });
 
 test('Shift temporarily disables all snapping (endpoint, draft-point, midpoint, grid) without altering Grid toggle', async () => {
@@ -589,7 +608,7 @@ test('Stationary Shift keydown and keyup triggers dynamic snap re-evaluation and
   assert.notEqual(b.renders.at(-1).snapOverlay, null);
 });
 
-test('Real UI case: active Line with P1->P2->P3->P4 acquires older points P1, P2, P3 via real pointermove and clicks', async () => {
+test('Real UI case: Line acquires older draft points and completes when P1 is clicked', async () => {
   const b = await browser();
   b.launch();
   // Click P1, P2, P3, P4
@@ -638,12 +657,13 @@ test('Real UI case: active Line with P1->P2->P3->P4 acquires older points P1, P2
   assert.deepEqual(b.read('activeSnapResult?.point'), { x: 0, y: 0 });
   assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.preview().end'), { x: 0, y: 0 });
 
-  // Click on P1 -> creates segment P3 -> P1
+  // Click on P1 -> closes and completes.
   b.point(401, 299, 'pointerdown');
   b.flush();
-  segments = b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()');
+  segments = b.read('modelReader.lines()');
   assert.equal(segments.length, 6);
   assert.deepEqual({ x: segments[5].end.x, y: segments[5].end.y }, { x: 0, y: 0 });
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'), null);
 });
 
 test('Offset viewport bounding rect and varied zoom, pan, and DPR preserves draft-point acquisition', async () => {
@@ -820,12 +840,13 @@ test('Rhino-style Line keeps accepted segments fixed while only the next-segment
   assert.equal(scene.draftPointOverlay.points.length,3);
 });
 
-test('snapping next segment to an older accepted point fixes only the new return segment',async()=>{
+test('snapping the next segment to the starting accepted point closes and completes',async()=>{
   const b=await browser();b.launch();b.point(400,300);b.point(450,300);b.point(450,250);
   const before=b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()');
   b.point(402,301,'pointermove');
   assert.equal(b.read('activeSnapResult.kind'),'draft-point');
   assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.preview()'),{start:{x:10,y:10},end:{x:0,y:0}});
-  b.point(402,301);const after=b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()');
+  b.point(402,301);const after=b.read('modelReader.lines()');
   assert.deepEqual(after.slice(0,2),before);assert.deepEqual({start:after[2].start,end:after[2].end},{start:{x:10,y:10,featureId:after[2].start.featureId},end:{x:0,y:0,featureId:after[2].end.featureId}});
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null);
 });

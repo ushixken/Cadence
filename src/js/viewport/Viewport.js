@@ -126,7 +126,24 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
   let promptPresentation = createCommandPrompt("Line", "Specify first point")
   function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Line", instruction); setPrompt(promptPresentation.text, promptPresentation) }
 
-  function handlePointerDown(point) {
+  function handlePointerDown(point, context = {}) {
+    // Returning to the first draft point through the hover snap is an explicit
+    // close gesture.  Publish immediately so the user does not need a second
+    // Enter/Close action after clicking the starting marker.
+    const snappedToStart = context.snap?.kind === "draft-point"
+      && context.snap.reference?.index === 0
+      && draft.canClose
+    if (snappedToStart) {
+      clearSnap()
+      const outcome = draft.close()
+      if (outcome.status === "committed") {
+        requestRender()
+        return Object.freeze({ status: "command-completed", command: "Line", outcome })
+      }
+      updatePrompt("Unable to commit; draft preserved")
+      requestRender()
+      return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Line", outcome })
+    }
     const outcome = draft.acceptPoint(point)
     if (outcome.status === "first-point") updatePrompt("Specify next point")
     requestRender()
@@ -928,7 +945,13 @@ function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
     updatePrompt("Unable to commit; draft preserved")
     return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Polyline", outcome })
   }
-  function handlePointerDown(point) { return presentPointOutcome(draft.acceptPoint(point), point) }
+  function handlePointerDown(point, context = {}) {
+    const snappedToStart = context.snap?.kind === "draft-point"
+      && context.snap.reference?.index === 0
+      && draft.canClose
+    if (snappedToStart) return presentPublication(draft.close())
+    return presentPointOutcome(draft.acceptPoint(point), point)
+  }
   function handlePointerMove(point) { draft.updatePointer(point); requestRender() }
   function handlePointerLeave() { draft.clearPointer(); clearSnap(); requestRender() }
   function handleInput(input) {
@@ -1166,7 +1189,7 @@ function onViewportPointerDown(event) {
       excludedRecordIds: session.getExcludedSnapRecordIds?.() || [],
       bypass,
     })
-    window.caderactCommandRouter.submitActivePointer(snap.point)
+    window.caderactCommandRouter.submitActivePointer(snap.point, { snap })
     return
   }
   if (!session) {

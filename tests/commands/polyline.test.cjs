@@ -100,11 +100,10 @@ test('Close eligibility is enforced and valid Close adds one exact closing edge 
   assert.equal(b.read('modelReader.records()[0].closed'),true);assert.equal(b.read('modelReader.records()[0].vertices.length'),3);
 });
 
-test('manual snap/click on P1 adds a normal closing segment and keeps Polyline active',async()=>{
+test('hover snap/click on P1 closes and completes Polyline',async()=>{
   const b=await browser();b.launch('Polyline');for(const value of ['3,4','8,9','13,6'])typed(b,value);
   b.point(417,278,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'draft-point');b.point(417,278);
-  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polyline');assert.deepEqual(points(b).at(-1),{x:3,y:4});assert.equal(segments(b).length,3);
-  typed(b,'Close');assert.equal(b.read('modelReader.records().length'),1);assert.equal(b.read('modelReader.records()[0].closed'),true);assert.equal(b.read('modelReader.records()[0].vertices.length'),3);
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null);assert.equal(b.read('modelReader.records().length'),1);assert.equal(b.read('modelReader.records()[0].closed'),true);assert.equal(b.read('modelReader.records()[0].vertices.length'),3);
 });
 
 test('one atomic publication inherits current layer and one Undo/Redo restores one exact Polyline',async()=>{
