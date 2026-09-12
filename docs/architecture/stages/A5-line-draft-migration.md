@@ -63,6 +63,25 @@ one transaction and history entry. In contrast, Polyline + Close creates one
 closed native Polyline record. Enter continues to publish an open Line chain,
 and Line intentionally has no PersistentClose rubber band.
 
+### Snap-to-start auto-completion
+
+After a pointer click has passed through D2A, Line compares the accepted,
+resolved model coordinate with the original draft point. If they are exactly
+equal and Close is eligible, it derives the one final last-to-first Line and
+publishes immediately. Hovering a marker never accepts a point and therefore
+never completes the command. The trigger does not depend on CSS-pixel
+proximity, visual marker overlap, or a particular snap candidate kind: Draft
+Point, Endpoint, and Grid resolution all have the same result when their
+accepted coordinate is P1. Shift bypass similarly cannot close merely because
+the raw pointer is near P1; it closes only when the raw accepted coordinate is
+itself exactly P1.
+
+This uses the same Close transaction and failure policy: independent Lines are
+created once, with no duplicate or zero-length seam; Undo removes the whole
+chain and Redo restores its exact identities. Step Undo remains available until
+the accepted close click. Explicit Close remains available, while Enter/Space
+continue to finish an open chain normally.
+
 ### Escape
 
 Escape discards the session in memory and exits. It performs no document

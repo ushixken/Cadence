@@ -106,6 +106,24 @@ test('clicking the hover-snapped starting draft point closes and completes Line'
   assert.equal(b.read('documentController.historyInfo.entryCount'), historyBefore + 1);
 });
 
+test('Line closes from any resolved accepted point equal to P1, while hover and Shift bypass do not close', async () => {
+  const b = await browser();
+  // Endpoint priority beats the draft point at P1; equality of the resolved
+  // accepted coordinate, not snap kind, must still trigger closure.
+  b.run('recordGateway.createAll([recordGateway.createLine({x:0,y:0},{x:-10,y:0})])');
+  b.launch(); b.point(400, 300); b.point(450, 300); b.point(450, 250);
+  b.point(402, 301, 'pointermove');
+  assert.equal(b.read('activeSnapResult.kind'), 'endpoint');
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'), 'Line'); // hover only
+  b.point(402, 301, 'pointerdown', { shiftKey: true });
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'), 'Line');
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.segmentCount'), 3);
+  b.window.caderactViewport.stepUndoActiveCommand(); // remove the Shift-bypassed raw segment
+  b.point(402, 301);
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'), null);
+  assert.equal(b.read('modelReader.lines().length'), 4); // existing line + closed chain
+});
+
 test('Line Close failure preserves its prepared closing segment and retries without duplication', async () => {
   const b=await browser();b.launch();for(const point of ['0,0','10,0','10,10'])typed(b,point);b.run('window.__conflict=window.caderactCommandRouter.activeSession.draft.draftSegments()[0];recordGateway.createAll([window.__conflict])');const history=b.read('documentController.historyInfo.entryCount');b.run('window.caderactCommandRouter.activateOption("close")');assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Line');assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.segmentCount'),3);assert.equal(b.read('documentController.historyInfo.entryCount'),history);b.run('documentController.undo()');b.run('window.caderactCommandRouter.activateOption("close")');assert.equal(b.read('modelReader.lines().length'),3);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null)
 });

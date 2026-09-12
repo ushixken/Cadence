@@ -84,6 +84,7 @@
       stepUndo, finish, close, cancel,
       get segmentCount() { return segments.length },
       get hasFirstPoint() { return currentPoint !== null },
+      get firstPoint() { return segments[0]?.start || currentPoint },
       get currentPoint() { return currentPoint },
       get canClose() { return canClose() },
     })

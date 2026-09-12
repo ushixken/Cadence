@@ -106,6 +106,12 @@ test('hover snap/click on P1 closes and completes Polyline',async()=>{
   assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null);assert.equal(b.read('modelReader.records().length'),1);assert.equal(b.read('modelReader.records()[0].closed'),true);assert.equal(b.read('modelReader.records()[0].vertices.length'),3);
 });
 
+test('Polyline hover does not finish, but an endpoint-resolved P1 click closes without duplicating P1',async()=>{
+  const b=await browser();b.run('recordGateway.createAll([recordGateway.createLine({x:3,y:4},{x:-2,y:4})])');b.launch('Polyline');for(const value of ['3,4','8,9','13,6'])typed(b,value);
+  b.point(417,278,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polyline');
+  b.point(417,278);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null);const record=b.read('modelReader.records().find(record=>record.type==="polyline")');assert.equal(record.closed,true);assert.equal(record.vertices.length,3);assert.equal(new Set(record.vertices.map(vertex=>vertex.featureId)).size,3);
+});
+
 test('one atomic publication inherits current layer and one Undo/Redo restores one exact Polyline',async()=>{
   const b=await browser();b.run('layerGateway.create("Path")');const id=b.read('modelReader.layers().find(layer=>layer.name==="Path").id');b.run(`layerGateway.setCurrent(${JSON.stringify(id)})`);
   const history=b.read('documentController.historyInfo.entryCount');b.launch('Polyline');for(const value of ['0,0','5,6','9,2'])typed(b,value);b.key('Enter');

@@ -128,13 +128,11 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
   function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Line", instruction); setPrompt(promptPresentation.text, promptPresentation) }
 
   function handlePointerDown(point, context = {}) {
-    // Returning to the first draft point through the hover snap is an explicit
-    // close gesture.  Publish immediately so the user does not need a second
-    // Enter/Close action after clicking the starting marker.
-    const snappedToStart = context.snap?.kind === "draft-point"
-      && context.snap.reference?.index === 0
-      && draft.canClose
-    if (snappedToStart) {
+    // Pointer routing has already resolved D2A snapping. Compare that accepted
+    // model point with P1; never infer closure from marker/proximity metadata.
+    const acceptedStartPoint = draft.firstPoint
+    if (draft.canClose && acceptedStartPoint
+      && point.x === acceptedStartPoint.x && point.y === acceptedStartPoint.y) {
       clearSnap()
       const outcome = draft.close()
       if (outcome.status === "committed") {
@@ -1013,10 +1011,9 @@ function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
     return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Polyline", outcome })
   }
   function handlePointerDown(point, context = {}) {
-    const snappedToStart = context.snap?.kind === "draft-point"
-      && context.snap.reference?.index === 0
-      && draft.canClose
-    if (snappedToStart) return presentPublication(draft.close())
+    const acceptedStartPoint = draft.firstPoint
+    if (draft.canClose && acceptedStartPoint
+      && point.x === acceptedStartPoint.x && point.y === acceptedStartPoint.y) return presentPublication(draft.close())
     return presentPointOutcome(draft.acceptPoint(point), point)
   }
   function handlePointerMove(point) { draft.updatePointer(point); requestRender() }
