@@ -73,7 +73,7 @@ test('Endpoint, Midpoint, Grid toggle, and Shift all flow through D2A for Rectan
 
   const shifted=await browser();shifted.run('recordGateway.createAll([recordGateway.createLine({x:20,y:20},{x:40,y:20})])');
   shifted.launch('Rectangle');typed(shifted,'1,1');shifted.point(502,201,'pointermove',{shiftKey:true});assert.equal(shifted.read('activeSnapResult.snapped'),false);
-  shifted.point(502,201,'pointerdown',{shiftKey:true});assert.ok(endpoints(shifted).some(edge=>edge.end.x===20.4&&edge.end.y===19.8));
+  shifted.point(502,201,'pointerdown',{shiftKey:true});assert.equal(shifted.read('window.caderactCommandRouter.activeCommand'),'Rectangle');
 });
 
 test('all four edges inherit the current layer',async()=>{

@@ -38,13 +38,13 @@ test('pointer, typed relative, and mixed center/radius-point input commit exact 
   const mixed=await browser();mixed.launch('Circle');mixed.point(400,300);typed(mixed,'6,8');assert.equal(mixed.read('modelReader.records()[0].radius'),10);
 });
 
-test('Circle reuses Endpoint, Midpoint, Grid toggle, center Draft Point, and Shift bypass',async()=>{
+test('Circle reuses Endpoint, Midpoint, Grid toggle, center Draft Point, and retains snapping with Shift',async()=>{
   const b=await browser();b.run('recordGateway.createAll([recordGateway.createLine({x:20,y:20},{x:40,y:20})])');b.launch('Circle');typed(b,'3,4');
   b.point(502,201,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');
   b.point(552,201,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'midpoint');
   b.emit(b.gridSnapButton,'click');b.point(451,249,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'grid');b.emit(b.gridSnapButton,'click');b.point(451,249,'pointermove');assert.equal(b.read('activeSnapResult.snapped'),false);
   b.point(417,278,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'draft-point');
-  b.key('Shift',b.document,{code:'ShiftLeft'});assert.equal(b.read('activeSnapResult.snapped'),false);
+  b.key('Shift',b.document,{code:'ShiftLeft'});assert.equal(b.read('activeSnapResult.kind'),'draft-point');
   b.emit(b.document,'keyup',{key:'Shift',code:'ShiftLeft'});assert.equal(b.read('activeSnapResult.kind'),'draft-point');
 });
 

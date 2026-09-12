@@ -95,7 +95,7 @@ test('Extend preview shows subdued source and dominant extended record without m
   assert.equal(preview(b), null);
 });
 
-test('Extend target picking uses the shared snap path, Shift bypass, and quick Space finish', async () => {
+test('Extend target picking uses the shared snap path, Shift preserves snapping, and quick Space finish', async () => {
   const b = await browser();
   const boundary = createLine(b, { x: 20, y: -10 }, { x: 20, y: 10 });
   const target = createLine(b, { x: 0, y: 0 }, { x: 10, y: 0 });
@@ -105,7 +105,7 @@ test('Extend target picking uses the shared snap path, Shift bypass, and quick S
   assert.equal(b.read('activeSnapResult.kind'), 'endpoint');
   assert.equal(preview(b).records[0].end.x, 20);
   b.point(sx(10) - 1, sy(0) + 1, 'pointermove', { shiftKey: true });
-  assert.equal(b.read('activeSnapResult.snapped'), false);
+  assert.equal(b.read('activeSnapResult.kind'), 'endpoint');
   assert.equal(preview(b).records[0].end.x, 20);
   b.emit(b.canvas, 'pointerenter');
   b.key(' ', b.input, { code: 'Space' });

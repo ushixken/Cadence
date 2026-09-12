@@ -29,6 +29,14 @@ let navigation = null, resizeObserver = null
 let activeSnapResult = null
 let snapModes = Object.freeze({ endpoint: true, midpoint: true, grid: false })
 const snapModeListeners = new Set()
+let orthoEnabled = false
+const orthoListeners = new Set()
+const effectiveOrthoListeners = new Set()
+let polarEnabled = false
+let polarIncrementDegrees = 45
+const polarListeners = new Set()
+const effectivePolarListeners = new Set()
+let polarGuide = null
 const viewportHost = canvas.parentElement || canvas.parent
 const interactionVisuals = window.CaderactInteractionVisuals.createController({ host: viewportHost })
 const snapResolver = window.CaderactSnapResolver.createResolver()
@@ -89,6 +97,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getGrips: () => getActiveCommandSession() ? [] : grips.displayGrips(),
   getGripPreview: grips.previewRecord,
   getSelectionBox: () => selectionBox.snapshot(),
+  getPolarGuide: () => polarGuide,
 })
 
 function createScene() {
@@ -224,7 +233,7 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     handlePointerDown, handlePointerMove, handlePointerLeave, handleInput, handleOption,
     getDraftLines: draft.draftSegments, getPreview: draft.preview, getPreviewLines,
     getDraftPoints: draft.acceptedPoints,
-    getSnapCandidates, hasPointerPreview, get options() { return options() },
+    getSnapCandidates, getOrthoReference: () => draft.currentPoint, hasPointerPreview, get options() { return options() },
     get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
 }
@@ -284,6 +293,7 @@ function createMoveCommandSession({ setPrompt = () => {} } = {}) {
   }
   requestRender()
   return Object.freeze({name:"Move",finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,getMovePreview,
+    getOrthoReference:()=>phase==="target"?basePoint:null,
     hasPointerPreview:()=>phase!=="selection",getExcludedSnapRecordIds:()=>phase==="target"?selectedRecordIds:Object.freeze([]),
     get isSelectionPhase(){return phase==="selection"},get phase(){return phase},get selectedRecordIds(){return selectedRecordIds},get basePoint(){return basePoint},get candidatePoint(){return candidatePoint},
     get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
@@ -317,7 +327,7 @@ function createCopyCommandSession({ setPrompt = () => {} } = {}) {
   function cancel(){candidatePoint=null;clearSnap();requestRender();return Object.freeze({status:"command-cancelled",command:"Copy"})}
   function getMovePreview(){if(phase!=="target"||!candidatePoint)return null;const dx=candidatePoint.x-basePoint.x,dy=candidatePoint.y-basePoint.y,sourceRecords=selectedRecords();return Object.freeze({mode:"copy",recordIds:selectedRecordIds,basePoint,candidatePoint,dx,dy,sourceRecords:Object.freeze(sourceRecords),records:Object.freeze(sourceRecords.map(record=>window.CaderactGeometryTransform.translateRecord(record,dx,dy)))})}
   requestRender()
-  return Object.freeze({name:"Copy",finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,getMovePreview,hasPointerPreview:()=>phase!=="selection",getExcludedSnapRecordIds:()=>Object.freeze([]),get isSelectionPhase(){return phase==="selection"},get phase(){return phase},get selectedRecordIds(){return selectedRecordIds},get basePoint(){return basePoint},get candidatePoint(){return candidatePoint},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
+  return Object.freeze({name:"Copy",finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,getMovePreview,getOrthoReference:()=>phase==="target"?basePoint:null,hasPointerPreview:()=>phase!=="selection",getExcludedSnapRecordIds:()=>Object.freeze([]),get isSelectionPhase(){return phase==="selection"},get phase(){return phase},get selectedRecordIds(){return selectedRecordIds},get basePoint(){return basePoint},get candidatePoint(){return candidatePoint},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
 function createRotateCommandSession({ setPrompt = () => {} } = {}) {
@@ -368,7 +378,7 @@ function createMirrorCommandSession({ setPrompt = () => {} } = {}) {
   function handleOption(optionId){if(optionId!=="copy")return Object.freeze({status:"option-unavailable",reason:"unknown-option",command:"Mirror",optionId});copyMode=!copyMode;requestRender();return Object.freeze({status:"option-updated",command:"Mirror",optionId,value:copyMode?"Yes":"No"})}
   function options(){return Object.freeze([Object.freeze({id:"copy",label:"Copy",value:copyMode?"Yes":"No",enabled:true})])}
   function getMovePreview(){if(phase!=="axis-b"||!axisA||!axisB)return null;let records=[];try{records=mirrorRecords(axisB)}catch{}return Object.freeze({mode:"rotate",recordIds:selectedRecordIds,basePoint:axisA,centerPoint:axisA,referencePoint:axisB,candidatePoint:axisB,copyMode,preserveSourceVisible:copyMode,sourceRecords:Object.freeze(copyMode?[]:selectedRecords()),records:Object.freeze(records)})}
-  requestRender();return Object.freeze({name:"Mirror",finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,handleOption,getMovePreview,hasPointerPreview:()=>phase!=="selection",getExcludedSnapRecordIds:()=>phase==="axis-b"?selectedRecordIds:Object.freeze([]),get isSelectionPhase(){return phase==="selection"},get phase(){return phase},get selectedRecordIds(){return selectedRecordIds},get copyMode(){return copyMode},get options(){return options()},get axisA(){return axisA},get axisB(){return axisB},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
+  requestRender();return Object.freeze({name:"Mirror",finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,handleOption,getMovePreview,getOrthoReference:()=>phase==="axis-b"?axisA:null,hasPointerPreview:()=>phase!=="selection",getExcludedSnapRecordIds:()=>phase==="axis-b"?selectedRecordIds:Object.freeze([]),get isSelectionPhase(){return phase==="selection"},get phase(){return phase},get selectedRecordIds(){return selectedRecordIds},get copyMode(){return copyMode},get options(){return options()},get axisA(){return axisA},get axisB(){return axisB},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
 function createScaleCommandSession({ setPrompt = () => {} } = {}) {
@@ -1008,6 +1018,7 @@ function createRectangleCommandSession({ setPrompt = () => {} } = {}) {
   return Object.freeze({
     name: "Rectangle", draft, finish, cancel, handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
     getPreviewLines: draft.previewEdges, getDraftPoints: draft.acceptedPoints, getSnapCandidates,
+    getOrthoReference: () => draft.firstCorner,
     hasPointerPreview: () => draft.hasFirstCorner,
     get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
@@ -1100,7 +1111,7 @@ function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
   return Object.freeze({
     name: "Polyline", draft, finish, cancel, stepUndo, handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,handleOption,
     getDraftLines: draft.draftSegments, getPreview: draft.preview, getPreviewLines,
-    getDraftPoints: draft.acceptedPoints, getSnapCandidates, hasPointerPreview: () => draft.hasFirstPoint,
+    getDraftPoints: draft.acceptedPoints, getSnapCandidates, getOrthoReference: () => draft.currentPoint, hasPointerPreview: () => draft.hasFirstPoint,
     get options(){return options()},get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
 }
@@ -1143,7 +1154,46 @@ function subscribeSnapModes(listener) {
   return () => snapModeListeners.delete(listener)
 }
 
-function clearSnap() { activeSnapResult = null; interactionVisuals.setSnapAcquired(false) }
+function setOrthoEnabled(enabled) {
+  orthoEnabled = Boolean(enabled)
+  if (orthoEnabled) polarEnabled = false
+  for (const listener of orthoListeners) listener(orthoEnabled)
+  for (const listener of polarListeners) listener(polarEnabled)
+  notifyEffectiveOrtho()
+  notifyEffectivePolar()
+  updateSnapAtPointer()
+  return orthoEnabled
+}
+function subscribeOrtho(listener) { orthoListeners.add(listener); listener(orthoEnabled); return () => orthoListeners.delete(listener) }
+function setPolarEnabled(enabled) {
+  polarEnabled = Boolean(enabled)
+  if (polarEnabled) orthoEnabled = false
+  for (const listener of polarListeners) listener(polarEnabled)
+  for (const listener of orthoListeners) listener(orthoEnabled)
+  notifyEffectiveOrtho(); notifyEffectivePolar(); updateSnapAtPointer(); return polarEnabled
+}
+function subscribePolar(listener) { polarListeners.add(listener); listener(polarEnabled); return () => polarListeners.delete(listener) }
+function setPolarIncrementDegrees(degrees) { if (!Number.isFinite(degrees) || degrees <= 0 || degrees > 180) throw new Error("Invalid Polar increment"); polarIncrementDegrees = degrees; updateSnapAtPointer(); return polarIncrementDegrees }
+function effectiveOrtho() { return !polarEnabled && (orthoEnabled !== shiftHeld) }
+function effectivePolar() { return polarEnabled && !shiftHeld }
+function notifyEffectiveOrtho() { for (const listener of effectiveOrthoListeners) listener(effectiveOrtho()) }
+function subscribeEffectiveOrtho(listener) { effectiveOrthoListeners.add(listener); listener(effectiveOrtho()); return () => effectiveOrthoListeners.delete(listener) }
+function notifyEffectivePolar() { for (const listener of effectivePolarListeners) listener(effectivePolar()) }
+function subscribeEffectivePolar(listener) { effectivePolarListeners.add(listener); listener(effectivePolar()); return () => effectivePolarListeners.delete(listener) }
+function isOrthoActive() { return effectiveOrtho() }
+function resolveCommandPointer(rawPoint, session, options = {}) {
+  const reference = session?.getOrthoReference?.()
+  let constrained = window.CaderactOrthoConstraint.constrain(rawPoint, reference, isOrthoActive())
+  polarGuide = null
+  if (effectivePolar()) {
+    const polar = window.CaderactPolarConstraint.constrain(rawPoint, reference, polarIncrementDegrees)
+    constrained = polar.point
+    if (polar.tracked) polarGuide = Object.freeze({ reference: Object.freeze({ ...reference }), angle: polar.angle })
+  }
+  return resolvePointerSnap(constrained, { ...options, bypass: false })
+}
+
+function clearSnap() { activeSnapResult = null; polarGuide = null; interactionVisuals.setSnapAcquired(false) }
 
 function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds = [], transientCandidates = [], bypass = false } = {}) {
   if (Array.isArray(arguments[1])) {
@@ -1177,6 +1227,8 @@ function resetForDocumentReplacement() {
   cancelGripEdit()
   interactionVisuals.leave()
   setGridSnapEnabled(false)
+  setOrthoEnabled(false)
+  setPolarEnabled(false)
   camera.zoom = viewportSettings.initialZoom
   camera.panX = viewportWidth / 2
   camera.panY = viewportHeight / 2
@@ -1225,7 +1277,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()
@@ -1246,7 +1298,17 @@ function resizeCanvas() {
 }
 
 let lastKnownPointerScreen = null
-let isShiftBypassed = false
+let shiftHeld = false
+
+function setShiftHeld(held) {
+  const next = Boolean(held)
+  if (shiftHeld === next) return false
+  shiftHeld = next
+  notifyEffectiveOrtho()
+  notifyEffectivePolar()
+  updateSnapAtPointer()
+  return true
+}
 
 function getCommandSnapCandidates(session) {
   return session?.getSnapCandidates?.() || []
@@ -1256,19 +1318,19 @@ function hasCommandPointerPreview(session) {
   return session?.hasPointerPreview?.() || false
 }
 
-function updateSnapAtPointer({ bypass = isShiftBypassed } = {}) {
+function updateSnapAtPointer() {
   if (!lastKnownPointerScreen) return
   const session = getActiveCommandSession()
   const worldPoint = screenToWorld(lastKnownPointerScreen.x, lastKnownPointerScreen.y)
   if (grips.isActive) {
-    const snap = resolvePointerSnap(worldPoint, { excludedFeatureIds: [grips.active.grip.featureId], bypass })
+    const snap = resolvePointerSnap(worldPoint, { excludedFeatureIds: [grips.active.grip.featureId] })
     interactionVisuals.setSnapAcquired(snap.snapped)
     grips.update(snap.point)
     requestRender()
     return
   }
   if (session?.handlePointerMove && hasCommandPointerPreview(session) && !navigation.isActive()) {
-    const snap = resolvePointerSnap(worldPoint, { transientCandidates: getCommandSnapCandidates(session), excludedRecordIds:session.getExcludedSnapRecordIds?.()||[], bypass })
+    const snap = resolveCommandPointer(worldPoint, session, { transientCandidates: getCommandSnapCandidates(session), excludedRecordIds:session.getExcludedSnapRecordIds?.()||[] })
     interactionVisuals.setSnapAcquired(snap.snapped)
     session.handlePointerMove(snap.point)
     requestRender()
@@ -1280,12 +1342,11 @@ function onViewportPointerDown(event) {
   if (event.button !== 0 || navigation.isActive() || selectionBox.isPending) return
   const point = getCanvasPoint(event)
   lastKnownPointerScreen = point
-  const bypass = Boolean(event.shiftKey)
+  setShiftHeld(event.shiftKey)
   if (session?.handlePointerDown && !session.isSelectionPhase) {
-    const snap = resolvePointerSnap(screenToWorld(point.x, point.y), {
+    const snap = resolveCommandPointer(screenToWorld(point.x, point.y), session, {
       transientCandidates: getCommandSnapCandidates(session),
       excludedRecordIds: session.getExcludedSnapRecordIds?.() || [],
-      bypass,
     })
     window.caderactCommandRouter.submitActivePointer(snap.point, { snap, rawPoint: screenToWorld(point.x, point.y) })
     return
@@ -1310,8 +1371,7 @@ function onViewportPointerDown(event) {
 function onCommandPointerMove(event) {
   const point = getCanvasPoint(event)
   lastKnownPointerScreen = point
-  const bypass = Boolean(event.shiftKey)
-  isShiftBypassed = bypass
+  setShiftHeld(event.shiftKey)
   interactionVisuals.setMode(getActiveCommandSession() && !getActiveCommandSession()?.isSelectionPhase ? "point" : "select")
   interactionVisuals.move(getViewportPoint(event))
   if(selectionBox.isPending){selectionBox.update(point);requestRender();return}
@@ -1319,7 +1379,6 @@ function onCommandPointerMove(event) {
   if (grips.isActive) {
     const snap = resolvePointerSnap(screenToWorld(point.x, point.y), {
       excludedFeatureIds: [grips.active.grip.featureId],
-      bypass,
     })
     interactionVisuals.setSnapAcquired(snap.snapped)
     grips.update(snap.point)
@@ -1327,10 +1386,9 @@ function onCommandPointerMove(event) {
   }
   if (!session) grips.updateHover(point)
   if (!session?.handlePointerMove || !hasCommandPointerPreview(session) || navigation.isActive()) return
-  const snap = resolvePointerSnap(screenToWorld(point.x, point.y), {
+  const snap = resolveCommandPointer(screenToWorld(point.x, point.y), session, {
     transientCandidates: getCommandSnapCandidates(session),
     excludedRecordIds: session.getExcludedSnapRecordIds?.() || [],
-    bypass,
   })
   interactionVisuals.setSnapAcquired(snap.snapped)
   session.handlePointerMove(snap.point, { rawPoint: screenToWorld(point.x, point.y) })
@@ -1363,7 +1421,6 @@ function onViewportPointerUp(event) {
   lastKnownPointerScreen = point
   const snap = resolvePointerSnap(screenToWorld(point.x, point.y), {
     excludedFeatureIds: [grips.active.grip.featureId],
-    bypass: Boolean(event.shiftKey),
   })
   grips.update(snap.point)
   grips.finish()
@@ -1380,21 +1437,17 @@ function onViewportPointerCancel(event) {
 
 function onDocumentKeyDown(event) {
   if(event.key==="Escape"&&selectionBox.isPending){const pointerId=selectionBox.snapshot().pointerId;selectionBox.clear();releaseGripPointerCapture(pointerId);requestRender();event.caderactSelectionBoxHandled=true;event.preventDefault();return}
-  if (event.key === "Shift" && !isShiftBypassed) {
-    isShiftBypassed = true
-    updateSnapAtPointer({ bypass: true })
-  }
+  if (event.key === "Shift") setShiftHeld(true)
 }
 
 function onDocumentKeyUp(event) {
-  if (event.key === "Shift" && isShiftBypassed) {
-    isShiftBypassed = false
-    updateSnapAtPointer({ bypass: false })
-  }
+  if (event.key === "Shift") setShiftHeld(false)
 }
 
 document.addEventListener("keydown", onDocumentKeyDown)
 document.addEventListener("keyup", onDocumentKeyUp)
+window.addEventListener("blur", () => setShiftHeld(false))
+document.addEventListener("visibilitychange", () => { if (document.hidden) setShiftHeld(false) })
 
 function bindCanvas(nextCanvas) {
   navigation?.dispose()

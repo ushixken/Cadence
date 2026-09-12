@@ -50,6 +50,8 @@
     <script src="./src/js/editor/EllipseDraftSession.js" defer></script>
     <script src="./src/js/editor/PolygonDraftSession.js" defer></script>
     <script src="./src/js/editor/PointInput.js" defer></script>
+    <script src="./src/js/editor/OrthoConstraint.js" defer></script>
+    <script src="./src/js/editor/PolarConstraint.js" defer></script>
     <script src="./src/js/editor/SnapResolver.js" defer></script>
     <script src="./src/js/editor/SelectionManager.js" defer></script>
     <script src="./src/js/editor/SelectionBox.js" defer></script>
@@ -493,7 +495,8 @@
             >
               Grid Snap
             </button>
-            <button class="footer-tool" type="button">Ortho</button>
+            <button id="ortho-toggle" class="footer-tool" type="button" aria-pressed="false">Ortho</button>
+            <button id="polar-toggle" class="footer-tool" type="button" aria-pressed="false">Polar</button>
             <button class="footer-tool" type="button">Track</button>
             <button class="footer-tool" type="button">Planar</button>
             <button class="footer-tool" type="button">Gumball</button>

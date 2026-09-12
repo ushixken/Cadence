@@ -137,7 +137,7 @@ test('crowded near ties are selected from one nearest-distance window without co
   assert.deepEqual(reverse,forward);
 });
 
-test('real pointer path bypasses and immediately reacquires every supported snap kind with Shift',async()=>{
+test('real pointer path acquires every supported snap kind',async()=>{
   const b=await browser();
   b.emit(b.gridSnapButton,'click');
   b.run('recordGateway.createAll([recordGateway.createLine({x:20,y:20},{x:40,y:20})])');
@@ -149,8 +149,6 @@ test('real pointer path bypasses and immediately reacquires every supported snap
     {screen:[435,265],kind:'draft-point'},
   ]){
     b.point(...target.screen,'pointermove');assert.equal(b.read('activeSnapResult.kind'),target.kind);
-    b.key('Shift',b.document,{code:'ShiftLeft'});assert.equal(b.read('activeSnapResult.snapped'),false);
-    b.emit(b.document,'keyup',{key:'Shift',code:'ShiftLeft'});assert.equal(b.read('activeSnapResult.kind'),target.kind);
   }
 });
 

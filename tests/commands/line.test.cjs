@@ -106,7 +106,7 @@ test('clicking the hover-snapped starting draft point closes and completes Line'
   assert.equal(b.read('documentController.historyInfo.entryCount'), historyBefore + 1);
 });
 
-test('Line closes from any resolved accepted point equal to P1, while hover and Shift bypass do not close', async () => {
+test('Line closes from any resolved accepted point equal to P1, while hover does not close', async () => {
   const b = await browser();
   // Endpoint priority beats the draft point at P1; equality of the resolved
   // accepted coordinate, not snap kind, must still trigger closure.
@@ -115,10 +115,6 @@ test('Line closes from any resolved accepted point equal to P1, while hover and 
   b.point(402, 301, 'pointermove');
   assert.equal(b.read('activeSnapResult.kind'), 'endpoint');
   assert.equal(b.read('window.caderactCommandRouter.activeCommand'), 'Line'); // hover only
-  b.point(402, 301, 'pointerdown', { shiftKey: true });
-  assert.equal(b.read('window.caderactCommandRouter.activeCommand'), 'Line');
-  assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.segmentCount'), 3);
-  b.window.caderactViewport.stepUndoActiveCommand(); // remove the Shift-bypassed raw segment
   b.point(402, 301);
   assert.equal(b.read('window.caderactCommandRouter.activeCommand'), null);
   assert.equal(b.read('modelReader.lines().length'), 4); // existing line + closed chain
@@ -563,7 +559,7 @@ test('rubber-band snaps to accepted draft points, including preview origin, and 
   assert.equal(b.read('window.caderactCommandRouter.activeCommand'), null);
 });
 
-test('Shift temporarily disables all snapping (endpoint, draft-point, midpoint, grid) without altering Grid toggle', async () => {
+test('Shift preserves snapping while Ortho is off and does not alter Grid toggle', async () => {
   const b = await browser();
   // Create committed line for endpoint/midpoint snap
   b.run('recordGateway.createAll([recordGateway.createLine({ x: 100, y: 100 }, { x: 200, y: 100 })])');
@@ -576,11 +572,10 @@ test('Shift temporarily disables all snapping (endpoint, draft-point, midpoint, 
   b.flush();
   assert.equal(b.read('activeSnapResult?.kind'), 'draft-point');
 
-  // 2. With shift near P1 -> snap bypassed
+  // 2. With shift near P1 -> snap remains active; Shift is reserved for Ortho inversion.
   b.point(403, 302, 'pointermove', { shiftKey: true });
   b.flush();
-  assert.equal(b.read('activeSnapResult?.snapped'), false);
-  assert.equal(b.renders.at(-1).snapOverlay, null);
+  assert.equal(b.read('activeSnapResult?.kind'), 'draft-point');
   // Grid snap button and persistent state unchanged
   assert.equal(b.gridSnapButton.getAttribute('aria-pressed'), 'false');
 
@@ -589,15 +584,10 @@ test('Shift temporarily disables all snapping (endpoint, draft-point, midpoint, 
   b.flush();
   assert.equal(b.read('activeSnapResult?.kind'), 'draft-point');
 
-  // 4. Test Shift bypass over committed endpoint
+  // 4. Shift also preserves endpoint snap.
   b.point(403, 302, 'pointermove', { shiftKey: true });
-  assert.equal(b.read('activeSnapResult?.snapped'), false);
+  assert.equal(b.read('activeSnapResult?.kind'), 'draft-point');
 
-  // Click with shift accepts exact raw world coordinate
-  b.point(403, 302, 'pointerdown', { shiftKey: true });
-  b.flush();
-  const lastSegment = b.read('window.caderactCommandRouter.activeSession.draft.draftSegments().at(-1)');
-  assert.deepEqual({ x: lastSegment.end.x, y: lastSegment.end.y }, { x: 0.6, y: -0.4 });
   assert.equal(b.gridSnapButton.getAttribute('aria-pressed'), 'false');
 });
 
@@ -616,8 +606,8 @@ test('Stationary Shift keydown and keyup triggers dynamic snap re-evaluation and
   // Press Shift while pointer is stationary
   b.key('Shift', b.document, { code: 'ShiftLeft' });
   b.flush();
-  assert.equal(b.read('activeSnapResult?.snapped'), false);
-  assert.equal(b.renders.at(-1).snapOverlay, null);
+  assert.equal(b.read('activeSnapResult?.kind'), 'draft-point');
+  assert.notEqual(b.renders.at(-1).snapOverlay, null);
 
   // Release Shift while pointer is stationary
   b.emit(b.document, 'keyup', { key: 'Shift', code: 'ShiftLeft' });

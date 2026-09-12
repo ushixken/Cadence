@@ -48,7 +48,7 @@ test('pointer, relative typed, and mixed input share the same Polyline draft',as
   assert.deepEqual(points(mixed),[{x:0,y:0},{x:7,y:8},{x:12,y:10}]);
 });
 
-test('Polyline reuses Endpoint, Midpoint, Grid toggle, and Shift bypass',async()=>{
+test('Polyline reuses Endpoint, Midpoint, Grid toggle, and applies Shift Ortho before snapping',async()=>{
   const endpoint=await browser();endpoint.run('recordGateway.createAll([recordGateway.createLine({x:20,y:20},{x:40,y:20})])');
   endpoint.launch('Polyline');typed(endpoint,'1,1');endpoint.point(502,201,'pointermove');assert.equal(endpoint.read('activeSnapResult.kind'),'endpoint');endpoint.point(502,201);
   assert.deepEqual(points(endpoint).at(-1),{x:20,y:20});
@@ -170,8 +170,8 @@ test('PersistentClose rebuilds both live edges after acceptance and Step Undo wi
   const b=await browser();b.launch('Polyline');b.run('window.caderactViewport.setGridSnapEnabled(false)');for(const p of ['0,0','10,0','10,10'])typed(b,p);b.point(475,250,'pointermove');b.emit(b.commandPrompt.children[1],'click');b.point(475,250);b.point(500,225,'pointermove');b.flush();assert.deepEqual(Array.from(b.renders.at(-1).nextSegmentPreviewOverlay.segments),[475,250,500,225,500,225,400,300]);b.key('z',b.canvas,{ctrlKey:true});b.point(500,225,'pointermove');b.flush();assert.deepEqual(Array.from(b.renders.at(-1).nextSegmentPreviewOverlay.segments),[450,250,500,225,500,225,400,300]);b.emit(b.canvas,'pointerleave');b.flush();assert.equal(b.renders.at(-1).nextSegmentPreviewOverlay.segments.length,4);b.key('Escape');b.flush();assert.equal(b.renders.at(-1).nextSegmentPreviewOverlay.segments.length,0)
 });
 
-test('PersistentClose shares one snapped candidate across both edges and Shift bypasses both',async()=>{
-  const b=await browser();b.launch('Line');typed(b,'20,20');typed(b,'30,20');b.key('Enter');b.launch('Polyline');for(const p of ['0,0','10,0','10,10'])typed(b,p);b.emit(b.commandPrompt.children[1],'click');b.point(499,201,'pointermove');b.flush();assert.equal(b.read('activeSnapResult.kind'),'endpoint');assert.deepEqual(Array.from(b.renders.at(-1).nextSegmentPreviewOverlay.segments),[450,250,500,200,500,200,400,300]);b.point(499,201,'pointermove',{shiftKey:true});b.flush();assert.equal(b.read('activeSnapResult.snapped'),false);assert.deepEqual(Array.from(b.renders.at(-1).nextSegmentPreviewOverlay.segments),[450,250,499,201,499,201,400,300]);assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.acceptedPoints().length'),3);b.point(499,201,'pointercancel');b.flush();assert.equal(b.renders.at(-1).nextSegmentPreviewOverlay.segments.length,4)
+test('PersistentClose applies Shift Ortho to its shared candidate before snapping',async()=>{
+  const b=await browser();b.launch('Line');typed(b,'20,20');typed(b,'30,20');b.key('Enter');b.launch('Polyline');for(const p of ['0,0','10,0','10,10'])typed(b,p);b.emit(b.commandPrompt.children[1],'click');b.point(499,201,'pointermove');b.flush();assert.equal(b.read('activeSnapResult.kind'),'endpoint');assert.deepEqual(Array.from(b.renders.at(-1).nextSegmentPreviewOverlay.segments),[450,250,500,200,500,200,400,300]);b.point(499,201,'pointermove',{shiftKey:true});b.flush();assert.equal(b.read('activeSnapResult.snapped'),false);assert.deepEqual(Array.from(b.renders.at(-1).nextSegmentPreviewOverlay.segments),[450,250,499,250,499,250,400,300]);assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.acceptedPoints().length'),3);b.point(499,201,'pointercancel');b.flush();assert.equal(b.renders.at(-1).nextSegmentPreviewOverlay.segments.length,4)
 });
 
 test('clickable Close appears only with three usable vertices and commits one closed native record',async()=>{

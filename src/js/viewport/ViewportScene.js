@@ -21,6 +21,7 @@
     getGrips = () => [],
     getGripPreview = () => null,
     getSelectionBox = () => null,
+    getPolarGuide = () => null,
   }) {
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
@@ -110,7 +111,7 @@
         geometry = [],
         acceptedDraft = [],
         nextPreview = [],
-        snapMarker = [],
+        snapMarker = [], polarGuideSegments = [],
         selection = []
       const selectionWindow = [],
         selectionCrossing = []
@@ -1042,6 +1043,16 @@
 
       // The ordered groups are a renderer input, never authoritative geometry.
       const combinedMajorGrid = majorGrid.concat(boundary)
+      const polarGuide = getPolarGuide()
+      if (polarGuide) {
+        const origin = camera.worldToScreen(polarGuide.reference.x, polarGuide.reference.y)
+        const directionPoint = camera.worldToScreen(polarGuide.reference.x + Math.cos(polarGuide.angle), polarGuide.reference.y + Math.sin(polarGuide.angle))
+        const length = Math.hypot(directionPoint.x - origin.x, directionPoint.y - origin.y) || 1
+        const span = Math.hypot(viewportWidth, viewportHeight)
+        const dx = (directionPoint.x - origin.x) / length * span, dy = (directionPoint.y - origin.y) / length * span
+        addSegment(polarGuideSegments, origin.x - dx, origin.y - dy, origin.x + dx, origin.y + dy)
+        addSegment(nextPreview, origin.x - dx, origin.y - dy, origin.x + dx, origin.y + dy)
+      }
       const lineGroups = [
         lineGroup(viewportSettings.gridColor, minorGrid),
         lineGroup(
@@ -1202,6 +1213,7 @@
         nextSegmentPreviewOverlay: Object.freeze({
           segments: new Float32Array(nextPreview),
         }),
+        polarTrackingOverlay: Object.freeze({ segments: new Float32Array(polarGuideSegments) }),
         selectionOverlay: Object.freeze({
           recordIds: Object.freeze(Array.from(selectedIds).sort()),
           segments: new Float32Array(selection),

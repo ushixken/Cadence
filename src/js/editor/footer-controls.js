@@ -5,6 +5,8 @@ const snapDependentOptions = document.querySelectorAll(".snap-dependent input")
 const snapDependentSection = document.querySelector(".snap-dependent")
 const footerTools = document.querySelectorAll(".footer-tool")
 const gridSnapToggle = document.querySelector("#grid-snap-toggle")
+const orthoToggle = document.querySelector("#ortho-toggle")
+const polarToggle = document.querySelector("#polar-toggle")
 const unitsTrigger = document.querySelector(".units-control")
 const unitsMenu = document.querySelector(".units-menu")
 const unitValue = document.querySelector("[data-unit-value]")
@@ -84,9 +86,15 @@ function refreshGridSnapButton(modes) {
 gridSnapToggle.addEventListener("mousedown", event => event.preventDefault())
 gridSnapToggle.addEventListener("click", () => window.caderactViewport.setGridSnapEnabled(!window.caderactViewport.snapModes.grid))
 window.caderactViewport.subscribeSnapModes(refreshGridSnapButton)
+orthoToggle?.addEventListener("mousedown", event => event.preventDefault())
+orthoToggle?.addEventListener("click", () => window.caderactViewport.setOrthoEnabled(!window.caderactViewport.orthoEnabled))
+if (orthoToggle) window.caderactViewport.subscribeEffectiveOrtho?.(enabled => { orthoToggle.classList.toggle("is-active", enabled); orthoToggle.setAttribute("aria-pressed", String(enabled)) })
+polarToggle?.addEventListener("mousedown", event => event.preventDefault())
+polarToggle?.addEventListener("click", () => window.caderactViewport.setPolarEnabled(!window.caderactViewport.polarEnabled))
+if (polarToggle) window.caderactViewport.subscribeEffectivePolar?.(enabled => { polarToggle.classList.toggle("is-active", enabled); polarToggle.setAttribute("aria-pressed", String(enabled)) })
 
 footerTools.forEach(function (button) {
-  if (button === gridSnapToggle) return
+  if (button === gridSnapToggle || button === orthoToggle || button === polarToggle) return
   button.addEventListener("click", function () {
     button.classList.toggle("is-active")
   })
