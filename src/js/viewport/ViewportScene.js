@@ -12,6 +12,7 @@
     getArcPreview = () => null,
     getEllipsePreview = () => null,
     getMovePreview = () => null,
+    getOffsetPreview = () => null,
     getTrimPreview = () => null,
     getExtendPreview = () => null,
     getDraftPoints = () => [],
@@ -271,7 +272,7 @@
       const records = getRecords(),
         selectedIds = new Set(getSelectedIds()),
         gripPreview = getGripPreview(),
-        movePreview = getMovePreview()
+        movePreview = getMovePreview() || getOffsetPreview()
       const movingIds = new Set(
         movePreview?.mode !== "copy" && !movePreview?.preserveSourceVisible
           ? movePreview?.records?.map((record) => record.id) || []

@@ -80,6 +80,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getArcPreview: () => getActiveCommandSession()?.getArcPreview?.() || null,
   getEllipsePreview: () => getActiveCommandSession()?.getEllipsePreview?.() || null,
   getMovePreview: () => getActiveCommandSession()?.getMovePreview?.() || null,
+  getOffsetPreview: () => getActiveCommandSession()?.getOffsetPreview?.() || null,
   getTrimPreview: () => getActiveCommandSession()?.getTrimPreview?.() || null,
   getExtendPreview: () => getActiveCommandSession()?.getExtendPreview?.() || null,
   getDraftPoints: () => getActiveCommandSession()?.getDraftPoints?.() || [],
@@ -661,6 +662,72 @@ function createExtendCommandSession({ setPrompt = () => {} } = {}) {
   })
 }
 
+function createOffsetCommandSession({ setPrompt = () => {} } = {}) {
+  let distance = 10, phase = "distance", source = null, preview = null
+  let promptPresentation = createCommandPrompt("Offset", "Enter offset distance <10>")
+  function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Offset", instruction); setPrompt(promptPresentation.text, promptPresentation) }
+  function makeRecord(geometry, layerId) {
+    let record
+    if (geometry.type === "line") record = recordGateway.createLine(geometry.start, geometry.end)
+    else if (geometry.type === "circle") record = recordGateway.createCircle(geometry.center, geometry.radius)
+    else if (geometry.type === "arc") record = recordGateway.createArc(geometry)
+    else if (geometry.type === "polyline") record = recordGateway.createPolyline(geometry.vertices, geometry.closed)
+    else return null
+    return Object.freeze({ ...record, layerId })
+  }
+  function hitAt(point) {
+    const screenPoint = lastKnownPointerScreen || worldToScreen(point.x, point.y)
+    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records: modelReader.records(), worldToScreen })
+    return hit.hit ? modelReader.records().find(record => record.id === hit.recordId) || null : null
+  }
+  function updatePreview(point) {
+    if (phase !== "side" || !source) return null
+    const plan = window.CaderactOffsetGeometry.offset(source, distance, point)
+    preview = plan.status === "planned" ? plan.geometry : null
+    requestRender()
+    return plan
+  }
+  function handleInput(input) {
+    if (phase !== "distance") return Object.freeze({ status: "invalid-input", reason: "distance-already-set", command: "Offset", message: "Select an object" })
+    const text = String(input ?? "").trim()
+    const value = text === "" ? distance : Number(text)
+    if (!(Number.isFinite(value) && value > 0)) return Object.freeze({ status: "invalid-input", reason: "invalid-distance", command: "Offset", message: "Offset distance must be a positive finite number" })
+    distance = value; phase = "select"; updatePrompt("Select object to offset"); requestRender()
+    return Object.freeze({ status: "input-accepted", command: "Offset", kind: "distance", distance })
+  }
+  function handlePointerDown(point, context = {}) {
+    const rawPoint = context.rawPoint || point
+    if (phase === "distance") return Object.freeze({ status: "invalid-input", reason: "distance-required", command: "Offset", message: "Enter a positive offset distance" })
+    if (phase === "select") {
+      const target = hitAt(rawPoint)
+      if (!target) return Object.freeze({ status: "input-accepted", command: "Offset", kind: "target-miss" })
+      if (target.type === "ellipse") return Object.freeze({ status: "invalid-input", reason: "unsupported-ellipse", command: "Offset", message: "Ellipse offset is not supported" })
+      if (!["line", "circle", "arc", "polyline"].includes(target.type)) return Object.freeze({ status: "invalid-input", reason: "unsupported-curve", command: "Offset", message: "Select a supported curve" })
+      source = target; phase = "side"; updatePrompt("Move pointer to choose offset side"); updatePreview(rawPoint)
+      return Object.freeze({ status: "input-accepted", command: "Offset", kind: "source", recordId: target.id })
+    }
+    const plan = window.CaderactOffsetGeometry.offset(source, distance, rawPoint)
+    if (plan.status !== "planned") { preview = null; updatePrompt("Offset cannot be created here; choose another side"); requestRender(); return Object.freeze({ status: "invalid-input", reason: plan.reason, command: "Offset", message: "Offset result is invalid" }) }
+    const record = makeRecord(plan.geometry, source.layerId)
+    const outcome = record ? recordGateway.createAll([record]) : Object.freeze({ status: "commit-failed" })
+    if (outcome.status !== "committed") { updatePrompt("Unable to create offset; choose another side"); requestRender(); return Object.freeze({ status: "invalid-input", reason: "commit-failed", command: "Offset", outcome }) }
+    source = null; preview = null; phase = "select"; clearSnap(); updatePrompt("Select object to offset"); requestRender()
+    return Object.freeze({ status: "input-accepted", command: "Offset", kind: "offset-created", outcome, recordId: record.id })
+  }
+  function handlePointerMove(point, context = {}) { if (phase === "side") updatePreview(context.rawPoint || point) }
+  function handlePointerLeave() { preview = null; clearSnap(); requestRender() }
+  function finish() {
+    if (phase === "distance") return handleInput("")
+    clearSnap(); preview = null; source = null; requestRender()
+    return Object.freeze({ status: "command-completed", command: "Offset" })
+  }
+  function cancel() { clearSnap(); preview = null; source = null; requestRender(); return Object.freeze({ status: "command-cancelled", command: "Offset" }) }
+  function getOffsetPreview() { return preview && source ? Object.freeze({ mode: "offset", preserveSourceVisible: true, records: Object.freeze([Object.freeze({ id: null, ...preview })]), sourceRecords: Object.freeze([]), recordIds: Object.freeze([]) }) : null }
+  requestRender()
+  return Object.freeze({ name: "Offset", finish, cancel, handleInput, handlePointerDown, handlePointerMove, handlePointerLeave,
+    hasPointerPreview: () => phase === "side", getOffsetPreview, get phase() { return phase }, get distance() { return distance }, get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation } })
+}
+
 function createCircleCommandSession({ setPrompt = () => {} } = {}) {
   const draft = window.CaderactCircleDraftSession.createSession({
     createCircle: recordGateway.createCircle,
@@ -1127,7 +1194,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()
@@ -1189,7 +1256,7 @@ function onViewportPointerDown(event) {
       excludedRecordIds: session.getExcludedSnapRecordIds?.() || [],
       bypass,
     })
-    window.caderactCommandRouter.submitActivePointer(snap.point, { snap })
+    window.caderactCommandRouter.submitActivePointer(snap.point, { snap, rawPoint: screenToWorld(point.x, point.y) })
     return
   }
   if (!session) {
@@ -1235,7 +1302,7 @@ function onCommandPointerMove(event) {
     bypass,
   })
   interactionVisuals.setSnapAcquired(snap.snapped)
-  session.handlePointerMove(snap.point)
+  session.handlePointerMove(snap.point, { rawPoint: screenToWorld(point.x, point.y) })
 }
 
 function onViewportPointerEnter(event) {

@@ -14,7 +14,7 @@ test('Production entrypoint index.html loads all M6/M7 geometry modules in corre
   const scriptSources = [];
   let match;
   while ((match = scriptRegex.exec(html)) !== null) {
-    scriptSources.push(match[1].replace(/^\//, ''));
+    scriptSources.push(match[1].replace(/^\.?\//, ''));
   }
 
   const requiredModules = [
@@ -25,6 +25,7 @@ test('Production entrypoint index.html loads all M6/M7 geometry modules in corre
     'src/js/geometry/TrimIntervals.js',
     'src/js/geometry/TrimPlanner.js',
     'src/js/geometry/ExtendPlanner.js',
+    'src/js/geometry/OffsetGeometry.js',
   ];
 
   // 1. Assert all 6 modules are present in index.html
