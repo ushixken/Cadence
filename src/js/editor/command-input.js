@@ -249,6 +249,13 @@ commandSuggestions.addEventListener("click", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.caderactSelectionBoxHandled) return
+  const primaryModifier = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey)
+  const editableTarget = event.target instanceof HTMLElement && (event.target.matches("input, textarea, select") || event.target.isContentEditable)
+  if (primaryModifier && event.key.toLowerCase() === "a" && !editableTarget && !commandRouter.isActive && !window.caderactGrips?.isActive) {
+    const outcome = window.caderactViewport.selectAllCommittedGeometry()
+    if (outcome.status !== "selection-busy") event.preventDefault()
+    return
+  }
   if (event.key === "Escape" && window.caderactGrips?.isActive) {
     window.caderactViewport.cancelGripEdit(); event.preventDefault(); return
   }

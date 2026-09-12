@@ -11,6 +11,16 @@ function hit(b,record,point,{zoom=1,panX=0,panY=0,tolerance=8}={}){
 }
 const make=(id,start,end)=>({id,type:'line',start:{...start,featureId:`${id}a`},end:{...end,featureId:`${id}b`}});
 
+function seedSelectableGeometry(b){return b.read(`(()=>{const records=[recordGateway.createLine({x:0,y:0},{x:10,y:0}),recordGateway.createCircle({x:20,y:5},4),recordGateway.createArc({center:{x:30,y:0},start:{x:34,y:0},end:{x:30,y:4},radius:4,sweep:Math.PI/2}),recordGateway.createEllipse({center:{x:40,y:0},majorAxis:{x:6,y:2},minorRadius:3}),recordGateway.createPolyline([{x:50,y:0},{x:55,y:5},{x:60,y:0}],true)];recordGateway.createAll(records);return records.map(record=>record.id).sort()})()`)}
+
+test('Ctrl/Cmd+A replaces selection with every authoritative committed drawable',async()=>{
+  for(const modifier of [{ctrlKey:true},{metaKey:true}]){const b=await browser(),ids=seedSelectableGeometry(b);b.run(`window.caderactSelection.selectOnly(${JSON.stringify(ids[0])})`);const before=b.read('({revision:documentController.currentRevision,history:documentController.historyInfo,dirty:documentController.isDirty})');const event=b.key('a',b.canvas,{code:'KeyA',...modifier});assert.equal(event.defaultPrevented,true);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),ids);assert.deepEqual(b.read('({revision:documentController.currentRevision,history:documentController.historyInfo,dirty:documentController.isDirty})'),before);b.flush();assert.deepEqual(JSON.parse(JSON.stringify(b.renders.at(-1).selectionOverlay.recordIds)),ids)}
+});
+
+test('Select All is a no-op when already complete or empty and preserves editable input behavior',async()=>{
+  const b=await browser(),ids=seedSelectableGeometry(b);b.key('a',b.canvas,{code:'KeyA',ctrlKey:true});const unchanged=b.run('window.caderactViewport.selectAllCommittedGeometry()');assert.equal(unchanged.status,'selection-unchanged');assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),ids);const textEvent=b.key('a',b.input,{code:'KeyA',ctrlKey:true});assert.equal(textEvent.defaultPrevented,false);assert.deepEqual(b.read('window.caderactSelection.selectedIds()'),ids);const empty=await browser(),emptyEvent=empty.key('a',empty.canvas,{code:'KeyA',ctrlKey:true});assert.equal(emptyEvent.defaultPrevented,true);assert.deepEqual(empty.read('window.caderactSelection.selectedIds()'),[])
+});
+
 test('pure projected Line hit testing handles orientations, short/zero Lines, and tolerance',async()=>{
   const b=await browser();
   for(const [record,point] of [[make('h',{x:-10,y:0},{x:10,y:0}),{x:0,y:7}],
