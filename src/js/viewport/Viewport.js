@@ -46,6 +46,18 @@ let polarGuide = null
 const viewportHost = canvas.parentElement || canvas.parent
 const interactionVisuals = window.CaderactInteractionVisuals.createController({ host: viewportHost })
 const snapResolver = window.CaderactSnapResolver.createResolver()
+const objectSnapTracking = window.CaderactObjectSnapTracking.create({ onChange: requestRender })
+let objectSnapTrackingEnabled = userPreferences.value.objectSnapTrackingEnabled
+const objectSnapTrackingListeners = new Set()
+function applyObjectSnapTrackingPreference(preferences) {
+  const next = preferences.objectSnapTrackingEnabled
+  if (objectSnapTrackingEnabled === next) return
+  objectSnapTrackingEnabled = next
+  if (!next) objectSnapTracking.clear()
+  for (const listener of objectSnapTrackingListeners) listener(next)
+  requestRender()
+}
+userPreferences.subscribe(applyObjectSnapTrackingPreference)
 const selection = window.CaderactSelection.createSelection()
 const selectionBox = window.CaderactSelectionBox.createInteraction()
 const grips = window.CaderactGrips.createManager({
@@ -104,6 +116,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getGripPreview: grips.previewRecord,
   getSelectionBox: () => selectionBox.snapshot(),
   getPolarGuide: () => polarGuide,
+  getObjectTrackingState: () => objectSnapTracking.getState(),
 })
 
 function createScene() {
@@ -1164,6 +1177,17 @@ function subscribeSnapModes(listener) {
   listener(snapModes)
   return () => snapModeListeners.delete(listener)
 }
+function setObjectSnapTrackingEnabled(enabled) {
+  const next = Boolean(enabled)
+  if (objectSnapTrackingEnabled === next) return next
+  objectSnapTrackingEnabled = next
+  if (!next) objectSnapTracking.clear()
+  userPreferences.set({ objectSnapTrackingEnabled: next })
+  for (const listener of objectSnapTrackingListeners) listener(next)
+  requestRender()
+  return next
+}
+function subscribeObjectSnapTracking(listener) { objectSnapTrackingListeners.add(listener); listener(objectSnapTrackingEnabled); return () => objectSnapTrackingListeners.delete(listener) }
 function setObjectSnapMode(mode, enabled) {
   if (!(mode in snapModes) || mode === "grid") throw new Error("Unknown object snap mode")
   const next = Boolean(enabled)
@@ -1244,10 +1268,19 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds 
     excludedFeatureIds,
     excludedRecordIds,
   })
+  const direct = activeSnapResult.objectSnap
+  if (objectSnapTrackingEnabled) objectSnapTracking.observeSnap(direct ? { snapped:true, ...direct } : activeSnapResult)
+  else objectSnapTracking.clear()
+  if (direct) activeSnapResult = Object.freeze({ ...activeSnapResult, kind:direct.kind, point:direct.point, distancePx:direct.distancePx, reference:direct.reference, tracking:false })
+  else {
+    const tracked = objectSnapTrackingEnabled ? objectSnapTracking.project(point, worldToScreen).candidate : null
+    if (tracked) activeSnapResult = Object.freeze({ ...activeSnapResult, snapped:true, kind:"tracking", point:tracked, distancePx:0, reference:null, tracking:true })
+  }
   return activeSnapResult
 }
 
 function resetForDocumentReplacement() {
+  objectSnapTracking.clear()
   selectionBox.clear()
   cancelGripEdit()
   interactionVisuals.leave()
@@ -1282,6 +1315,7 @@ selection.subscribe(requestRender)
 bindSelectionDocument()
 
 function setCommandActive(active) {
+  if (!active) objectSnapTracking.clear()
   if (active) cancelGripEdit()
   interactionVisuals.setMode(active && !getActiveCommandSession()?.isSelectionPhase ? "point" : "select")
 }
@@ -1304,7 +1338,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()
@@ -1427,6 +1461,7 @@ function onViewportPointerEnter(event) {
 }
 
 function onCommandPointerLeave() {
+  objectSnapTracking.clearHover()
   interactionVisuals.leave()
   clearSnap()
   lastKnownPointerScreen = null
@@ -1473,8 +1508,8 @@ function onDocumentKeyUp(event) {
 
 document.addEventListener("keydown", onDocumentKeyDown)
 document.addEventListener("keyup", onDocumentKeyUp)
-window.addEventListener("blur", () => setShiftHeld(false))
-document.addEventListener("visibilitychange", () => { if (document.hidden) setShiftHeld(false) })
+window.addEventListener("blur", () => { setShiftHeld(false); objectSnapTracking.clearHover() })
+document.addEventListener("visibilitychange", () => { if (document.hidden) { setShiftHeld(false); objectSnapTracking.clearHover() } })
 
 function bindCanvas(nextCanvas) {
   navigation?.dispose()

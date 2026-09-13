@@ -104,8 +104,10 @@
         || a.stableKey.localeCompare(b.stableKey))
       const winner = nearTieCandidates[0]
       if (!winner) return Object.freeze({ snapped: false, point: rawPoint })
+      const objectSnap = candidates.filter(candidate => candidate.kind !== "grid" && candidate.kind !== "draft-point").sort((a,b)=>a.distancePx-b.distancePx||priorities[a.kind]-priorities[b.kind]||a.stableKey.localeCompare(b.stableKey))[0] || null
       return Object.freeze({ snapped: true, kind: winner.kind, point: winner.point,
-        distancePx: winner.distancePx, reference: winner.reference })
+        distancePx: winner.distancePx, reference: winner.reference,
+        objectSnap: objectSnap && Object.freeze({ kind:objectSnap.kind, point:objectSnap.point, distancePx:objectSnap.distancePx, reference:objectSnap.reference }) })
     }
     return Object.freeze({ resolve, tolerancePx, priorityWindowPx })
   }

@@ -54,6 +54,7 @@
     <script src="./src/js/editor/OrthoConstraint.js" defer></script>
     <script src="./src/js/editor/PolarConstraint.js" defer></script>
     <script src="./src/js/editor/SnapResolver.js" defer></script>
+    <script src="./src/js/editor/ObjectSnapTracking.js" defer></script>
     <script src="./src/js/editor/SelectionManager.js" defer></script>
     <script src="./src/js/editor/SelectionBox.js" defer></script>
     <script src="./src/js/editor/GripManager.js" defer></script>
@@ -519,7 +520,7 @@
             </button>
             <button id="ortho-toggle" class="footer-tool" type="button" aria-pressed="false">Ortho</button>
             <button id="polar-toggle" class="footer-tool" type="button" aria-pressed="false">Polar</button>
-            <button class="footer-tool" type="button">Track</button>
+            <button id="track-toggle" class="footer-tool" type="button" aria-pressed="false">Track</button>
             <button class="footer-tool" type="button">Planar</button>
             <button class="footer-tool" type="button">Gumball</button>
           </div>

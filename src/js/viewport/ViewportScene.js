@@ -22,6 +22,7 @@
     getGripPreview = () => null,
     getSelectionBox = () => null,
     getPolarGuide = () => null,
+    getObjectTrackingState = () => null,
   }) {
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
@@ -111,7 +112,7 @@
         geometry = [],
         acceptedDraft = [],
         nextPreview = [],
-        snapMarker = [], polarGuideSegments = [],
+        snapMarker = [], polarGuideSegments = [], objectTrackingGuide = [], objectTrackingMarkers = [],
         selection = []
       const selectionWindow = [],
         selectionCrossing = []
@@ -1085,6 +1086,21 @@
         addSegment(polarGuideSegments, origin.x - dx, origin.y - dy, origin.x + dx, origin.y + dy)
         addSegment(nextPreview, origin.x - dx, origin.y - dy, origin.x + dx, origin.y + dy)
       }
+      const tracking = getObjectTrackingState()
+      let objectTrackingOverlay = null
+      if (tracking?.acquired?.point) {
+        const acquired = camera.worldToScreen(tracking.acquired.point.x, tracking.acquired.point.y), acquiredSize=4
+        addSegment(objectTrackingMarkers,acquired.x-acquiredSize,acquired.y,acquired.x,acquired.y-acquiredSize)
+        addSegment(objectTrackingMarkers,acquired.x,acquired.y-acquiredSize,acquired.x+acquiredSize,acquired.y)
+        addSegment(objectTrackingMarkers,acquired.x+acquiredSize,acquired.y,acquired.x,acquired.y+acquiredSize)
+        addSegment(objectTrackingMarkers,acquired.x,acquired.y+acquiredSize,acquired.x-acquiredSize,acquired.y)
+        if(tracking.guide==="horizontal")addSegment(objectTrackingGuide,0,acquired.y,viewportWidth,acquired.y)
+        else if(tracking.guide==="vertical")addSegment(objectTrackingGuide,acquired.x,0,acquired.x,viewportHeight)
+        const directSnap=snap?.snapped&&snap.kind!=="tracking"
+        const candidate=tracking.candidate&&!directSnap?camera.worldToScreen(tracking.candidate.x,tracking.candidate.y):null
+        if(candidate){const size=3;addSegment(objectTrackingMarkers,candidate.x-size,candidate.y,candidate.x+size,candidate.y);addSegment(objectTrackingMarkers,candidate.x,candidate.y-size,candidate.x,candidate.y+size)}
+        objectTrackingOverlay=Object.freeze({acquiredPoint:Object.freeze({x:acquired.x,y:acquired.y}),candidatePoint:candidate?Object.freeze({x:candidate.x,y:candidate.y}):null,guideKind:tracking.guide,guideSegments:new Float32Array(objectTrackingGuide),markerSegments:new Float32Array(objectTrackingMarkers)})
+      }
       const lineGroups = [
         lineGroup(viewportSettings.gridColor, viewportSettings.gridVisible === false ? [] : minorGrid),
         lineGroup(
@@ -1167,6 +1183,8 @@
             viewportSettings.selectionColor,
           rotateTargetMarker,
         ),
+        lineGroup("rgba(111, 190, 210, 0.48)", objectTrackingGuide),
+        lineGroup("rgba(111, 190, 210, 0.82)", objectTrackingMarkers),
       ]
       const circleGroups = lineGroups.map((group, index) =>
         Object.freeze({
@@ -1246,6 +1264,7 @@
           segments: new Float32Array(nextPreview),
         }),
         polarTrackingOverlay: Object.freeze({ segments: new Float32Array(polarGuideSegments) }),
+        objectTrackingOverlay,
         selectionOverlay: Object.freeze({
           recordIds: Object.freeze(Array.from(selectedIds).sort()),
           segments: new Float32Array(selection),

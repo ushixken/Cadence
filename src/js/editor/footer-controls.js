@@ -8,6 +8,7 @@ const footerTools = document.querySelectorAll(".footer-tool")
 const gridSnapToggle = document.querySelector("#grid-snap-toggle")
 const orthoToggle = document.querySelector("#ortho-toggle")
 const polarToggle = document.querySelector("#polar-toggle")
+const trackToggle = document.querySelector("#track-toggle")
 const unitsTrigger = document.querySelector(".units-control")
 const unitsMenu = document.querySelector(".units-menu")
 const unitValue = document.querySelector("[data-unit-value]")
@@ -95,9 +96,12 @@ if (orthoToggle) window.caderactViewport.subscribeEffectiveOrtho?.(enabled => { 
 polarToggle?.addEventListener("mousedown", event => event.preventDefault())
 polarToggle?.addEventListener("click", () => window.caderactViewport.setPolarEnabled(!window.caderactViewport.polarEnabled))
 if (polarToggle) window.caderactViewport.subscribeEffectivePolar?.(enabled => { polarToggle.classList.toggle("is-active", enabled); polarToggle.setAttribute("aria-pressed", String(enabled)) })
+trackToggle?.addEventListener("mousedown", event => event.preventDefault())
+trackToggle?.addEventListener("click", () => window.caderactViewport.setObjectSnapTrackingEnabled(!window.caderactViewport.objectSnapTrackingEnabled))
+if (trackToggle) window.caderactViewport.subscribeObjectSnapTracking?.(enabled => { trackToggle.classList.toggle("is-active", enabled); trackToggle.setAttribute("aria-pressed", String(enabled)) })
 
 footerTools.forEach(function (button) {
-  if (button === gridSnapToggle || button === orthoToggle || button === polarToggle) return
+  if (button === gridSnapToggle || button === orthoToggle || button === polarToggle || button === trackToggle) return
   button.addEventListener("click", function () {
     button.classList.toggle("is-active")
   })

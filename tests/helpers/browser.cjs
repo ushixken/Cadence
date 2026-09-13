@@ -67,6 +67,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const gridSnapButton = new Element('button'); gridSnapButton.classList.add('footer-tool'); gridSnapButton.setAttribute('aria-pressed', 'false');
   const orthoButton = new Element('button'); orthoButton.classList.add('footer-tool'); orthoButton.setAttribute('aria-pressed', 'false');
   const polarButton = new Element('button'); polarButton.classList.add('footer-tool'); polarButton.setAttribute('aria-pressed', 'false');
+  const trackButton = new Element('button'); trackButton.classList.add('footer-tool'); trackButton.setAttribute('aria-pressed', 'false');
   const commandArea = new Element(); const commandWrap = new Element();
   commandArea.classList.add('command-area'); commandWrap.classList.add('command-input-wrap');
   commandArea.parent=document; commandArea.owner=document; commandWrap.parent=commandArea; commandWrap.owner=document;
@@ -87,7 +88,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   for(const option of unitOptions) option.parent=unitsMenu;
   for(const el of [snapWrap,snapTrigger,snapMenu,snapEnabled,snapDependent,unitsWrap,unitsTrigger,unitsMenu,unitValue,...unitOptions]) { el.owner=document; if(!el.parent) el.parent=document; }
   snapEnabled.checked=true; unitValue.textContent='mm'; unitOptions[0].classList.add('is-selected');
-  for (const el of [layersList,layerCreateButton,gridSnapButton,orthoButton,polarButton]) { el.parent=document; el.owner=document; }
+  for (const el of [layersList,layerCreateButton,gridSnapButton,orthoButton,polarButton,trackButton]) { el.parent=document; el.owner=document; }
   let bounds = { left: 20, top: 40, width: 800, height: 600 };
   viewportHost.getBoundingClientRect = () => ({ left: 10, top: 30, width: bounds.width + 10, height: bounds.height + 10 });
   const drawCalls = [];
@@ -104,8 +105,8 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
     };
   }
   canvas._configure = configureCanvas; canvas._replace = replacement => { canvas = replacement; }; configureCanvas(canvas);
-  document.querySelector = selector => ({ canvas, '.viewport': viewportHost, '#grid-snap-toggle': gridSnapButton, '#ortho-toggle': orthoButton, '#polar-toggle': polarButton, '#command-input': input, '#command-suggestions': suggestions, '#command-history': commandHistory, '#command-prompt': commandPrompt, '#command-name': commandName, '#undo-button': undoButton, '#redo-button': redoButton, '#file-new': fileNewButton, '#file-open': fileOpenButton, '#file-save': fileSaveButton, '.file-menu': fileMenu, '.file-menu-trigger': fileMenuTrigger, '#file-menu-actions': fileMenuDropdown, '.snap-trigger': snapTrigger, '.snap-menu': snapMenu, '#snap-enabled': snapEnabled, '.snap-dependent': snapDependent, '.units-control': unitsTrigger, '.units-menu': unitsMenu, '[data-unit-value]': unitValue, '#layers-list': layersList, '#layer-create': layerCreateButton })[selector];
-  document.querySelectorAll = selector => ({ '.menu-items > li > button':[fileMenuTrigger,editMenuTrigger], '.snap-dependent input':[], '.footer-tool':[gridSnapButton,orthoButton,polarButton], '.unit-option':unitOptions })[selector] || [];
+  document.querySelector = selector => ({ canvas, '.viewport': viewportHost, '#grid-snap-toggle': gridSnapButton, '#ortho-toggle': orthoButton, '#polar-toggle': polarButton, '#track-toggle': trackButton, '#command-input': input, '#command-suggestions': suggestions, '#command-history': commandHistory, '#command-prompt': commandPrompt, '#command-name': commandName, '#undo-button': undoButton, '#redo-button': redoButton, '#file-new': fileNewButton, '#file-open': fileOpenButton, '#file-save': fileSaveButton, '.file-menu': fileMenu, '.file-menu-trigger': fileMenuTrigger, '#file-menu-actions': fileMenuDropdown, '.snap-trigger': snapTrigger, '.snap-menu': snapMenu, '#snap-enabled': snapEnabled, '.snap-dependent': snapDependent, '.units-control': unitsTrigger, '.units-menu': unitsMenu, '[data-unit-value]': unitValue, '#layers-list': layersList, '#layer-create': layerCreateButton })[selector];
+  document.querySelectorAll = selector => ({ '.menu-items > li > button':[fileMenuTrigger,editMenuTrigger], '.snap-dependent input':[], '.footer-tool':[gridSnapButton,orthoButton,polarButton,trackButton], '.unit-option':unitOptions })[selector] || [];
   document.createElement = tag => { const element = new Element(tag); element.owner = document; return element; };
   window.devicePixelRatio = 1;
   const frames = []; const renders = []; const sizes = [];
@@ -164,6 +165,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/UserPreferences.js');
   load('src/js/editor/PolarConstraint.js');
   load('src/js/editor/SnapResolver.js');
+  load('src/js/editor/ObjectSnapTracking.js');
   load('src/js/editor/SelectionManager.js');
   load('src/js/editor/SelectionBox.js');
   load('src/js/editor/GripManager.js');
@@ -182,7 +184,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
       defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...props };
     target.dispatchEvent(event); return event;
   };
-  return { window, document, viewportHost, gridSnapButton, orthoButton, polarButton, get canvas() { return canvas; }, input, suggestions, commandHistory, commandPrompt, undoButton, redoButton, fileNewButton, fileOpenButton, fileSaveButton, fileMenu, fileMenuTrigger, fileMenuDropdown, editMenuTrigger, unitsTrigger, unitsMenu, unitValue, unitOptions, layersList, layerCreateButton, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
+  return { window, document, viewportHost, gridSnapButton, orthoButton, polarButton, trackButton, get canvas() { return canvas; }, input, suggestions, commandHistory, commandPrompt, undoButton, redoButton, fileNewButton, fileOpenButton, fileSaveButton, fileMenu, fileMenuTrigger, fileMenuDropdown, editMenuTrigger, unitsTrigger, unitsMenu, unitValue, unitOptions, layersList, layerCreateButton, context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
     advance(milliseconds) { clock += milliseconds; let ran; do { ran = false; for (const [id,timer] of [...timers].sort((a,b)=>a[1].at-b[1].at)) if (timer.at <= clock) { timers.delete(id); timer.fn(); ran = true; } } while (ran); },
     flushOne() { const frame = frames.shift(); if (frame) frame(); return Boolean(frame); },
     flush() { while (frames.length) frames.shift()(); },
