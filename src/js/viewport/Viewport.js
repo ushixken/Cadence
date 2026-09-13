@@ -52,6 +52,10 @@ const effectivePolarListeners = new Set()
 let polarGuide = null
 const viewportHost = canvas.parentElement || canvas.parent
 const interactionVisuals = window.CaderactInteractionVisuals.createController({ host: viewportHost })
+const dynamicInputView = window.CaderactDynamicInput.createView({ host: viewportHost })
+const dynamicInput = window.CaderactDynamicInput.createController({ onChange: dynamicInputView.render })
+let dynamicInputEnabled = userPreferences.value.dynamicInputEnabled
+userPreferences.subscribe(value => { dynamicInputEnabled=Boolean(value.dynamicInputEnabled);if(!dynamicInputEnabled)dynamicInput.clear() })
 const snapResolver = window.CaderactSnapResolver.createResolver()
 const objectSnapTracking = window.CaderactObjectSnapTracking.create({ onChange: requestRender })
 let objectSnapTrackingEnabled = userPreferences.value.objectSnapTrackingEnabled
@@ -78,6 +82,22 @@ window.caderactGrips = grips
 function getActiveCommandSession() {
   return window.caderactCommandRouter?.activeSession || null
 }
+
+function dynamicReference(session) {
+  return session?.getOrthoReference?.() || session?.draft?.currentPoint || session?.draft?.center || session?.draft?.firstCorner || null
+}
+function refreshDynamicInput() {
+  const session=getActiveCommandSession(),candidate=activeSnapResult?.point
+  if(!dynamicInputEnabled||!session||session.isSelectionPhase||navigation?.isActive?.()||!lastKnownPointerScreen||!candidate){dynamicInput.clear();return}
+  const fields=[],format=window.CaderactDynamicInput.formatNumber,angleFormat=window.CaderactDynamicInput.formatAngle
+  const reference=dynamicReference(session)
+  if(session.name==="Scale"&&session.phase==="target"&&session.basePoint&&session.referencePoint){const baseLength=Math.hypot(session.referencePoint.x-session.basePoint.x,session.referencePoint.y-session.basePoint.y),targetLength=Math.hypot(candidate.x-session.basePoint.x,candidate.y-session.basePoint.y);if(baseLength>0)fields.push({id:"factor",kind:"scalar",label:"Factor",value:format(targetLength/baseLength),editable:false,active:false})}
+  else if(session.name==="Rotate"&&session.phase==="target"){const angle=session.getMovePreview?.()?.angle;if(Number.isFinite(angle))fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(angle*180/Math.PI),editable:false,active:false})}
+  else if(reference){const dx=candidate.x-reference.x,dy=candidate.y-reference.y;fields.push({id:session.name==="Circle"?"radius":"distance",kind:"distance",label:session.name==="Circle"?"Radius":"Distance",value:format(Math.hypot(dx,dy)),editable:false,active:false});if(session.name!=="Circle")fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(Math.atan2(dy,dx)*180/Math.PI),editable:false,active:false})}
+  else {fields.push({id:"x",kind:"coordinate",label:"X",value:format(candidate.x),editable:false,active:false},{id:"y",kind:"coordinate",label:"Y",value:format(candidate.y),editable:false,active:false})}
+  dynamicInput.update({screenPoint:lastKnownPointerScreen,viewport:{width:viewportWidth,height:viewportHeight},prompt:session.prompt,fields})
+}
+function setDynamicInputEnabled(enabled){dynamicInputEnabled=Boolean(enabled);userPreferences.set({dynamicInputEnabled});if(!dynamicInputEnabled)dynamicInput.clear();else refreshDynamicInput();return dynamicInputEnabled}
 
 function worldToScreen(x, y) {
   return viewportCamera.worldToScreen(x, y)
@@ -1274,6 +1294,7 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds 
 
 function resetForDocumentReplacement() {
   objectSnapTracking.clear()
+  dynamicInput.clear()
   selectionBox.clear()
   cancelGripEdit()
   interactionVisuals.leave()
@@ -1309,6 +1330,7 @@ bindSelectionDocument()
 
 function setCommandActive(active) {
   if (!active) objectSnapTracking.clear()
+  if (!active) dynamicInput.clear()
   if (active) cancelGripEdit()
   interactionVisuals.setMode(active && !getActiveCommandSession()?.isSelectionPhase ? "point" : "select")
 }
@@ -1331,7 +1353,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()
@@ -1348,6 +1370,7 @@ function resizeCanvas() {
   viewportWidth = width
   viewportHeight = height
   renderer?.resize(width, height, window.devicePixelRatio || 1)
+  refreshDynamicInput()
   requestRender()
 }
 
@@ -1387,6 +1410,7 @@ function updateSnapAtPointer() {
     const snap = resolveCommandPointer(worldPoint, session, { transientCandidates: getCommandSnapCandidates(session), excludedRecordIds:session.getExcludedSnapRecordIds?.()||[] })
     interactionVisuals.setSnapAcquired(snap.snapped)
     session.handlePointerMove(snap.point)
+    refreshDynamicInput()
     requestRender()
   }
 }
@@ -1403,6 +1427,7 @@ function onViewportPointerDown(event) {
       excludedRecordIds: session.getExcludedSnapRecordIds?.() || [],
     })
     window.caderactCommandRouter.submitActivePointer(snap.point, { snap, rawPoint: screenToWorld(point.x, point.y) })
+    refreshDynamicInput()
     return
   }
   if (!session) {
@@ -1446,6 +1471,7 @@ function onCommandPointerMove(event) {
   })
   interactionVisuals.setSnapAcquired(snap.snapped)
   session.handlePointerMove(snap.point, { rawPoint: screenToWorld(point.x, point.y) })
+  refreshDynamicInput()
 }
 
 function onViewportPointerEnter(event) {
@@ -1455,6 +1481,7 @@ function onViewportPointerEnter(event) {
 
 function onCommandPointerLeave() {
   objectSnapTracking.clearHover()
+  dynamicInput.clear()
   interactionVisuals.leave()
   clearSnap()
   lastKnownPointerScreen = null
@@ -1484,6 +1511,7 @@ function onViewportPointerUp(event) {
 }
 
 function onViewportPointerCancel(event) {
+  dynamicInput.clear()
   getActiveCommandSession()?.handlePointerLeave?.()
   if(selectionBox.isPending&&selectionBox.snapshot().pointerId===event.pointerId){selectionBox.clear();releaseGripPointerCapture(event.pointerId);requestRender();return}
   if (!grips.isActive || grips.active.pointerId !== event.pointerId) return
@@ -1510,7 +1538,7 @@ function bindCanvas(nextCanvas) {
   canvas = nextCanvas
   navigation = window.CaderactViewportNavigation.bindViewportNavigation({
     canvas, camera: viewportCamera, viewportSettings, getCanvasPoint, requestRender,
-    onStateChange: state => interactionVisuals.setNavigating(state.navigationMode !== null || state.isSpacePressed),
+    onStateChange: state => { const active=state.navigationMode!==null||state.isSpacePressed;interactionVisuals.setNavigating(active);if(active)dynamicInput.clear() },
     isSpaceEditableTarget: target => target === document.querySelector("#command-input"),
     onSpaceTap: () => {
       const router = window.caderactCommandRouter

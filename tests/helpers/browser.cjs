@@ -162,6 +162,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/PolygonDraftSession.js');
   load('src/js/editor/PointInput.js');
   load('src/js/editor/PrecisionInput.js');
+  load('src/js/editor/DynamicInput.js');
   load('src/js/editor/OrthoConstraint.js');
   load('src/js/editor/UserPreferences.js');
   load('src/js/editor/PolarConstraint.js');

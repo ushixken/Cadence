@@ -139,6 +139,21 @@ canvas.is-navigating {
 .cad-cursor-overlay.is-point-command { color: #f3f6fa; }
 .cad-cursor-overlay.is-snap-acquired .cad-cursor-pickbox { border-color: #f2cf72; }
 
+.dynamic-input-hud {
+  position:absolute; z-index:5; box-sizing:border-box; max-width:220px; padding:6px 7px;
+  color:#dce5ee; background:rgba(16,29,42,.94); border:1px solid rgba(124,151,177,.32);
+  border-radius:5px; box-shadow:0 5px 14px rgba(0,0,0,.28); pointer-events:none;
+  font-size:10px; line-height:1.2; white-space:nowrap; font-variant-numeric:tabular-nums;
+}
+.dynamic-input-hud[hidden] { display:none; }
+.dynamic-input-prompt { max-width:204px; overflow:hidden; color:#93a6b9; text-overflow:ellipsis; }
+.dynamic-input-fields { display:flex; gap:5px; margin-top:5px; }
+.dynamic-input-fields:empty { display:none; }
+.dynamic-input-field { display:flex; min-width:62px; padding:3px 5px; gap:5px; align-items:baseline; justify-content:space-between; background:#172a3c; border:1px solid rgba(122,151,178,.24); border-radius:3px; }
+.dynamic-input-field small { color:#8296aa; font-size:8px; font-weight:500; text-transform:uppercase; }
+.dynamic-input-field strong { color:#edf4fa; font-size:10px; font-weight:500; }
+.dynamic-input-field.is-active { border-color:#64a5df; }
+
 .editor-footer {
   display: flex;
   min-height: 44px;
