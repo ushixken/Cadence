@@ -1,19 +1,35 @@
 # P4 — Object Snap Tracking
 
-P4A owns one ephemeral acquired P3 semantic snap in
-`ObjectSnapTracking`. After its dwell, the shared viewport point pipeline may
-project the constrained pointer onto a horizontal or vertical guide through
-that point. Direct semantic Object Snap remains above tracking, followed by
-Grid and then free/constrained movement.
+P4A introduced one ephemeral acquired P3 semantic snap. P4B extends the same
+DOM-, renderer-, document-, and command-independent `ObjectSnapTracking`
+controller to retain at most four acquired points. Stable eligible candidates
+acquire after 500 ms. Nearly coincident points are deduplicated without
+refreshing recency; exceeding the bound evicts the oldest acquisition.
+
+Each acquired point contributes horizontal and vertical guides. The controller
+checks the bounded set and activates only the closest deterministic projection,
+or the two guides participating in a nearby H/V intersection. It also uses the
+existing P2 Polar increment and 10-degree angular aperture to activate a Polar
+ray from an acquired point. A bounded Polar-ray/H/V intersection is supported;
+ray/ray intersections are deferred. No document scan or persistent construction
+geometry is involved.
+
+Candidate precedence is direct semantic Object Snap, tracking intersection,
+single tracking projection/ray, Grid, then constrained/free movement. H/V ties
+prefer horizontal, then acquisition order. P2 constrains from the current
+command reference while P4B tracks from acquired object points; their state is
+separate, even though they share increment/tolerance authority. The P6 HUD
+continues to read the final viewport candidate.
 
 ## Renderer-neutral visuals
 
 `ViewportScene` projects controller state into `objectTrackingOverlay`:
-`acquiredPoint`, optional `candidatePoint`, `guideKind`, viewport-spanning
-`guideSegments`, and fixed-CSS-pixel `markerSegments`. The acquired point uses
-a restrained cyan diamond, the candidate a compact cross, and the active guide
-a translucent cyan line distinct from Polar feedback. A direct semantic snap
-suppresses only the tracking candidate marker; the acquired marker remains.
+`acquiredPoints`, optional `candidatePoint` and `candidateKind`, the active
+`guides`, viewport-spanning/ray `guideSegments`, and fixed-CSS-pixel
+`markerSegments`. Acquired points use restrained cyan diamonds, the final
+candidate a compact cross, and active H/V or Polar guides translucent cyan
+lines. Only guides participating in the winner are emitted. A direct semantic
+snap suppresses only the tracking candidate marker; acquired markers remain.
 
 The overlay is also appended as ordinary line groups, so Canvas2D and WebGPU
 consume identical projected data through their existing renderer-neutral draw
@@ -21,9 +37,9 @@ contract. Geometry and drafting previews render first, followed by temporary
 tracking feedback and normal pointer feedback. Rebuild/recovery derives the
 same overlay again without persistent mutation.
 
-P4A-4 Track preference/footer behavior remains deferred. Multiple acquired
-points, guide intersections, acquired-point Polar rays, configurable dwell or
-tolerance, and SmartTrack-style behavior are outside P4A.
+Unlimited points, configurable dwell/tolerance, extension tracking,
+tangent/perpendicular origins, ray/ray intersections, permanent construction
+lines, 3D behavior, and full SmartTrack-style behavior remain deferred.
 
 ## P4A runtime ownership
 
@@ -36,4 +52,5 @@ Turning it on starts with no stale acquisition. Tracking only observes active
 point-acquisition commands. Command completion/cancellation, document
 replacement, and Track off clear all state; pointer leave, blur, and visibility
 loss cancel pending hover and active guide/candidate while retaining an acquired
-point only for the active command.
+point only for the active command. In P4B this policy applies to the entire
+bounded acquired-point set.

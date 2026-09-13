@@ -1288,7 +1288,11 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds 
   else objectSnapTracking.clear()
   if (direct) activeSnapResult = Object.freeze({ ...activeSnapResult, kind:direct.kind, point:direct.point, distancePx:direct.distancePx, reference:direct.reference, tracking:false })
   else {
-    const tracked = objectSnapTrackingEnabled ? objectSnapTracking.project(point, worldToScreen).candidate : null
+    const tracked = objectSnapTrackingEnabled ? objectSnapTracking.project(point, worldToScreen, {
+      polarEnabled: effectivePolar(),
+      polarIncrementDegrees,
+      polarToleranceDegrees: window.CaderactPolarConstraint.ACQUISITION_TOLERANCE_DEGREES,
+    }).candidate : null
     if (tracked) activeSnapResult = Object.freeze({ ...activeSnapResult, snapped:true, kind:"tracking", point:tracked, distancePx:0, reference:null, tracking:true })
   }
   return activeSnapResult

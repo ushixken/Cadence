@@ -1088,18 +1088,16 @@
       }
       const tracking = getObjectTrackingState()
       let objectTrackingOverlay = null
-      if (tracking?.acquired?.point) {
-        const acquired = camera.worldToScreen(tracking.acquired.point.x, tracking.acquired.point.y), acquiredSize=4
-        addSegment(objectTrackingMarkers,acquired.x-acquiredSize,acquired.y,acquired.x,acquired.y-acquiredSize)
-        addSegment(objectTrackingMarkers,acquired.x,acquired.y-acquiredSize,acquired.x+acquiredSize,acquired.y)
-        addSegment(objectTrackingMarkers,acquired.x+acquiredSize,acquired.y,acquired.x,acquired.y+acquiredSize)
-        addSegment(objectTrackingMarkers,acquired.x,acquired.y+acquiredSize,acquired.x-acquiredSize,acquired.y)
-        if(tracking.guide==="horizontal")addSegment(objectTrackingGuide,0,acquired.y,viewportWidth,acquired.y)
-        else if(tracking.guide==="vertical")addSegment(objectTrackingGuide,acquired.x,0,acquired.x,viewportHeight)
+      const acquiredTrackingPoints=tracking?.acquiredPoints?.length?tracking.acquiredPoints:(tracking?.acquired?[tracking.acquired]:[])
+      if (acquiredTrackingPoints.length) {
+        const projectedAcquired=[]
+        for(const trackedPoint of acquiredTrackingPoints){const acquired=camera.worldToScreen(trackedPoint.point.x,trackedPoint.point.y),acquiredSize=4;projectedAcquired.push(Object.freeze({x:acquired.x,y:acquired.y}));addSegment(objectTrackingMarkers,acquired.x-acquiredSize,acquired.y,acquired.x,acquired.y-acquiredSize);addSegment(objectTrackingMarkers,acquired.x,acquired.y-acquiredSize,acquired.x+acquiredSize,acquired.y);addSegment(objectTrackingMarkers,acquired.x+acquiredSize,acquired.y,acquired.x,acquired.y+acquiredSize);addSegment(objectTrackingMarkers,acquired.x,acquired.y+acquiredSize,acquired.x-acquiredSize,acquired.y)}
+        for(const activeGuide of tracking.activeGuides||[]){const origin=camera.worldToScreen(activeGuide.origin.x,activeGuide.origin.y);if(activeGuide.kind==="horizontal")addSegment(objectTrackingGuide,0,origin.y,viewportWidth,origin.y);else if(activeGuide.kind==="vertical")addSegment(objectTrackingGuide,origin.x,0,origin.x,viewportHeight);else if(activeGuide.kind==="polar"){const direction=camera.worldToScreen(activeGuide.origin.x+Math.cos(activeGuide.angle),activeGuide.origin.y+Math.sin(activeGuide.angle)),length=Math.hypot(direction.x-origin.x,direction.y-origin.y)||1,span=Math.hypot(viewportWidth,viewportHeight),dx=(direction.x-origin.x)/length*span,dy=(direction.y-origin.y)/length*span;addSegment(objectTrackingGuide,origin.x,origin.y,origin.x+dx,origin.y+dy)}}
+        if(!(tracking.activeGuides?.length)){const acquired=projectedAcquired.at(-1);if(tracking.guide==="horizontal")addSegment(objectTrackingGuide,0,acquired.y,viewportWidth,acquired.y);else if(tracking.guide==="vertical")addSegment(objectTrackingGuide,acquired.x,0,acquired.x,viewportHeight)}
         const directSnap=snap?.snapped&&snap.kind!=="tracking"
         const candidate=tracking.candidate&&!directSnap?camera.worldToScreen(tracking.candidate.x,tracking.candidate.y):null
-        if(candidate){const size=3;addSegment(objectTrackingMarkers,candidate.x-size,candidate.y,candidate.x+size,candidate.y);addSegment(objectTrackingMarkers,candidate.x,candidate.y-size,candidate.x,candidate.y+size)}
-        objectTrackingOverlay=Object.freeze({acquiredPoint:Object.freeze({x:acquired.x,y:acquired.y}),candidatePoint:candidate?Object.freeze({x:candidate.x,y:candidate.y}):null,guideKind:tracking.guide,guideSegments:new Float32Array(objectTrackingGuide),markerSegments:new Float32Array(objectTrackingMarkers)})
+        if(candidate){const size=tracking.candidateKind==="intersection"?4:3;addSegment(objectTrackingMarkers,candidate.x-size,candidate.y,candidate.x+size,candidate.y);addSegment(objectTrackingMarkers,candidate.x,candidate.y-size,candidate.x,candidate.y+size)}
+        objectTrackingOverlay=Object.freeze({acquiredPoint:projectedAcquired.at(-1),acquiredPoints:Object.freeze(projectedAcquired),candidatePoint:candidate?Object.freeze({x:candidate.x,y:candidate.y}):null,candidateKind:tracking.candidateKind,guideKind:tracking.guide,guides:Object.freeze((tracking.activeGuides||[]).map(value=>Object.freeze({...value,origin:Object.freeze(camera.worldToScreen(value.origin.x,value.origin.y))}))),guideSegments:new Float32Array(objectTrackingGuide),markerSegments:new Float32Array(objectTrackingMarkers)})
       }
       const lineGroups = [
         lineGroup(viewportSettings.gridColor, viewportSettings.gridVisible === false ? [] : minorGrid),
