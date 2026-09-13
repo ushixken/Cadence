@@ -38,3 +38,5 @@ Grips, nearest/intersection/perpendicular/tangent/center/quadrant/extension snap
 ## First-point grid acquisition
 
 Grid Snap is available during first-point acquisition and never requires a drafting reference. The point path is raw pointer, optional Ortho/Polar constraint only when the command supplies a reference, then D2A Grid/object resolution. Therefore enabling Ortho or Polar before P1 cannot suppress Grid Snap; after a reference exists, those constraints resume before snapping.
+
+When enabled, Grid Snap is continuous nearest-lattice quantization rather than CSS-pixel aperture acquisition. Each coordinate divides by authoritative grid spacing and uses `floor(value + 0.5)`; exact half-cells therefore select the greater lattice index, including negative coordinates. Object snaps remain aperture-gated and retain D2A ranking precedence when their acquired candidate is closer or inside the existing priority window.

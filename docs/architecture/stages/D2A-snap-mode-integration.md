@@ -37,3 +37,5 @@ An active command exposes `getSnapCandidates()` and returns plain transient cand
 ## First-point availability
 
 Grid candidates participate in D2A from command start, including before a draft point exists. Drafting constraints are optional reference-dependent preprocessing only; Grid resolution is reference-independent.
+
+Grid is a continuous nearest-lattice candidate whenever its mode is enabled, with a measured screen distance for D2A comparison but no aperture rejection. Endpoint, Midpoint, and Draft Point candidates continue to require the normal CSS-pixel aperture.

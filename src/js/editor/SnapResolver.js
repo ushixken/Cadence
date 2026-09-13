@@ -4,6 +4,8 @@
   const PRIORITY_WINDOW_PX = 0.75
   const priorities = Object.freeze({ endpoint: 0, "draft-point": 1, midpoint: 2, grid: 3 })
   const freezePoint = point => Object.freeze({ x: point.x, y: point.y })
+  // Exact half-cells resolve to the greater lattice index (toward +infinity).
+  const nearestGridIndex = value => Math.floor(value + 0.5)
 
   function createResolver({ tolerancePx = DEFAULT_TOLERANCE_PX, priorityWindowPx = PRIORITY_WINDOW_PX } = {}) {
     function resolve({ rawWorldPoint, worldToScreen, records = [], transientCandidates = [], draftPoints = [], gridSpacing, enabled = {}, excludedFeatureIds = [], excludedRecordIds = [] }) {
@@ -23,6 +25,14 @@
         const distancePx = Math.hypot(screen.x - rawScreen.x, screen.y - rawScreen.y)
         if (!Number.isFinite(distancePx) || distancePx > tolerancePx) return
         candidates.push({ kind, point: freezePoint(point), distancePx, stableKey, reference })
+      }
+      function addContinuousGrid(point) {
+        if (enabled.grid === false || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return
+        const screen = worldToScreen(point.x, point.y)
+        if (!Number.isFinite(screen.x) || !Number.isFinite(screen.y)) return
+        const distancePx = Math.hypot(screen.x - rawScreen.x, screen.y - rawScreen.y)
+        if (!Number.isFinite(distancePx)) return
+        candidates.push({ kind: "grid", point: freezePoint(point), distancePx, stableKey: "grid", reference: null })
       }
       const ordered = Array.from(records).filter(record => !excludedRecords.has(record?.id) && (record?.type === "line" || record?.type === "arc" || record?.type === "polyline")).sort((a, b) => a.id.localeCompare(b.id))
       for (const record of ordered) {
@@ -57,8 +67,8 @@
           candidate.reference || null)
       }
       if (Number.isFinite(gridSpacing) && gridSpacing > 0) {
-        add("grid", { x: Math.round(rawPoint.x / gridSpacing) * gridSpacing,
-          y: Math.round(rawPoint.y / gridSpacing) * gridSpacing }, "grid")
+        addContinuousGrid({ x: nearestGridIndex(rawPoint.x / gridSpacing) * gridSpacing,
+          y: nearestGridIndex(rawPoint.y / gridSpacing) * gridSpacing })
       }
       candidates.sort((a, b) => a.distancePx - b.distancePx
         || priorities[a.kind] - priorities[b.kind]

@@ -16,7 +16,7 @@ test('endpoint snaps use exact authoritative coordinates and canonical A10 refer
     const snap=resolve(b,{raw,zoom:2});assert.equal(snap.snapped,true);assert.equal(snap.kind,'endpoint');assert.deepEqual(snap.point,point);
     assert.deepEqual(snap.reference,{kind:'feature',recordId:'line_b',featureId});
   }
-  assert.equal(resolve(b,{raw:{x:20,y:20},zoom:2,spacing:1e300}).snapped,false);
+  assert.equal(resolve(b,{raw:{x:20,y:20},zoom:2,spacing:1e300,enabled:'{grid:false}'}).snapped,false);
 });
 
 test('midpoints are derived at full precision for horizontal, vertical, diagonal, and negative Lines',async()=>{
@@ -38,6 +38,19 @@ test('grid snaps to origin and nearest positive/negative adaptive-grid multiples
     assert.equal(first.kind,'grid');assert.deepEqual(first.point,expected);assert.deepEqual(panned.point,expected);
   }
   b.run('camera.zoom=14');assert.equal(b.run('sceneBuilder.getAdaptiveGridSpacing()'),2);
+});
+
+test('Grid Snap continuously quantizes every cell position with deterministic half-cell ties',async()=>{
+  const b=await browser(), options={spacing:10,records:'[]',enabled:'{endpoint:true,midpoint:true,grid:true}'};
+  for(const [raw,point] of [[{x:14.2,y:16.1},{x:10,y:20}],[{x:19.9,y:10.1},{x:20,y:10}],[{x:15,y:14.9},{x:20,y:10}],[{x:14.9,y:15},{x:10,y:20}],[{x:15,y:15},{x:20,y:20}],[{x:-15,y:-15},{x:-10,y:-10}],[{x:-15.1,y:-14.9},{x:-20,y:-10}]]){
+    const snap=resolve(b,{raw,...options});assert.equal(snap.kind,'grid');assert.deepEqual(snap.point,point);
+  }
+});
+
+test('aperture-acquired object candidates retain D2A precedence against continuous Grid',async()=>{
+  const b=await browser();installRecord(b,{id:'object',type:'line',start:{x:14.8,y:16.2,featureId:'a'},end:{x:40,y:40,featureId:'b'}});
+  const endpoint=resolve(b,{raw:{x:14.9,y:16.1},spacing:10,enabled:'{endpoint:true,midpoint:true,grid:true}'});
+  assert.equal(endpoint.kind,'endpoint');assert.deepEqual(endpoint.point,{x:14.8,y:16.2});
 });
 
 test('enabled snap modes exclude only grid candidates',async()=>{
@@ -155,10 +168,10 @@ test('real pointer path acquires every supported snap kind',async()=>{
 test('10 CSS-pixel tolerance stays stable across zoom and DPR and extreme zoom remains finite',async()=>{
   const b=await browser();installRecord(b,{id:'z',type:'line',start:{x:0,y:0,featureId:'z1'},end:{x:100,y:0,featureId:'z2'}});
   for(const zoom of [0.001,1,1000]){
-    assert.equal(resolve(b,{raw:{x:9/zoom,y:0},zoom,spacing:1e300}).snapped,true);
-    assert.equal(resolve(b,{raw:{x:11/zoom,y:0},zoom,spacing:1e300}).snapped,false);
+    assert.equal(resolve(b,{raw:{x:9/zoom,y:0},zoom,spacing:1e300,enabled:'{grid:false}'}).snapped,true);
+    assert.equal(resolve(b,{raw:{x:11/zoom,y:0},zoom,spacing:1e300,enabled:'{grid:false}'}).snapped,false);
   }
-  b.window.devicePixelRatio=3;assert.equal(resolve(b,{raw:{x:9,y:0},zoom:1,spacing:1e300}).snapped,true);
+  b.window.devicePixelRatio=3;assert.equal(resolve(b,{raw:{x:9,y:0},zoom:1,spacing:1e300,enabled:'{grid:false}'}).snapped,true);
   for(const zoom of [1e-300,1e300]){const snap=resolve(b,{raw:{x:1/zoom,y:0},zoom,spacing:1e300});assert.ok(Number.isFinite(snap.point.x));assert.ok(Number.isFinite(snap.point.y));}
 });
 
