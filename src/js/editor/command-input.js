@@ -198,8 +198,10 @@ commandPrompt.addEventListener("click", event => {
 
 commandInputWrap?.addEventListener("click", event => {
   if (event.target.closest?.(".command-option")) return
+  window.caderactViewport.cancelDynamicInputEdit?.()
   commandInput.focus()
 })
+commandInput.addEventListener("focus", () => window.caderactViewport.cancelDynamicInputEdit?.())
 
 function isTypingInAnotherField(target) {
   return target instanceof HTMLElement && target !== commandInput &&
@@ -248,6 +250,7 @@ commandSuggestions.addEventListener("click", (event) => {
 })
 
 document.addEventListener("keydown", (event) => {
+  if (event.caderactDynamicInputHandled) return
   if (event.caderactSelectionBoxHandled) return
   const primaryModifier = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey)
   const editableTarget = event.target instanceof HTMLElement && (event.target.matches("input, textarea, select") || event.target.isContentEditable)

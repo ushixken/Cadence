@@ -20,6 +20,17 @@ viewport, and after completion, Escape, replacement, or document replacement.
 `dynamicInputEnabled` is a persistent user preference defaulting on and never
 enters drawing files or history.
 
-P5 remains the only numeric parser and exact model-space resolver. P6A does not
-own keyboard input. Editable fields, Tab cycling, command-bar synchronization,
-and detailed Dynamic Input settings are deliberately deferred to P6B.
+P5 remains the only numeric parser and exact model-space resolver. P6A owns the
+live display; P6B adds an immutable active-field/text buffer and explicit
+keyboard ownership. With the command bar unfocused, numeric characters activate
+the first meaningful editable field. Pointer updates continue refreshing context
+without overwriting that buffer. Enter submits the buffer through the existing
+command router and P5-backed session handler. Invalid input stays active; the
+first Escape cancels only HUD editing. The command bar always takes precedence.
+
+Editable support is Distance for referenced point phases, Circle Radius, Rotate
+Angle, and Scale Factor. The controller supports deterministic forward/reverse
+Tab cycling when a phase exposes multiple editable fields. Line and Polyline
+Angle remain read-only because angle-only input has no unambiguous retained
+distance contract. First-point coordinate editing, combined distance/angle
+locking, detailed settings, and richer field sets remain deferred.

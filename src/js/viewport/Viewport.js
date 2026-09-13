@@ -91,13 +91,15 @@ function refreshDynamicInput() {
   if(!dynamicInputEnabled||!session||session.isSelectionPhase||navigation?.isActive?.()||!lastKnownPointerScreen||!candidate){dynamicInput.clear();return}
   const fields=[],format=window.CaderactDynamicInput.formatNumber,angleFormat=window.CaderactDynamicInput.formatAngle
   const reference=dynamicReference(session)
-  if(session.name==="Scale"&&session.phase==="target"&&session.basePoint&&session.referencePoint){const baseLength=Math.hypot(session.referencePoint.x-session.basePoint.x,session.referencePoint.y-session.basePoint.y),targetLength=Math.hypot(candidate.x-session.basePoint.x,candidate.y-session.basePoint.y);if(baseLength>0)fields.push({id:"factor",kind:"scalar",label:"Factor",value:format(targetLength/baseLength),editable:false,active:false})}
-  else if(session.name==="Rotate"&&session.phase==="target"){const angle=session.getMovePreview?.()?.angle;if(Number.isFinite(angle))fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(angle*180/Math.PI),editable:false,active:false})}
-  else if(reference){const dx=candidate.x-reference.x,dy=candidate.y-reference.y;fields.push({id:session.name==="Circle"?"radius":"distance",kind:"distance",label:session.name==="Circle"?"Radius":"Distance",value:format(Math.hypot(dx,dy)),editable:false,active:false});if(session.name!=="Circle")fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(Math.atan2(dy,dx)*180/Math.PI),editable:false,active:false})}
+  if(session.name==="Scale"&&session.phase==="target"&&session.basePoint&&session.referencePoint){const baseLength=Math.hypot(session.referencePoint.x-session.basePoint.x,session.referencePoint.y-session.basePoint.y),targetLength=Math.hypot(candidate.x-session.basePoint.x,candidate.y-session.basePoint.y);if(baseLength>0)fields.push({id:"factor",kind:"scalar",label:"Factor",value:format(targetLength/baseLength),editable:true,active:false})}
+  else if(session.name==="Rotate"&&session.phase==="target"){const angle=session.getMovePreview?.()?.angle;if(Number.isFinite(angle))fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(angle*180/Math.PI),editable:true,active:false})}
+  else if(reference){const dx=candidate.x-reference.x,dy=candidate.y-reference.y;fields.push({id:session.name==="Circle"?"radius":"distance",kind:"distance",label:session.name==="Circle"?"Radius":"Distance",value:format(Math.hypot(dx,dy)),editable:true,active:false});if(session.name!=="Circle")fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(Math.atan2(dy,dx)*180/Math.PI),editable:false,active:false})}
   else {fields.push({id:"x",kind:"coordinate",label:"X",value:format(candidate.x),editable:false,active:false},{id:"y",kind:"coordinate",label:"Y",value:format(candidate.y),editable:false,active:false})}
   dynamicInput.update({screenPoint:lastKnownPointerScreen,viewport:{width:viewportWidth,height:viewportHeight},prompt:session.prompt,fields})
 }
 function setDynamicInputEnabled(enabled){dynamicInputEnabled=Boolean(enabled);userPreferences.set({dynamicInputEnabled});if(!dynamicInputEnabled)dynamicInput.clear();else refreshDynamicInput();return dynamicInputEnabled}
+function cancelDynamicInputEdit(){const cancelled=dynamicInput.cancelEdit();if(cancelled)refreshDynamicInput();return Boolean(cancelled)}
+function submitDynamicInputEdit(){const edit=dynamicInput.activeEdit();if(!edit||edit.text.trim()===""){dynamicInput.setInvalid();return false}const outcome=window.caderactCommandRouter?.submitActiveInput(edit.text);if(outcome?.status==="invalid-input"){dynamicInput.setInvalid();return false}dynamicInput.cancelEdit();if(window.caderactCommandRouter?.isActive)updateSnapAtPointer();else dynamicInput.clear();return true}
 
 function worldToScreen(x, y) {
   return viewportCamera.worldToScreen(x, y)
@@ -1353,7 +1355,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()
@@ -1520,6 +1522,17 @@ function onViewportPointerCancel(event) {
 
 function onDocumentKeyDown(event) {
   if(event.key==="Escape"&&selectionBox.isPending){const pointerId=selectionBox.snapshot().pointerId;selectionBox.clear();releaseGripPointerCapture(pointerId);requestRender();event.caderactSelectionBoxHandled=true;event.preventDefault();return}
+  const commandInput=document.querySelector("#command-input"),commandBarOwns=event.target===commandInput||document.activeElement===commandInput
+  if(commandBarOwns){cancelDynamicInputEdit();return}
+  if(!event.ctrlKey&&!event.altKey&&!event.metaKey){
+    if(dynamicInput.getState().editing){
+      if(event.key==="Escape"){cancelDynamicInputEdit();event.caderactDynamicInputHandled=true;event.preventDefault();return}
+      if(event.key==="Enter"){submitDynamicInputEdit();event.caderactDynamicInputHandled=true;event.preventDefault();return}
+      if(event.key==="Tab"&&dynamicInput.cycle(event.shiftKey)){event.caderactDynamicInputHandled=true;event.preventDefault();return}
+      if(event.key==="Backspace"){dynamicInput.backspace();event.caderactDynamicInputHandled=true;event.preventDefault();return}
+      if(/^[0-9.@,+<\-]$/.test(event.key)){dynamicInput.append(event.key);event.caderactDynamicInputHandled=true;event.preventDefault();return}
+    }else if(/^[0-9.@,+<\-]$/.test(event.key)&&dynamicInput.beginEdit(event.key)){event.caderactDynamicInputHandled=true;event.preventDefault();return}
+  }
   if (event.key === "Shift") setShiftHeld(true)
 }
 

@@ -153,6 +153,9 @@ canvas.is-navigating {
 .dynamic-input-field small { color:#8296aa; font-size:8px; font-weight:500; text-transform:uppercase; }
 .dynamic-input-field strong { color:#edf4fa; font-size:10px; font-weight:500; }
 .dynamic-input-field.is-active { border-color:#64a5df; }
+.dynamic-input-hud.is-editing .dynamic-input-field.is-active strong::after { content:""; display:inline-block; width:1px; height:10px; margin-left:2px; vertical-align:-1px; background:#8fc7f4; animation:dynamic-input-caret 1s steps(1) infinite; }
+.dynamic-input-hud.is-invalid .dynamic-input-field.is-active { border-color:#cf7178; background:#30202a; }
+@keyframes dynamic-input-caret { 50% { opacity:0; } }
 
 .editor-footer {
   display: flex;
