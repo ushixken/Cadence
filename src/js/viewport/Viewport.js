@@ -764,7 +764,7 @@ function createOffsetCommandSession({ setPrompt = () => {}, preselectionIds = []
     else if (geometry.type === "arc") record = recordGateway.createArc(geometry)
     else if (geometry.type === "polyline") record = recordGateway.createPolyline(geometry.vertices, geometry.closed)
     else return null
-    return Object.freeze({ ...record, layerId })
+    return Object.freeze({ ...record, layerId, ...window.CaderactObjectProperties.recordProperties(source) })
   }
   function hitAt(point) {
     const screenPoint = lastKnownPointerScreen || worldToScreen(point.x, point.y)
@@ -1371,6 +1371,14 @@ function selectAllCommittedGeometry() {
   const selectableTypes = new Set(["line", "circle", "arc", "ellipse", "polyline"])
   return selection.applyRecordIds(editableRecords().filter(record => selectableTypes.has(record.type)).map(record => record.id))
 }
+function isLayerAssignmentBusy(){return Boolean(getActiveCommandSession()||grips.isActive||selectionBox.isPending)}
+function prepareContextSelection(screenPoint){
+  if(isLayerAssignmentBusy())return Object.freeze({type:"suppressed"})
+  const editableHit=window.CaderactSelection.hitTestRecords({screenPoint,records:editableRecords(),worldToScreen})
+  if(editableHit.hit){if(!selection.has(editableHit.recordId))selection.selectOnly(editableHit.recordId);return Object.freeze({type:"selection",recordId:editableHit.recordId,selectedIds:selection.selectedIds()})}
+  const visibleHit=window.CaderactSelection.hitTestRecords({screenPoint,records:visibleRecords(),worldToScreen})
+  return Object.freeze({type:"canvas",lockedRecordId:visibleHit.hit?visibleHit.recordId:null,selectedIds:selection.selectedIds()})
+}
 function releaseGripPointerCapture(pointerId) {
   if (pointerId === undefined) return
   if (typeof canvas.hasPointerCapture === "function" && !canvas.hasPointerCapture(pointerId)) return
@@ -1384,7 +1392,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()

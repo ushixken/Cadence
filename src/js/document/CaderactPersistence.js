@@ -10,28 +10,29 @@
   }
   function sortById(values) { return Array.from(values).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) }
   function canonicalLayer(layer) {
-    return { id: layer.id, name: layer.name, visible: layer.visible, locked: layer.locked }
+    return { id: layer.id, name: layer.name, visible: layer.visible, locked: layer.locked, ...window.CaderactObjectProperties.layerProperties(layer) }
   }
+  const properties=record=>window.CaderactObjectProperties.recordProperties(record)
   function canonicalRecord(record) {
     if (record.type === "line") return {
-      id: record.id, type: record.type, layerId: record.layerId,
+      id: record.id, type: record.type, layerId: record.layerId, ...properties(record),
       start: { x: record.start?.x, y: record.start?.y, featureId: record.start?.featureId },
       end: { x: record.end?.x, y: record.end?.y, featureId: record.end?.featureId },
     }
-    if(record.type === "polyline")return {id:record.id,type:record.type,layerId:record.layerId,
+    if(record.type === "polyline")return {id:record.id,type:record.type,layerId:record.layerId,...properties(record),
       vertices:record.vertices.map(vertex=>({x:vertex?.x,y:vertex?.y,featureId:vertex?.featureId})),closed:record.closed}
     if (record.type === "circle") return {
-      id: record.id, type: record.type, layerId: record.layerId,
+      id: record.id, type: record.type, layerId: record.layerId, ...properties(record),
       center: { x: record.center?.x, y: record.center?.y }, radius: record.radius,
     }
     if (record.type === "arc") return {
-      id: record.id, type: record.type, layerId: record.layerId,
+      id: record.id, type: record.type, layerId: record.layerId, ...properties(record),
       center: { x: record.center?.x, y: record.center?.y }, radius: record.radius,
       start: { x: record.start?.x, y: record.start?.y, featureId: record.start?.featureId },
       end: { x: record.end?.x, y: record.end?.y, featureId: record.end?.featureId }, sweep: record.sweep,
     }
     if (record.type === "ellipse") return {
-      id: record.id, type: record.type, layerId: record.layerId,
+      id: record.id, type: record.type, layerId: record.layerId, ...properties(record),
       center: { x: record.center?.x, y: record.center?.y },
       majorAxis: { x: record.majorAxis?.x, y: record.majorAxis?.y }, minorRadius: record.minorRadius,
     }

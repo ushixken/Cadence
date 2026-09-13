@@ -2,7 +2,8 @@
 (() => {
   const list = document.querySelector("#layers-list")
   const createButton = document.querySelector("#layer-create")
-  if (!list || !createButton || !window.caderactDocumentSession) return
+  const assignButton = document.querySelector("#layer-assign")
+  if (!list || !createButton || !assignButton || !window.caderactDocumentSession) return
 
   let unsubscribeHistory = null
   let editingLayerId = null
@@ -18,14 +19,18 @@
       "unknown-layer": "Layer no longer exists",
       "layer-unavailable": "Current layer must be visible and unlocked",
       "no-usable-current-layer": "Another visible, unlocked layer is required",
+      "target-layer-hidden": "Target layer is hidden.",
+      "target-layer-locked": "Target layer is locked.",
+      "selection-not-editable": "Selection contains non-editable objects.",
+      "empty-selection": "Select objects to assign to a layer.",
     }
     const message = messages[outcome.status]
     if (message) window.caderactFeedback?.showTemporary(message, "error")
   }
   function guardActive() {
-    if (!window.caderactCommandRouter.isActive) return null
+    if (!window.caderactViewport?.isLayerAssignmentBusy?.()) return null
     const outcome = result("layer-action-blocked-active-command", { command: window.caderactCommandRouter.activeCommand })
-    window.caderactFeedback?.showTemporary("Finish or cancel the active command before changing layers", "error")
+    window.caderactFeedback?.showTemporary("Finish or cancel the active edit before changing layers", "error")
     return outcome
   }
   function run(action) {
@@ -44,6 +49,16 @@
   function setCurrent(layerId) { return run(() => session.layerGateway.setCurrent(layerId)) }
   function setVisibility(layerId, visible) { return run(() => session.layerGateway.setVisibility(layerId, visible)) }
   function setLocked(layerId, locked) { return run(() => session.layerGateway.setLocked(layerId, locked)) }
+  function assign(layerId = session.reader.snapshot().currentLayerId) {
+    const blocked=guardActive();if(blocked)return blocked
+    const selectedIds=window.caderactSelection?.selectedIds?.()||[]
+    const layer=session.reader.layer(layerId),outcome=session.recordGateway.assignLayer(selectedIds,layerId)
+    if(outcome.status==="committed")window.caderactFeedback?.showTemporary(`Moved ${outcome.movedCount} object${outcome.movedCount===1?"":"s"} to ${layer.name}.`)
+    else if(outcome.status==="no-op")window.caderactFeedback?.showTemporary(`Selection is already on ${layer.name}.`)
+    else feedbackFor(outcome)
+    return outcome
+  }
+  function beginRename(layerId){if(guardActive())return result("layer-action-blocked-active-command");if(!session.reader.layer(layerId))return result("unknown-layer",{layerId});editingLayerId=layerId;render();return result("rename-started",{layerId})}
 
   function actionButton(label, className, title, handler) {
     const button = document.createElement("button")
@@ -57,6 +72,8 @@
     const documentState = session.reader.snapshot()
     const blocked = window.caderactCommandRouter.isActive
     createButton.disabled = blocked
+    const currentLayer=session.reader.layer(documentState.currentLayerId),hasSelection=Boolean(window.caderactSelection?.selectedIds?.().length)
+    assignButton.disabled=blocked||!hasSelection||!currentLayer?.visible||currentLayer?.locked
     let editInput = null
     const rows = session.reader.layers().map(layer => {
       const row = document.createElement("div")
@@ -83,7 +100,7 @@
       }
       const badges = document.createElement("span"); badges.classList.add("layer-badges")
       if (layer.id === documentState.defaultLayerId) { const badge=document.createElement("span"); badge.textContent="Default"; badges.appendChild(badge) }
-      const renameButton = actionButton("✎", "layer-rename", `Rename ${layer.name}`, () => { editingLayerId=layer.id;render() })
+      const renameButton = actionButton("✎", "layer-rename", `Rename ${layer.name}`, () => beginRename(layer.id))
       const deleteButton = actionButton("×", "layer-delete", `Delete ${layer.name}`, () => remove(layer.id))
       deleteButton.disabled = blocked || layer.id === documentState.defaultLayerId
       row.appendChild(visibilityButton);row.appendChild(lockButton);row.appendChild(select); row.appendChild(badges); row.appendChild(renameButton); row.appendChild(deleteButton)
@@ -98,8 +115,10 @@
   }
 
   createButton.addEventListener("click", () => create())
+  assignButton.addEventListener("click", () => assign())
   session.subscribe(bindDocument)
   window.caderactCommandRouter.subscribe(render)
+  window.caderactSelection?.subscribe(render)
   bindDocument()
-  window.caderactLayers = Object.freeze({ create, rename, remove, setCurrent, setVisibility, setLocked, refresh: render })
+  window.caderactLayers = Object.freeze({ create, rename, remove, setCurrent, setVisibility, setLocked, assign, beginRename, refresh: render })
 })()

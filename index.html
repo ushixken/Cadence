@@ -31,6 +31,7 @@
     <script src="./src/js/rendering/createCaderactRenderer.js" defer></script>
     <script src="./src/js/document/DocumentController.js" defer></script>
     <script src="./src/js/document/CaderactUnits.js" defer></script>
+    <script src="./src/js/document/ObjectProperties.js" defer></script>
     <script src="./src/js/document/CaderactDocument.js" defer></script>
     <script src="./src/js/document/CaderactReferences.js" defer></script>
     <script src="./src/js/document/CaderactPersistence.js" defer></script>
@@ -70,6 +71,8 @@
     <script src="./src/js/editor/history-actions.js" defer></script>
     <script src="./src/js/editor/file-actions.js" defer></script>
     <script src="./src/js/editor/layers-panel.js" defer></script>
+    <script src="./src/js/editor/ContextMenu.js" defer></script>
+    <script src="./src/js/editor/context-menu.js" defer></script>
   </head>
   <body>
     <main>
@@ -464,6 +467,14 @@
             <header class="layers-panel-header">
               <strong>Layers</strong>
               <button
+                id="layer-assign"
+                type="button"
+                aria-label="Move selection to current layer"
+                title="Move selection to current layer"
+              >
+                Assign
+              </button>
+              <button
                 id="layer-create"
                 type="button"
                 aria-label="Create layer"
@@ -637,6 +648,7 @@
             </div>
           </div>
         </footer>
+        <div id="editor-context-menu" class="editor-context-menu" role="menu" aria-label="Context menu" hidden></div>
       </div>
     </main>
   </body>

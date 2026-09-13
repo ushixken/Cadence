@@ -35,6 +35,8 @@
   justify-content: space-between;
   border-bottom: 1px solid #26374a;
 }
+.layers-panel-header strong { margin-right: auto; }
+#layer-assign { width: auto; padding: 0 7px; font-size: 0.68rem; }
 
 .layers-panel button {
   border: 0;
@@ -59,6 +61,12 @@
 .layer-visibility, .layer-lock, .layer-rename, .layer-delete { width: 26px; height: 26px; border-radius: var(--borderRadius); }
 
 @media (max-width: 760px) { .layers-panel { width: 170px; flex-basis: 170px; } }
+.editor-context-menu { position: fixed; z-index: 1400; min-width: 150px; max-width: min(280px, calc(100vw - 16px)); padding: 4px; border: 1px solid rgba(112, 139, 168, 0.38); border-radius: 6px; background: #111d2a; box-shadow: 0 10px 28px rgba(0,0,0,.34); }
+.editor-context-menu[hidden] { display: none; }
+.context-menu-item { display: block; width: 100%; min-height: 28px; padding: 4px 9px; border: 0; border-radius: 4px; background: transparent; color: var(--mainText); font: inherit; font-size: .75rem; text-align: left; white-space: nowrap; }
+.context-menu-item:hover:not(:disabled), .context-menu-item:focus-visible { outline: none; background: #1b3045; }
+.context-menu-item:disabled { color: var(--mutedText); opacity: .52; }
+.context-menu-separator { height: 1px; margin: 4px 5px; background: rgba(112,139,168,.25); }
 
 canvas {
   display: block;

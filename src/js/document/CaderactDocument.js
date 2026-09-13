@@ -12,14 +12,14 @@
     document: fields(["id", "name", "formatVersion", "units", "geometry", "layers", "defaultLayerId", "currentLayerId"]),
     geometry: fields(["objects"]),
     units: fields(["length"]),
-    layer: fields(["id", "name", "visible", "locked"]),
-    line: fields(["id", "type", "layerId", "start", "end"]),
-    polyline: fields(["id", "type", "layerId", "vertices", "closed"]),
+    layer: fields(["id", "name", "visible", "locked", "color", "linetype", "lineweight"]),
+    line: fields(["id", "type", "layerId", "color", "linetype", "lineweight", "start", "end"]),
+    polyline: fields(["id", "type", "layerId", "color", "linetype", "lineweight", "vertices", "closed"]),
     vertex: fields(["x", "y", "featureId"]),
     endpoint: fields(["x", "y", "featureId"]),
-    circle: fields(["id", "type", "layerId", "center", "radius"]),
-    arc: fields(["id", "type", "layerId", "center", "radius", "start", "end", "sweep"]),
-    ellipse: fields(["id", "type", "layerId", "center", "majorAxis", "minorRadius"]),
+    circle: fields(["id", "type", "layerId", "color", "linetype", "lineweight", "center", "radius"]),
+    arc: fields(["id", "type", "layerId", "color", "linetype", "lineweight", "center", "radius", "start", "end", "sweep"]),
+    ellipse: fields(["id", "type", "layerId", "color", "linetype", "lineweight", "center", "majorAxis", "minorRadius"]),
     coordinate: fields(["x", "y"]),
   })
   function unknownFields(value, allowedFields) {
@@ -45,6 +45,8 @@
     function point(value, label) {
       if (!isRecord(value) || !Number.isFinite(value.x) || !Number.isFinite(value.y)) errors.push(`${label}: invalid finite point`)
     }
+    function objectProperties(value,label){const properties=window.CaderactObjectProperties;for(const key of properties.PROPERTY_KEYS)if(Object.prototype.hasOwnProperty.call(value,key)&&value[key]!==null){const valid=key==="color"?properties.validColor(value[key]):key==="linetype"?properties.validLinetype(value[key]):properties.validLineweight(value[key]);if(!valid)errors.push(`${label}: invalid ${key}`)}}
+    function layerProperties(value,label){const properties=window.CaderactObjectProperties;for(const key of properties.PROPERTY_KEYS)if(Object.prototype.hasOwnProperty.call(value,key)){const valid=key==="color"?properties.validColor(value[key]):key==="linetype"?properties.validLinetype(value[key]):properties.validLineweight(value[key]);if(!valid)errors.push(`${label}: invalid ${key}`)}}
     if (!isRecord(value)) return ["Invalid document"]
     closedShape(value, V1_FIELDS.document, "document")
     identity(value.id, "document")
@@ -59,6 +61,7 @@
     else for (const [key, layer] of Object.entries(layers)) {
       if (!isRecord(layer)) { errors.push("Invalid layer"); continue }
       closedShape(layer, V1_FIELDS.layer, "layer")
+      layerProperties(layer,"layer")
       identity(layer.id, "layer")
       if (key !== layer.id) errors.push("Layer key/ID mismatch")
       const normalizedName = normalizeLayerName(layer.name), nameKey = layerNameKey(layer.name)
@@ -75,6 +78,7 @@
       identity(record.id, "object")
       if (key !== record.id) errors.push("Object key/ID mismatch")
       if (typeof record.layerId !== "string" || !isRecord(layers) || !has(layers, record.layerId)) errors.push("Invalid layer reference")
+      objectProperties(record,"object")
       if (record.type === "line") {
         closedShape(record, V1_FIELDS.line, "Line")
         point(record.start, "Line start"); point(record.end, "Line end")
@@ -167,7 +171,7 @@
       const id = newId(), layerId = newId()
       state = freeze({ id, name: "Untitled", formatVersion: 1, units: { length: "mm" },
         geometry: { objects: {} },
-        layers: { [layerId]: { id: layerId, name: "Default", visible: true, locked: false } },
+        layers: { [layerId]: { id: layerId, name: "Default", visible: true, locked: false, ...window.CaderactObjectProperties.DEFAULT_LAYER_PROPERTIES } },
         defaultLayerId: layerId,
         currentLayerId: layerId,
       })
@@ -205,6 +209,7 @@
       editableRecords: () => Object.freeze(Object.values(state.geometry.objects).filter(record => { const layer=state.layers[record.layerId];return layer?.visible&&!layer.locked }).sort((a,b)=>a.id.localeCompare(b.id))),
       isRecordVisible: recordId => Boolean(state.layers[state.geometry.objects[recordId]?.layerId]?.visible),
       isRecordEditable: recordId => { const layer=state.layers[state.geometry.objects[recordId]?.layerId];return Boolean(layer?.visible&&!layer.locked) },
+      aggregateRecordProperties: recordIds => window.CaderactObjectProperties.aggregate(Array.from(recordIds||[],id=>state.geometry.objects[id]).filter(Boolean)),
       units: () => state.units,
       // Compatibility query for current Line-oriented callers; render code uses
       // records() and performs its own supported-type projection.
@@ -226,31 +231,60 @@
         return transaction.publish()
       } catch (error) { if (transaction.isOpen) transaction.rollback(); throw error }
     }
+    function assignRecordsToLayer(recordIds, layerId) {
+      const target=state.layers[layerId]
+      if(!target)return Object.freeze({status:"unknown-layer",layerId})
+      if(!target.visible)return Object.freeze({status:"target-layer-hidden",layerId})
+      if(target.locked)return Object.freeze({status:"target-layer-locked",layerId})
+      const ids=Array.from(new Set(recordIds||[]))
+      if(!ids.length)return Object.freeze({status:"empty-selection",recordIds:Object.freeze([])})
+      const records=ids.map(id=>state.geometry.objects[id]||null)
+      if(records.some(record=>!record))return Object.freeze({status:"selection-not-editable",recordIds:Object.freeze(ids)})
+      if(records.some(record=>!recordEditable(record.id)))return Object.freeze({status:"selection-not-editable",recordIds:Object.freeze(ids)})
+      const changes=records.filter(record=>record.layerId!==layerId)
+      if(!changes.length)return Object.freeze({status:"no-op",changes:Object.freeze([]),recordIds:Object.freeze(ids),layerId})
+      const transaction=controller.beginTransaction()
+      try{for(const record of changes)transaction.replace(record.id,{...record,layerId});const outcome=transaction.publish();return Object.freeze({...outcome,movedCount:changes.length,recordIds:Object.freeze(ids),layerId})}
+      catch(error){if(transaction.isOpen)transaction.rollback();return Object.freeze({status:"commit-failed",message:error.message})}
+    }
+    function setRecordProperties(recordIds,patch){
+      const validated=window.CaderactObjectProperties.validatePatch(patch)
+      if(!validated.valid)return Object.freeze({status:validated.reason})
+      const ids=Array.from(new Set(recordIds||[]))
+      if(!ids.length)return Object.freeze({status:"empty-selection",recordIds:Object.freeze([])})
+      const records=ids.map(id=>state.geometry.objects[id]||null)
+      if(records.some(record=>!record)||records.some(record=>!recordEditable(record.id)))return Object.freeze({status:"selection-not-editable",recordIds:Object.freeze(ids)})
+      const changes=records.filter(record=>Object.entries(validated.patch).some(([key,value])=>(Object.prototype.hasOwnProperty.call(record,key)?record[key]:null)!==value))
+      if(!changes.length)return Object.freeze({status:"no-op",changes:Object.freeze([]),recordIds:Object.freeze(ids)})
+      const transaction=controller.beginTransaction()
+      try{for(const record of changes)transaction.replace(record.id,{...record,...validated.patch});const outcome=transaction.publish();return Object.freeze({...outcome,recordIds:Object.freeze(ids),updatedCount:changes.length})}
+      catch(error){if(transaction.isOpen)transaction.rollback();return Object.freeze({status:"commit-failed",message:error.message})}
+    }
     const recordGateway = Object.freeze({
       createLine(start, end) {
-        return freeze({ id: newId(), type: "line", layerId: currentDrawingLayerId(),
+        return freeze({ id: newId(), type: "line", layerId: currentDrawingLayerId(), ...window.CaderactObjectProperties.BY_LAYER_PROPERTIES,
           start: { x: start?.x, y: start?.y, featureId: newId() },
           end: { x: end?.x, y: end?.y, featureId: newId() },
         })
       },
       createPolyline(vertices,closed=false) {
-        return freeze({id:newId(),type:"polyline",layerId:currentDrawingLayerId(),
+        return freeze({id:newId(),type:"polyline",layerId:currentDrawingLayerId(),...window.CaderactObjectProperties.BY_LAYER_PROPERTIES,
           vertices:Array.from(vertices,vertex=>({x:vertex?.x,y:vertex?.y,featureId:newId()})),closed:Boolean(closed)})
       },
       createCircle(center, radius) {
-        return freeze({ id: newId(), type: "circle", layerId: currentDrawingLayerId(),
+        return freeze({ id: newId(), type: "circle", layerId: currentDrawingLayerId(), ...window.CaderactObjectProperties.BY_LAYER_PROPERTIES,
           center: { x: center?.x, y: center?.y }, radius,
         })
       },
       createArc(geometry) {
-        return freeze({ id: newId(), type: "arc", layerId: currentDrawingLayerId(),
+        return freeze({ id: newId(), type: "arc", layerId: currentDrawingLayerId(), ...window.CaderactObjectProperties.BY_LAYER_PROPERTIES,
           center: { x: geometry.center?.x, y: geometry.center?.y }, radius: geometry.radius,
           start: { x: geometry.start?.x, y: geometry.start?.y, featureId: newId() },
           end: { x: geometry.end?.x, y: geometry.end?.y, featureId: newId() }, sweep: geometry.sweep,
         })
       },
       createEllipse(geometry) {
-        return freeze({ id: newId(), type: "ellipse", layerId: currentDrawingLayerId(),
+        return freeze({ id: newId(), type: "ellipse", layerId: currentDrawingLayerId(), ...window.CaderactObjectProperties.BY_LAYER_PROPERTIES,
           center: { x: geometry.center?.x, y: geometry.center?.y },
           majorAxis: { x: geometry.majorAxis?.x, y: geometry.majorAxis?.y }, minorRadius: geometry.minorRadius,
         })
@@ -307,6 +341,8 @@
       updateProperties(recordId, properties) {
         return updateRecordProperties(recordId, properties)
       },
+      setProperties(recordIds,patch){return setRecordProperties(recordIds,patch)},
+      assignLayer(recordIds, layerId) { return assignRecordsToLayer(recordIds, layerId) },
       // M6P4: publishes an already-computed CaderactTrimPlanner result
       // (`{ target, cuttingEdges, pickPoint } -> plan`) as exactly one atomic
       // document transaction. Pure translation: TrimPlan -> allocate required
@@ -343,19 +379,19 @@
         function buildRecord(recordId, piece) {
           const geometry = piece.geometry
           if (geometry.type === "line") {
-            return freeze({ id: recordId, type: "line", layerId,
+            return freeze({ id: recordId, type: "line", layerId, ...window.CaderactObjectProperties.recordProperties(original),
               start: buildEndpoint(geometry.start, piece.featureIdentityIntent.start),
               end: buildEndpoint(geometry.end, piece.featureIdentityIntent.end) })
           }
           if (geometry.type === "arc") {
-            return freeze({ id: recordId, type: "arc", layerId,
+            return freeze({ id: recordId, type: "arc", layerId, ...window.CaderactObjectProperties.recordProperties(original),
               center: { x: geometry.center.x, y: geometry.center.y }, radius: geometry.radius,
               start: buildEndpoint(geometry.start, piece.featureIdentityIntent.start),
               end: buildEndpoint(geometry.end, piece.featureIdentityIntent.end),
               sweep: geometry.sweep })
           }
           if (geometry.type === "polyline") {
-            return freeze({ id: recordId, type: "polyline", layerId,
+            return freeze({ id: recordId, type: "polyline", layerId, ...window.CaderactObjectProperties.recordProperties(original),
               vertices: geometry.vertices.map((vertex, index) => buildEndpoint(vertex, piece.featureIdentityIntent.vertices[index])),
               closed: Boolean(geometry.closed) })
           }
@@ -411,19 +447,19 @@
         function buildRecord(recordId, piece) {
           const geometry = piece.geometry
           if (geometry.type === "line") {
-            return freeze({ id: recordId, type: "line", layerId,
+            return freeze({ id: recordId, type: "line", layerId, ...window.CaderactObjectProperties.recordProperties(original),
               start: buildEndpoint(geometry.start, piece.featureIdentityIntent.start),
               end: buildEndpoint(geometry.end, piece.featureIdentityIntent.end) })
           }
           if (geometry.type === "arc") {
-            return freeze({ id: recordId, type: "arc", layerId,
+            return freeze({ id: recordId, type: "arc", layerId, ...window.CaderactObjectProperties.recordProperties(original),
               center: { x: geometry.center.x, y: geometry.center.y }, radius: geometry.radius,
               start: buildEndpoint(geometry.start, piece.featureIdentityIntent.start),
               end: buildEndpoint(geometry.end, piece.featureIdentityIntent.end),
               sweep: geometry.sweep })
           }
           if (geometry.type === "polyline") {
-            return freeze({ id: recordId, type: "polyline", layerId,
+            return freeze({ id: recordId, type: "polyline", layerId, ...window.CaderactObjectProperties.recordProperties(original),
               vertices: geometry.vertices.map((vertex, index) => buildEndpoint(vertex, piece.featureIdentityIntent.vertices[index])),
               closed: Boolean(geometry.closed) })
           }
@@ -442,8 +478,7 @@
         }
       },
       setLayer(recordId, layerId) {
-        if (!has(state.layers, layerId)) return Object.freeze({ status: "unknown-layer", layerId })
-        return updateRecordProperties(recordId, { layerId })
+        return assignRecordsToLayer([recordId], layerId)
       },
     })
     function layerByName(name) {
@@ -463,7 +498,7 @@
         const normalizedName = normalizeLayerName(name)
         if (!normalizedName || !validLayerName(normalizedName)) return Object.freeze({ status: "invalid-layer-name" })
         if (layerByName(normalizedName)) return Object.freeze({ status: "duplicate-layer-name", name: normalizedName })
-        const layer = freeze({ id: newId(), name: normalizedName, visible: true, locked: false })
+        const layer = freeze({ id: newId(), name: normalizedName, visible: true, locked: false, ...window.CaderactObjectProperties.DEFAULT_LAYER_PROPERTIES })
         const transaction = controller.beginTransaction()
         transaction.createIn("layers", layer.id, layer)
         if (makeCurrent) transaction.replaceIn("settings", "currentLayerId", layer.id)
