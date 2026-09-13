@@ -30,6 +30,13 @@ path directly and are not snapped or constrained a second time. Offset side
 classification explicitly consumes the raw pointer and does not participate in
 point snapping, constraints, tracking, or the coordinate HUD.
 
+Static Endpoint, Vertex, Midpoint, Center, Intersection, Quadrant, and Nearest
+are available before a command reference or P1 exists. Perpendicular and Tangent
+remain contextual. The resolver keeps a deterministic primary snap plus ordered
+same-point contributing kinds; presentation converts those into short compound
+labels. Relationship feedback is carried with the final point and is not
+reverse-engineered from cursor geometry.
+
 Shift inverts effective Ortho and temporarily frees Polar. It never bypasses
 Osnap or Grid Snap. Modifier changes recompute stationary pointer previews;
 command-bar text and active HUD editing retain their existing keyboard ownership.

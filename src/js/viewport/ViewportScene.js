@@ -1,4 +1,6 @@
 ;(() => {
+  const SNAP_LABELS=Object.freeze({endpoint:"End",midpoint:"Mid",center:"Cen",intersection:"Int",nearest:"Near",perpendicular:"Perp",tangent:"Tan",quadrant:"Quad",vertex:"Vertex","draft-point":"Draft Point",grid:"Grid",tracking:"Track"})
+  const snapLabel=snap=>{const kinds=(snap?.kinds?.length?snap.kinds:[snap?.kind]).filter(kind=>kind&&kind!=="grid"&&kind!=="draft-point");return kinds.length?kinds.map(kind=>SNAP_LABELS[kind]||kind).join(", "):(SNAP_LABELS[snap?.kind]||"")}
   function createSceneBuilder({
     viewportSettings,
     camera,
@@ -910,10 +912,7 @@
             center.y + inset,
           )
         }
-        const label =
-          snap.kind === "draft-point"
-            ? "Draft Point"
-            : snap.kind[0].toUpperCase() + snap.kind.slice(1)
+        const label = snapLabel(snap)
         snapOverlay = Object.freeze({
           kind: snap.kind,
           glyph: snap.kind,
@@ -1329,6 +1328,8 @@
   const POINT_MARKER_HALF_SIZE = 3
   window.CaderactViewportScene = Object.freeze({
     createSceneBuilder,
+    SNAP_LABELS,
+    snapLabel,
     POINT_MARKER_HALF_SIZE,
   })
 })()

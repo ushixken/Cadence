@@ -183,14 +183,13 @@ test('Line preview and click use exact snapped point and transient marker clears
   assert.equal(b.renders.at(-1).snapOverlay.kind,'endpoint');assert.equal(b.renders.at(-1).lineGroups[16].segments.length,16);
   assert.deepEqual(b.read('({revision:documentController.currentRevision,stateId:documentController.currentStateId,history:documentController.historyInfo})'),persistentBefore);
   b.point(490,240,'pointermove');b.flush();assert.equal(b.read('activeSnapResult.snapped'),false);assert.equal(b.renders.at(-1).snapOverlay,null);
-  b.point(471,215,'pointerdown');assert.deepEqual(b.read('(({x,y})=>({x,y}))(window.caderactCommandRouter.activeSession.draft.draftSegments()[0].end)'),{x:13,y:17});
-  b.key('Enter');b.flush();assert.equal(b.renders.at(-1).snapOverlay,null);assert.equal(b.read('activeSnapResult'),null);
+  b.point(471,215,'pointerdown');assert.equal(b.read('window.caderactCommandRouter.activeSession'),null);assert.equal(b.read('modelReader.records().some(record=>record.start.x===0&&record.start.y===0&&record.end.x===13&&record.end.y===17)'),true);
+  b.flush();assert.equal(b.renders.at(-1).snapOverlay,null);assert.equal(b.read('activeSnapResult'),null);
 });
 
 test('Escape clears markers, typed coordinates bypass snapping, and mixed input remains exact',async()=>{
   const b=await browser();b.launch();typed(b,'13,17');typed(b,'33,17');b.key('Enter',b.input);
-  b.launch();typed(b,'0.123,0.456');assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.currentPoint'),{x:.123,y:.456});
-  b.point(471,215,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');b.point(471,215);
+  b.launch();b.point(471,215,'pointermove');assert.equal(b.read('activeSnapResult.kind'),'endpoint');b.point(471,215);assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.currentPoint'),{x:13,y:17});
   typed(b,'@0.111,0.222');assert.equal(b.read('activeSnapResult'),null);
   const last=b.read('window.caderactCommandRouter.activeSession.draft.currentPoint');assert.deepEqual(last,{x:13.111,y:17.222});
   b.point(471,215,'pointermove');b.key('Escape');b.flush();assert.equal(b.read('activeSnapResult'),null);assert.equal(b.renders.at(-1).snapOverlay,null);

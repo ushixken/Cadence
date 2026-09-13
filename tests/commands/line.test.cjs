@@ -368,28 +368,27 @@ test('snapping to grid, endpoint, and midpoint records exact draft point markers
   b.run('recordGateway.createAll([recordGateway.createLine({x:10,y:20},{x:30,y:20})])');
 
   b.launch();
-  // 1. Grid snap: click near (0, 0)
-  b.point(401, 301); // raw world (0.2, -0.2), snaps to grid (0, 0)
-  assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.acceptedPoints()'), [{ x: 0, y: 0 }]);
+  // 1. Endpoint snap is valid for P1.
+  b.point(452, 201);
+  assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.acceptedPoints()'), [{ x: 10, y: 20 }]);
   b.flush();
-  assert.equal(b.renders.at(-1).draftPointOverlay.points[0].point.x, 400);
-  assert.equal(b.renders.at(-1).draftPointOverlay.points[0].point.y, 300);
+  assert.equal(b.renders.at(-1).draftPointOverlay.points[0].point.x, 450);
+  assert.equal(b.renders.at(-1).draftPointOverlay.points[0].point.y, 200);
 
   // 2. Endpoint snap: point at (10, 20) -> screen (400 + 10 * 5, 300 - 20 * 5) = (450, 200)
-  b.point(452, 201); // near endpoint (10, 20)
-  assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.acceptedPoints()'), [{ x: 0, y: 0 }, { x: 10, y: 20 }]);
+  b.point(401, 301);
+  assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.acceptedPoints()'), [{ x: 10, y: 20 }, { x: 0, y: 0 }]);
   b.flush();
-  assert.equal(b.renders.at(-1).draftPointOverlay.points[1].point.x, 450);
-  assert.equal(b.renders.at(-1).draftPointOverlay.points[1].point.y, 200);
+  assert.equal(b.renders.at(-1).draftPointOverlay.points[1].point.x, 400);
+  assert.equal(b.renders.at(-1).draftPointOverlay.points[1].point.y, 300);
 
   // 3. Midpoint snap: midpoint of (10,20) and (30,20) is (20, 20) -> screen (400 + 20 * 5, 300 - 20 * 5) = (500, 200)
-  b.point(499, 201); // near midpoint (20, 20)
-  assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.acceptedPoints()'), [
-    { x: 0, y: 0 }, { x: 10, y: 20 }, { x: 20, y: 20 },
-  ]);
+  b.point(499, 201, 'pointermove');
   b.flush();
-  assert.equal(b.renders.at(-1).draftPointOverlay.points[2].point.x, 500);
-  assert.equal(b.renders.at(-1).draftPointOverlay.points[2].point.y, 200);
+  assert.equal(b.renders.at(-1).snapOverlay.point.x, 500);
+  assert.equal(b.renders.at(-1).snapOverlay.point.y, 200);
+  b.point(499,201);
+  assert.equal(b.read('window.caderactCommandRouter.activeSession'),null);
 });
 
 test('typed coordinates create markers at exact points without snapping interference', async () => {

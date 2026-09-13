@@ -14,6 +14,13 @@ Scale Factor used where those semantics are available. Formatting is isolated
 from the underlying Number precision and currently trims distance values to
 three decimals while displaying angles to two decimal degrees.
 
+Compact relationship tags are derived from authoritative resolution metadata:
+`OnOrtho`, `OnPolar`, `OnPerp`, `OnTan`, and `OnTrack`. The HUD may also show the
+winning short compound Osnap label. It never infers a relationship from visual
+alignment, so disabling a contextual mode removes its tag. Existing placement
+keeps the HUD offset from the exact pointer/snap marker and clamps or flips it at
+viewport edges.
+
 Placement uses fixed CSS-pixel offsets and flips left/up near viewport edges.
 The HUD is hidden while idle, in selection or navigation ownership, outside the
 viewport, and after completion, Escape, replacement, or document replacement.

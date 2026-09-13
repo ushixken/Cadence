@@ -82,6 +82,15 @@ chain and Redo restores its exact identities. Step Undo remains available until
 the accepted close click. Explicit Close remains available, while Enter/Space
 continue to finish an open chain normally.
 
+### Finish on existing geometry
+
+After P1 exists, accepting a committed-geometry Endpoint, Midpoint,
+Intersection, Vertex, Nearest, Perpendicular, or Tangent candidate adds that
+exact final segment and immediately publishes the open Line chain. Hover alone
+does nothing. Grid, Ortho, Polar, Track-only, Draft Point, and raw candidates do
+not finish. Snap-to-P1 closure is checked first and retains its closed-chain
+semantics.
+
 ### Escape
 
 Escape discards the session in memory and exits. It performs no document

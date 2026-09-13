@@ -38,6 +38,12 @@ Each successful closure is one transaction/history entry; Undo/Redo preserve
 the exact native record and feature identities. Failed publication leaves the
 draft retryable under the normal Close failure policy.
 
+After P1 exists, accepting a committed-geometry Endpoint, Midpoint,
+Intersection, Vertex, Nearest, Perpendicular, or Tangent candidate publishes an
+open `closed: false` Polyline immediately. This differs from returning to its own
+P1, which is checked first and publishes `closed: true`. Grid, Ortho, Polar,
+Track-only, Draft Point, raw proximity, and hover never trigger this open finish.
+
 `PersistentClose=No` is shown through the U5B option system. With a live candidate `C`, the draft session derives both transient edges—latest-to-`C` and `C`-to-first—from that same candidate. Toggling Yes therefore shows the prospective closing edge immediately and pointer or snap movement updates both edges together. With no candidate, the accepted path may show its derived latest-to-first closure. Enter publishes only the accepted vertices as a closed record; the live candidate is never implicitly committed. Toggling No removes only the closing preview. The option is transient and defaults to No for every new or repeated command; it is not a saved preference.
 
 ## Rendering, selection, and snapping

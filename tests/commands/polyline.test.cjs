@@ -50,8 +50,8 @@ test('pointer, relative typed, and mixed input share the same Polyline draft',as
 
 test('Polyline reuses Endpoint, Midpoint, Grid toggle, and applies Shift Ortho before snapping',async()=>{
   const endpoint=await browser();endpoint.run('recordGateway.createAll([recordGateway.createLine({x:20,y:20},{x:40,y:20})])');
-  endpoint.launch('Polyline');typed(endpoint,'1,1');endpoint.point(502,201,'pointermove');assert.equal(endpoint.read('activeSnapResult.kind'),'endpoint');endpoint.point(502,201);
-  assert.deepEqual(points(endpoint).at(-1),{x:20,y:20});
+  endpoint.launch('Polyline');endpoint.point(502,201,'pointermove');assert.equal(endpoint.read('activeSnapResult.kind'),'endpoint');endpoint.point(502,201);
+  assert.deepEqual(points(endpoint),[{x:20,y:20}]);
   endpoint.point(552,201,'pointermove');assert.equal(endpoint.read('activeSnapResult.kind'),'midpoint');
 
   const grid=await browser();grid.emit(grid.gridSnapButton,'click');grid.launch('Polyline');typed(grid,'1,1');grid.point(451,249,'pointermove');assert.equal(grid.read('activeSnapResult.kind'),'grid');

@@ -97,7 +97,9 @@ function refreshDynamicInput() {
   else if(session.name==="Rotate"&&session.phase==="target"){const angle=session.getMovePreview?.()?.angle;if(Number.isFinite(angle))fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(angle*180/Math.PI),editable:true,active:false})}
   else if(reference){const dx=candidate.x-reference.x,dy=candidate.y-reference.y;fields.push({id:session.name==="Circle"?"radius":"distance",kind:"distance",label:session.name==="Circle"?"Radius":"Distance",value:format(Math.hypot(dx,dy)),editable:true,active:false});if(session.name!=="Circle")fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(Math.atan2(dy,dx)*180/Math.PI),editable:false,active:false})}
   else {fields.push({id:"x",kind:"coordinate",label:"X",value:format(candidate.x),editable:false,active:false},{id:"y",kind:"coordinate",label:"Y",value:format(candidate.y),editable:false,active:false})}
-  dynamicInput.update({screenPoint:lastKnownPointerScreen,viewport:{width:viewportWidth,height:viewportHeight},prompt:session.prompt,fields})
+  const relationshipLabels={ortho:"OnOrtho",polar:"OnPolar",perpendicular:"OnPerp",tangent:"OnTan",tracking:"OnTrack"},tags=(activeSnapResult?.relationships||[]).map(kind=>relationshipLabels[kind]).filter(Boolean),snapLabel=window.CaderactViewportScene.snapLabel(activeSnapResult)
+  if(activeSnapResult?.kinds?.length&&snapLabel)tags.push(snapLabel)
+  dynamicInput.update({screenPoint:lastKnownPointerScreen,viewport:{width:viewportWidth,height:viewportHeight},prompt:session.prompt,fields,tags:[...new Set(tags)]})
 }
 function setDynamicInputEnabled(enabled){dynamicInputEnabled=Boolean(enabled);userPreferences.set({dynamicInputEnabled});if(!dynamicInputEnabled)dynamicInput.clear();else refreshDynamicInput();return dynamicInputEnabled}
 function cancelDynamicInputEdit(){const cancelled=dynamicInput.cancelEdit();if(cancelled)refreshDynamicInput();return Boolean(cancelled)}
@@ -178,6 +180,8 @@ function createCommandPrompt(commandName, instruction) {
   return Object.freeze({ commandName, instruction, text: `${commandName}: ${instruction}` })
 }
 
+const FINISHING_OBJECT_SNAP_KINDS=new Set(["nearest","endpoint","midpoint","intersection","vertex","perpendicular","tangent"])
+function isFinishingObjectSnap(snap){return Boolean(snap?.snapped&&snap.kind!=="grid"&&snap.kind!=="draft-point"&&snap.kind!=="tracking"&&(snap.kinds||[snap.kind]).some(kind=>FINISHING_OBJECT_SNAP_KINDS.has(kind)))}
 function createLineCommandSession({ setPrompt = () => {} } = {}) {
   const draft = window.CaderactLineDraftSession.createSession({
     createSegment: recordGateway.createLine,
@@ -204,6 +208,7 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     }
     const outcome = draft.acceptPoint(point)
     if (outcome.status === "first-point") updatePrompt("Specify next point")
+    if(outcome.status==="segment-added"&&isFinishingObjectSnap(context.snap))return finish()
     requestRender()
     return outcome
   }
@@ -1102,7 +1107,9 @@ function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
     const acceptedStartPoint = draft.firstPoint
     if (draft.canClose && acceptedStartPoint
       && point.x === acceptedStartPoint.x && point.y === acceptedStartPoint.y) return presentPublication(draft.close())
-    return presentPointOutcome(draft.acceptPoint(point), point)
+    const outcome=draft.acceptPoint(point)
+    if(outcome.status==="segment-added"&&isFinishingObjectSnap(context.snap))return presentPublication(draft.finish())
+    return presentPointOutcome(outcome, point)
   }
   function handlePointerMove(point) { draft.updatePointer(point); requestRender() }
   function handlePointerLeave() { draft.clearPointer(); clearSnap(); requestRender() }
@@ -1249,14 +1256,24 @@ function isOrthoActive() { return effectiveOrtho() }
 function resolveCommandPointer(rawPoint, session, options = {}) {
   if(session?.usesResolvedPoint===false){clearSnap();objectSnapTracking.clearHover();return Object.freeze({snapped:false,point:Object.freeze({x:rawPoint.x,y:rawPoint.y})})}
   const reference = session?.getOrthoReference?.()
-  let constrained = window.CaderactOrthoConstraint.constrain(rawPoint, reference, isOrthoActive())
+  const orthoActive=isOrthoActive()&&Number.isFinite(reference?.x)&&Number.isFinite(reference?.y)
+  let constrained = window.CaderactOrthoConstraint.constrain(rawPoint, reference, orthoActive),polarTracked=false,polarAngle=null
   polarGuide = null
   if (effectivePolar()) {
     const polar = window.CaderactPolarConstraint.constrain(rawPoint, reference, polarIncrementDegrees)
     constrained = polar.point
-    if (polar.tracked) polarGuide = Object.freeze({ reference: Object.freeze({ ...reference }), angle: polar.angle })
+    if (polar.tracked) {polarTracked=true;polarAngle=polar.angle;polarGuide = Object.freeze({ reference: Object.freeze({ ...reference }), angle: polar.angle })}
   }
-  return resolvePointerSnap(constrained, { ...options, referencePoint: reference, bypass: false })
+  const resolved=resolvePointerSnap(constrained, { ...options, referencePoint: reference, bypass: false }),relationships=[]
+  const epsilon=1e-9*Math.max(1,Math.abs(resolved.point.x),Math.abs(resolved.point.y),Math.abs(reference?.x||0),Math.abs(reference?.y||0))
+  if(orthoActive&&(Math.abs(resolved.point.x-reference.x)<=epsilon||Math.abs(resolved.point.y-reference.y)<=epsilon))relationships.push("ortho")
+  if(polarTracked){const angle=Math.atan2(resolved.point.y-reference.y,resolved.point.x-reference.x),delta=Math.atan2(Math.sin(angle-polarAngle),Math.cos(angle-polarAngle));if(Math.abs(delta)<=1e-9)relationships.push("polar")}
+  const trackingState=objectSnapTracking.getState()
+  if(resolved.tracking){relationships.push("tracking");if(trackingState.activeGuides.some(guide=>guide.kind==="polar"))relationships.push("polar")}
+  if((resolved.kinds||[]).includes("perpendicular")||resolved.kind==="perpendicular")relationships.push("perpendicular")
+  if((resolved.kinds||[]).includes("tangent")||resolved.kind==="tangent")relationships.push("tangent")
+  activeSnapResult=Object.freeze({...resolved,relationships:Object.freeze([...new Set(relationships)])})
+  return activeSnapResult
 }
 
 function clearSnap() { activeSnapResult = null; polarGuide = null; interactionVisuals.setSnapAcquired(false) }
@@ -1289,7 +1306,7 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds 
   const direct = activeSnapResult.objectSnap
   if (objectSnapTrackingEnabled) objectSnapTracking.observeSnap(direct ? { snapped:true, ...direct } : activeSnapResult)
   else objectSnapTracking.clear()
-  if (direct) activeSnapResult = Object.freeze({ ...activeSnapResult, kind:direct.kind, point:direct.point, distancePx:direct.distancePx, reference:direct.reference, tracking:false })
+  if (direct) activeSnapResult = Object.freeze({ ...activeSnapResult, kind:direct.kind, kinds:direct.kinds, point:direct.point, distancePx:direct.distancePx, reference:direct.reference, references:direct.references, tracking:false })
   else {
     const tracked = objectSnapTrackingEnabled ? objectSnapTracking.project(point, worldToScreen, {
       polarEnabled: effectivePolar(),

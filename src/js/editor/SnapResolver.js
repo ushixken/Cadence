@@ -92,7 +92,12 @@
       }
       const deduplicated=[]
       candidates.sort((a,b)=>priorities[a.kind]-priorities[b.kind]||a.stableKey.localeCompare(b.stableKey))
-      for(const candidate of candidates)if(!deduplicated.some(other=>Math.hypot(other.point.x-candidate.point.x,other.point.y-candidate.point.y)<=1e-9))deduplicated.push(candidate)
+      const isSemantic=kind=>kind!=="grid"&&kind!=="draft-point"
+      for(const candidate of candidates){
+        const existing=deduplicated.find(other=>Math.hypot(other.point.x-candidate.point.x,other.point.y-candidate.point.y)<=1e-9)
+        if(existing){if(isSemantic(candidate.kind)&&!existing.kinds.includes(candidate.kind)){existing.kinds.push(candidate.kind);existing.kinds.sort((a,b)=>priorities[a]-priorities[b])}if(isSemantic(candidate.kind)&&candidate.reference)existing.references.push(candidate.reference)}
+        else deduplicated.push({...candidate,kinds:isSemantic(candidate.kind)?[candidate.kind]:[],references:isSemantic(candidate.kind)&&candidate.reference?[candidate.reference]:[]})
+      }
       candidates.length=0;candidates.push(...deduplicated)
       candidates.sort((a, b) => a.distancePx - b.distancePx
         || priorities[a.kind] - priorities[b.kind]
@@ -105,9 +110,9 @@
       const winner = nearTieCandidates[0]
       if (!winner) return Object.freeze({ snapped: false, point: rawPoint })
       const objectSnap = candidates.filter(candidate => candidate.kind !== "grid" && candidate.kind !== "draft-point").sort((a,b)=>a.distancePx-b.distancePx||priorities[a.kind]-priorities[b.kind]||a.stableKey.localeCompare(b.stableKey))[0] || null
-      return Object.freeze({ snapped: true, kind: winner.kind, point: winner.point,
-        distancePx: winner.distancePx, reference: winner.reference,
-        objectSnap: objectSnap && Object.freeze({ kind:objectSnap.kind, point:objectSnap.point, distancePx:objectSnap.distancePx, reference:objectSnap.reference }) })
+      return Object.freeze({ snapped: true, kind: winner.kind, kinds:Object.freeze(winner.kinds.slice()), point: winner.point,
+        distancePx: winner.distancePx, reference: winner.reference, references:Object.freeze(winner.references.slice()),
+        objectSnap: objectSnap && Object.freeze({ kind:objectSnap.kind, kinds:Object.freeze(objectSnap.kinds.slice()), point:objectSnap.point, distancePx:objectSnap.distancePx, reference:objectSnap.reference, references:Object.freeze(objectSnap.references.slice()) }) })
     }
     return Object.freeze({ resolve, tolerancePx, priorityWindowPx })
   }

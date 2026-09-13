@@ -1,7 +1,7 @@
 // P6A: transient dynamic-input state plus a DOM presentation adapter.
 (() => {
   const freezeFields = fields => Object.freeze((fields || []).map(field => Object.freeze({ ...field })))
-  const hiddenState = () => Object.freeze({ visible:false, screenPoint:null, prompt:"", fields:Object.freeze([]), placement:null, editing:false, activeFieldId:null, invalid:false })
+  const hiddenState = () => Object.freeze({ visible:false, screenPoint:null, prompt:"", fields:Object.freeze([]), tags:Object.freeze([]), placement:null, editing:false, activeFieldId:null, invalid:false })
   function place(screenPoint, viewport, size = { width:220, height:58 }, gap = 18) {
     const flipX = screenPoint.x + gap + size.width > viewport.width
     const flipY = screenPoint.y + gap + size.height > viewport.height
@@ -10,11 +10,11 @@
   function createController({ onChange = () => {} } = {}) {
     let state=hiddenState()
     const publish=next=>{state=Object.freeze(next);onChange(state);return state}
-    function update({ screenPoint, viewport, prompt="", fields=[] }={}) {
+    function update({ screenPoint, viewport, prompt="", fields=[], tags=[] }={}) {
       if(!Number.isFinite(screenPoint?.x)||!Number.isFinite(screenPoint?.y)||!(viewport?.width>0)||!(viewport?.height>0))return clear()
       const active=state.editing?state.fields.find(field=>field.id===state.activeFieldId):null
       const nextFields=fields.map(field=>({ ...field,displayValue:field.displayValue??field.value,text:active?.id===field.id?active.text:"",active:active?.id===field.id }))
-      return publish({visible:true,screenPoint:Object.freeze({...screenPoint}),prompt:String(prompt),fields:freezeFields(nextFields),placement:place(screenPoint,viewport),editing:Boolean(active),activeFieldId:active?.id||null,invalid:Boolean(active&&state.invalid)})
+      return publish({visible:true,screenPoint:Object.freeze({...screenPoint}),prompt:String(prompt),fields:freezeFields(nextFields),tags:Object.freeze(tags.map(String)),placement:place(screenPoint,viewport),editing:Boolean(active),activeFieldId:active?.id||null,invalid:Boolean(active&&state.invalid)})
     }
     function clear(){return publish(hiddenState())}
     function beginEdit(character){if(!state.visible||state.editing)return false;const field=state.fields.find(item=>item.editable);if(!field)return false;return activate(field.id,character)}
@@ -30,8 +30,8 @@
   function createView({host}) {
     const root=document.createElement("div");root.classList.add("dynamic-input-hud");root.hidden=true;root.setAttribute("aria-live","polite");root.setAttribute("aria-atomic","true")
     const prompt=document.createElement("div");prompt.classList.add("dynamic-input-prompt")
-    const fields=document.createElement("div");fields.classList.add("dynamic-input-fields");root.appendChild(prompt);root.appendChild(fields);host.appendChild(root)
-    function render(state){root.hidden=!state.visible;if(!state.visible)return;root.style.left=`${state.placement.left}px`;root.style.top=`${state.placement.top}px`;root.classList.toggle("is-flipped-x",state.placement.flipX);root.classList.toggle("is-flipped-y",state.placement.flipY);root.classList.toggle("is-editing",state.editing);root.classList.toggle("is-invalid",state.invalid);prompt.textContent=state.prompt;fields.replaceChildren(...state.fields.map(field=>{const item=document.createElement("span");item.classList.add("dynamic-input-field");if(field.active)item.classList.add("is-active");const label=document.createElement("small");label.textContent=field.label;const value=document.createElement("strong");value.textContent=field.active?field.text:field.displayValue;item.appendChild(label);item.appendChild(value);return item}))}
+    const fields=document.createElement("div");fields.classList.add("dynamic-input-fields");const tags=document.createElement("div");tags.classList.add("dynamic-input-tags");root.appendChild(prompt);root.appendChild(fields);root.appendChild(tags);host.appendChild(root)
+    function render(state){root.hidden=!state.visible;if(!state.visible)return;root.style.left=`${state.placement.left}px`;root.style.top=`${state.placement.top}px`;root.classList.toggle("is-flipped-x",state.placement.flipX);root.classList.toggle("is-flipped-y",state.placement.flipY);root.classList.toggle("is-editing",state.editing);root.classList.toggle("is-invalid",state.invalid);prompt.textContent=state.prompt;fields.replaceChildren(...state.fields.map(field=>{const item=document.createElement("span");item.classList.add("dynamic-input-field");if(field.active)item.classList.add("is-active");const label=document.createElement("small");label.textContent=field.label;const value=document.createElement("strong");value.textContent=field.active?field.text:field.displayValue;item.appendChild(label);item.appendChild(value);return item}));tags.replaceChildren(...state.tags.map(text=>{const item=document.createElement("span");item.textContent=text;return item}))}
     return Object.freeze({render,element:root})
   }
   const formatNumber=value=>{if(!Number.isFinite(value))return "";const fixed=value.toFixed(3);return fixed.replace(/\.0+$|(?<=\.[0-9]*?)0+$/g,"").replace(/\.$/,"")}
