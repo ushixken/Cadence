@@ -34,3 +34,6 @@ The reusable path is:
 `pointer → screenToWorld → authoritative record candidates + command transient candidates → enabled modes → SnapResolver → resolved point → command preview/input`
 
 An active command exposes `getSnapCandidates()` and returns plain transient candidate descriptors. It separately exposes `hasPointerPreview()` so the viewport can decide whether pointer movement should resolve and update a preview without inspecting the command's private draft representation. The resolver contains no Line-, Rectangle-, Polyline-, Circle-, or Arc-specific control flow. New command types may supply transient candidates through this contract while authoritative object candidate collection remains centralized. Additional snap kinds still require an explicit shared semantic definition; D2A does not implement new drawing commands, Ortho, Tracking, or UX2 behavior.
+## First-point availability
+
+Grid candidates participate in D2A from command start, including before a draft point exists. Drafting constraints are optional reference-dependent preprocessing only; Grid resolution is reference-independent.

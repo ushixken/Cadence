@@ -35,3 +35,6 @@ Every pointer query enumerates the active document reader. Undo/Redo, deletion, 
 D2 performs a simple deterministic traversal of current Lines and creates transient endpoint/midpoint candidates only for the active point-consuming interaction. No idle preselection or permanent spatial index exists. A replaceable spatial index is deferred until measured scale requires one.
 
 Grips, nearest/intersection/perpendicular/tangent/center/quadrant/extension snaps, Ortho, Polar/Object Snap Tracking, settings/tolerance UI, configurable grid-snap spacing, preference persistence, additional commands, and 3D snapping remain deferred.
+## First-point grid acquisition
+
+Grid Snap is available during first-point acquisition and never requires a drafting reference. The point path is raw pointer, optional Ortho/Polar constraint only when the command supplies a reference, then D2A Grid/object resolution. Therefore enabling Ortho or Polar before P1 cannot suppress Grid Snap; after a reference exists, those constraints resume before snapping.

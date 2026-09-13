@@ -217,7 +217,8 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
       reference: Object.freeze({ kind: "draft-point", index }),
     }))
   }
-  function hasPointerPreview() { return draft.hasFirstPoint }
+  // Snap acquisition is valid before P1; only the rubber-band preview needs P1.
+  function hasPointerPreview() { return true }
   function getPreviewLines() { const preview = draft.preview(); return preview ? [preview] : [] }
   function handleOption(optionId) {
     if (optionId !== "close" || !draft.canClose) return Object.freeze({ status: "option-unavailable", reason: "close-unavailable", command: "Line", optionId })
@@ -840,7 +841,7 @@ function createCircleCommandSession({ setPrompt = () => {} } = {}) {
   return Object.freeze({
     name: "Circle", draft, finish, cancel, handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
     getCirclePreview: draft.preview, getDraftPoints: draft.acceptedPoints, getSnapCandidates,
-    hasPointerPreview: () => draft.hasCenter,
+    hasPointerPreview: () => true,
     get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
 }
@@ -876,7 +877,7 @@ function createArcCommandSession({setPrompt=()=>{}}={}){
     stableKey:`arc-draft:${index}`,reference:Object.freeze({kind:"draft-point",index})}))}
   requestRender()
   return Object.freeze({name:"Arc",draft,finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,
-    getArcPreview:draft.preview,getDraftPoints:draft.acceptedPoints,getSnapCandidates,hasPointerPreview:()=>draft.hasFirstPoint,
+    getArcPreview:draft.preview,getDraftPoints:draft.acceptedPoints,getSnapCandidates,hasPointerPreview:()=>true,
     get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
@@ -909,7 +910,7 @@ function createEllipseCommandSession({setPrompt=()=>{}}={}){
     stableKey:`ellipse-draft:${index}`,reference:Object.freeze({kind:"draft-point",index})}))}
   requestRender()
   return Object.freeze({name:"Ellipse",draft,finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,
-    getEllipsePreview:draft.preview,getDraftPoints:draft.acceptedPoints,getSnapCandidates,hasPointerPreview:()=>draft.hasFirstPoint,
+    getEllipsePreview:draft.preview,getDraftPoints:draft.acceptedPoints,getSnapCandidates,hasPointerPreview:()=>true,
     get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
@@ -956,7 +957,7 @@ function createPolygonCommandSession({setPrompt=()=>{}}={}){
   function options(){return !editingSides&&draft.hasSideCount?Object.freeze([Object.freeze({id:"numSides",label:"NumSides",value:String(draft.sideCount),enabled:true})]):Object.freeze([])}
   requestRender()
   return Object.freeze({name:"Polygon",draft,finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,handleOption,
-    getPreviewLines:draft.previewEdges,getDraftPoints:draft.acceptedPoints,getSnapCandidates,hasPointerPreview:()=>draft.hasCenter,
+    getPreviewLines:draft.previewEdges,getDraftPoints:draft.acceptedPoints,getSnapCandidates,hasPointerPreview:()=>!editingSides,
     get acceptsEmptyInput(){return editingSides},get options(){return options()},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
@@ -1025,7 +1026,7 @@ function createRectangleCommandSession({ setPrompt = () => {} } = {}) {
     name: "Rectangle", draft, finish, cancel, handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,
     getPreviewLines: draft.previewEdges, getDraftPoints: draft.acceptedPoints, getSnapCandidates,
     getOrthoReference: () => draft.firstCorner,
-    hasPointerPreview: () => draft.hasFirstCorner,
+    hasPointerPreview: () => true,
     get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
 }
@@ -1117,7 +1118,7 @@ function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
   return Object.freeze({
     name: "Polyline", draft, finish, cancel, stepUndo, handlePointerDown, handlePointerMove, handlePointerLeave, handleInput,handleOption,
     getDraftLines: draft.draftSegments, getPreview: draft.preview, getPreviewLines,
-    getDraftPoints: draft.acceptedPoints, getSnapCandidates, getOrthoReference: () => draft.currentPoint, hasPointerPreview: () => draft.hasFirstPoint,
+    getDraftPoints: draft.acceptedPoints, getSnapCandidates, getOrthoReference: () => draft.currentPoint, hasPointerPreview: () => true,
     get options(){return options()},get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
 }
