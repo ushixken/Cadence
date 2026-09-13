@@ -853,6 +853,31 @@
             center.x,
             center.y - size,
           )
+        } else if (snap.kind === "center") {
+          for(let index=0;index<8;index++){const a=index*Math.PI/4,b=(index+1)*Math.PI/4;addSegment(snapMarker,center.x+Math.cos(a)*size,center.y+Math.sin(a)*size,center.x+Math.cos(b)*size,center.y+Math.sin(b)*size)}
+          addSegment(snapMarker,center.x-size-2,center.y,center.x+size+2,center.y)
+          addSegment(snapMarker,center.x,center.y-size-2,center.x,center.y+size+2)
+        } else if (snap.kind === "intersection") {
+          addSegment(snapMarker,center.x-size,center.y-size,center.x+size,center.y+size)
+          addSegment(snapMarker,center.x+size,center.y-size,center.x-size,center.y+size)
+        } else if (snap.kind === "quadrant") {
+          addSegment(snapMarker,center.x-size,center.y,center.x,center.y-size)
+          addSegment(snapMarker,center.x,center.y-size,center.x+size,center.y)
+          addSegment(snapMarker,center.x+size,center.y,center.x,center.y+size)
+          addSegment(snapMarker,center.x,center.y+size,center.x-size,center.y)
+          addSegment(snapMarker,center.x-size-2,center.y,center.x+size+2,center.y)
+        } else if (snap.kind === "vertex") {
+          const inset=size-2;addSegment(snapMarker,center.x-inset,center.y-inset,center.x+inset,center.y-inset);addSegment(snapMarker,center.x+inset,center.y-inset,center.x+inset,center.y+inset);addSegment(snapMarker,center.x+inset,center.y+inset,center.x-inset,center.y+inset);addSegment(snapMarker,center.x-inset,center.y+inset,center.x-inset,center.y-inset)
+        } else if (snap.kind === "nearest") {
+          for(let index=0;index<8;index++){const a=index*Math.PI/4,b=(index+1)*Math.PI/4;addSegment(snapMarker,center.x+Math.cos(a)*2,center.y+Math.sin(a)*2,center.x+Math.cos(b)*2,center.y+Math.sin(b)*2)}
+        } else if (snap.kind === "perpendicular") {
+          addSegment(snapMarker,center.x-size,center.y-size,center.x-size,center.y+size)
+          addSegment(snapMarker,center.x-size,center.y+size,center.x+size,center.y+size)
+          addSegment(snapMarker,center.x-size+3,center.y+size-3,center.x-size+3,center.y+size)
+          addSegment(snapMarker,center.x-size+3,center.y+size-3,center.x-size,center.y+size-3)
+        } else if (snap.kind === "tangent") {
+          for(let index=0;index<8;index++){const a=index*Math.PI/4,b=(index+1)*Math.PI/4;addSegment(snapMarker,center.x+Math.cos(a)*4,center.y+Math.sin(a)*4,center.x+Math.cos(b)*4,center.y+Math.sin(b)*4)}
+          addSegment(snapMarker,center.x+4,center.y-6,center.x+4,center.y+6)
         } else {
           const inset = 2.5
           addSegment(
@@ -890,6 +915,7 @@
             : snap.kind[0].toUpperCase() + snap.kind.slice(1)
         snapOverlay = Object.freeze({
           kind: snap.kind,
+          glyph: snap.kind,
           point: Object.freeze({ x: center.x, y: center.y }),
           label,
           segments: new Float32Array(snapMarker),

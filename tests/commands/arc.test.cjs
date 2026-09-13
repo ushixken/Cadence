@@ -47,8 +47,8 @@ test('commit inherits current layer, creates one history entry, and Undo/Redo pr
   const b=await browser();b.run('layerGateway.create("Arcs")');const layer=b.read('modelReader.layers().find(x=>x.name==="Arcs").id');b.run(`layerGateway.setCurrent(${JSON.stringify(layer)})`);const before=b.read('documentController.historyInfo.entryCount');createArc(b);const record=b.read('modelReader.records()[0]');assert.equal(record.layerId,layer);assert.equal(b.read('documentController.historyInfo.entryCount'),before+1);b.run('window.caderactHistory.undo()');assert.equal(b.read('modelReader.records().length'),0);b.run('window.caderactHistory.redo()');assert.deepEqual(b.read('modelReader.records()[0]'),record);
 });
 
-test('Arc endpoints resolve through A10 and snap as Endpoint without fake Arc midpoint',async()=>{
-  const b=await browser();createArc(b);b.run('window.__arc=modelReader.records()[0];window.__resolver=window.CaderactReferences.createResolver(modelReader);window.__ref=window.CaderactReferences.createEndpointReference(window.__arc.id,window.__arc.start.featureId)');assert.equal(b.read('window.__resolver.resolve(window.__ref).status'),'resolved');b.launch('Line');b.point(451,299);assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.currentPoint'),{x:10,y:0});b.point(401,249,'pointermove');assert.notEqual(b.read('activeSnapResult?.kind||null'),'midpoint');
+test('Arc endpoints resolve through A10 and arc midpoint follows its actual sweep',async()=>{
+  const b=await browser();createArc(b);b.run('window.__arc=modelReader.records()[0];window.__resolver=window.CaderactReferences.createResolver(modelReader);window.__ref=window.CaderactReferences.createEndpointReference(window.__arc.id,window.__arc.start.featureId)');assert.equal(b.read('window.__resolver.resolve(window.__ref).status'),'resolved');b.launch('Line');b.point(451,299);assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.currentPoint'),{x:10,y:0});b.point(401,249,'pointermove');assert.equal(b.read('activeSnapResult?.kind||null'),'midpoint');
 });
 
 test('strict v1 persistence round-trips Arc and rejects malformed and unknown fields',async()=>{

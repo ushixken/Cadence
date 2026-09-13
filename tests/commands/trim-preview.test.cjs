@@ -142,6 +142,9 @@ test('18. Preview never enters SnapResolver candidate geometry',async()=>{
   // transient preview geometry.
   const cutPoint=p.records[0].start.x===3&&p.records[0].start.y===0?p.records[0].start:p.records[0].end
   assert.equal(cutPoint.x,3);assert.equal(cutPoint.y,0)
+  // P3 adds legitimate committed-geometry Intersection snaps at this point;
+  // turn only that mode off so this remains a test of preview isolation.
+  b.run('window.caderactViewport.setObjectSnapMode("intersection",false)')
   b.point(sx(cutPoint.x),sy(cutPoint.y),'pointermove')
   const acquired=b.read('window.caderactViewport.getInteractionVisualState().snapAcquired')
   assert.equal(acquired,false)

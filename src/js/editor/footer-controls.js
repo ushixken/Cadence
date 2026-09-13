@@ -2,6 +2,7 @@ const snapTrigger = document.querySelector(".snap-trigger")
 const snapMenu = document.querySelector(".snap-menu")
 const snapEnabled = document.querySelector("#snap-enabled")
 const snapDependentOptions = document.querySelectorAll(".snap-dependent input")
+const snapModeOptions = document.querySelectorAll("[data-snap-mode]")
 const snapDependentSection = document.querySelector(".snap-dependent")
 const footerTools = document.querySelectorAll(".footer-tool")
 const gridSnapToggle = document.querySelector("#grid-snap-toggle")
@@ -34,7 +35,8 @@ snapTrigger.addEventListener("click", () => {
   snapTrigger.setAttribute("aria-expanded", String(isOpening))
 })
 
-snapEnabled.addEventListener("change", updateSnapOptions)
+snapEnabled.addEventListener("change", () => window.caderactViewport.setObjectSnapMode("object", snapEnabled.checked))
+snapModeOptions.forEach(option => option.addEventListener("change", () => window.caderactViewport.setObjectSnapMode(option.dataset.snapMode, option.checked)))
 
 unitsTrigger.addEventListener("click", () => {
   const isOpening = unitsMenu.hidden
@@ -86,6 +88,7 @@ function refreshGridSnapButton(modes) {
 gridSnapToggle.addEventListener("mousedown", event => event.preventDefault())
 gridSnapToggle.addEventListener("click", () => window.caderactViewport.setGridSnapEnabled(!window.caderactViewport.snapModes.grid))
 window.caderactViewport.subscribeSnapModes(refreshGridSnapButton)
+window.caderactViewport.subscribeSnapModes(modes => { snapModeOptions.forEach(option => { option.checked=Boolean(modes[option.dataset.snapMode]); option.disabled=option.dataset.snapMode!=="object"&&!modes.object }); updateSnapOptions() })
 orthoToggle?.addEventListener("mousedown", event => event.preventDefault())
 orthoToggle?.addEventListener("click", () => window.caderactViewport.setOrthoEnabled(!window.caderactViewport.orthoEnabled))
 if (orthoToggle) window.caderactViewport.subscribeEffectiveOrtho?.(enabled => { orthoToggle.classList.toggle("is-active", enabled); orthoToggle.setAttribute("aria-pressed", String(enabled)) })

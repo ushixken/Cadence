@@ -33,7 +33,7 @@ function preferenceColor(hex, opacity) { if (opacity === 1) return hex; const va
 function applyGridAppearance(value) { viewportSettings.gridVisible=value.gridVisible; viewportSettings.gridColor=preferenceColor(value.gridColor,value.gridOpacity); viewportSettings.majorGridColor=preferenceColor(value.majorGridColor,value.majorGridOpacity); viewportSettings.xAxisColor=preferenceColor(value.xAxisColor,value.xAxisOpacity); viewportSettings.yAxisColor=preferenceColor(value.yAxisColor,value.yAxisOpacity); viewportSettings.majorGridInterval=value.majorGridInterval; requestRender?.() }
 applyGridAppearance(userPreferences.value)
 userPreferences.subscribe(applyGridAppearance)
-let snapModes = Object.freeze({ endpoint: true, midpoint: true, grid: userPreferences.value.gridSnapEnabled })
+let snapModes = Object.freeze({ object: userPreferences.value.objectSnapEnabled, endpoint: userPreferences.value.endpointSnapEnabled, midpoint: userPreferences.value.midpointSnapEnabled, center: userPreferences.value.centerSnapEnabled, intersection: userPreferences.value.intersectionSnapEnabled, quadrant: userPreferences.value.quadrantSnapEnabled, nearest: userPreferences.value.nearestSnapEnabled, perpendicular: userPreferences.value.perpendicularSnapEnabled, tangent: userPreferences.value.tangentSnapEnabled, vertex: userPreferences.value.vertexSnapEnabled, grid: userPreferences.value.gridSnapEnabled })
 const snapModeListeners = new Set()
 let orthoEnabled = userPreferences.value.orthoEnabled
 const orthoListeners = new Set()
@@ -1164,6 +1164,17 @@ function subscribeSnapModes(listener) {
   listener(snapModes)
   return () => snapModeListeners.delete(listener)
 }
+function setObjectSnapMode(mode, enabled) {
+  if (!(mode in snapModes) || mode === "grid") throw new Error("Unknown object snap mode")
+  const next = Boolean(enabled)
+  if (snapModes[mode] === next) return snapModes
+  snapModes = Object.freeze({ ...snapModes, [mode]: next })
+  const preferenceKey = mode === "object" ? "objectSnapEnabled" : `${mode}SnapEnabled`
+  userPreferences.set({ [preferenceKey]: next })
+  for (const listener of snapModeListeners) listener(snapModes)
+  updateSnapAtPointer()
+  return snapModes
+}
 
 function setOrthoEnabled(enabled) {
   orthoEnabled = Boolean(enabled)
@@ -1203,12 +1214,12 @@ function resolveCommandPointer(rawPoint, session, options = {}) {
     constrained = polar.point
     if (polar.tracked) polarGuide = Object.freeze({ reference: Object.freeze({ ...reference }), angle: polar.angle })
   }
-  return resolvePointerSnap(constrained, { ...options, bypass: false })
+  return resolvePointerSnap(constrained, { ...options, referencePoint: reference, bypass: false })
 }
 
 function clearSnap() { activeSnapResult = null; polarGuide = null; interactionVisuals.setSnapAcquired(false) }
 
-function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds = [], transientCandidates = [], bypass = false } = {}) {
+function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds = [], transientCandidates = [], referencePoint = null, bypass = false } = {}) {
   if (Array.isArray(arguments[1])) {
     excludedFeatureIds = arguments[1]
     transientCandidates = (arguments[2] || []).map((candidate, index) => ({
@@ -1229,6 +1240,7 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds 
     transientCandidates,
     gridSpacing: sceneBuilder.getAdaptiveGridSpacing(),
     enabled: snapModes,
+    referencePoint,
     excludedFeatureIds,
     excludedRecordIds,
   })
@@ -1292,7 +1304,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
+window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()
