@@ -74,7 +74,7 @@ userPreferences.subscribe(applyObjectSnapTrackingPreference)
 const selection = window.CaderactSelection.createSelection()
 const selectionBox = window.CaderactSelectionBox.createInteraction()
 const grips = window.CaderactGrips.createManager({
-  getRecords: () => modelReader.records(), getSelectedIds: selection.selectedIds, worldToScreen,
+  getRecords: () => modelReader.editableRecords(), getSelectedIds: selection.selectedIds, worldToScreen,
   replaceRecord: (id, record) => recordGateway.replace(id, record), requestRender,
 })
 let selectionHistoryUnsubscribe = null
@@ -84,6 +84,8 @@ window.caderactGrips = grips
 function getActiveCommandSession() {
   return window.caderactCommandRouter?.activeSession || null
 }
+function visibleRecords(){return modelReader.visibleRecords()}
+function editableRecords(){return modelReader.editableRecords()}
 
 function dynamicReference(session) {
   return session?.getOrthoReference?.() || session?.draft?.currentPoint || session?.draft?.center || session?.draft?.firstCorner || null
@@ -132,7 +134,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   camera: viewportCamera,
   getViewportSize: () => ({ width: viewportWidth, height: viewportHeight }),
   getDocumentUnit: () => modelReader.units().length,
-  getRecords: () => modelReader.records(),
+  getRecords: visibleRecords,
   getDraftLines: () => getActiveCommandSession()?.getDraftLines?.() || [],
   getPreviewLines: () => getActiveCommandSession()?.getPreviewLines?.() || [],
   getCirclePreview: () => getActiveCommandSession()?.getCirclePreview?.() || null,
@@ -299,7 +301,7 @@ function createMoveCommandSession({ setPrompt = () => {} } = {}) {
   function updatePrompt(instruction) { promptPresentation=createCommandPrompt("Move",instruction);setPrompt(promptPresentation.text,promptPresentation) }
   function selectedRecords() {
     const selected=new Set(selectedRecordIds)
-    return modelReader.records().filter(record=>selected.has(record.id))
+    return editableRecords().filter(record=>selected.has(record.id))
   }
   function confirmSelection() {
     const ids=selection.selectedIds()
@@ -357,7 +359,7 @@ function createCopyCommandSession({ setPrompt = () => {} } = {}) {
   let basePoint=null,candidatePoint=null
   let promptPresentation=createCommandPrompt("Copy",phase==="selection"?"Select objects":"Specify base point")
   function updatePrompt(instruction){promptPresentation=createCommandPrompt("Copy",instruction);setPrompt(promptPresentation.text,promptPresentation)}
-  function selectedRecords(){const selected=new Set(selectedRecordIds);return modelReader.records().filter(record=>selected.has(record.id))}
+  function selectedRecords(){const selected=new Set(selectedRecordIds);return editableRecords().filter(record=>selected.has(record.id))}
   function confirmSelection(){const ids=selection.selectedIds();if(!ids.length)return Object.freeze({status:"invalid-input",reason:"empty-selection",command:"Copy",message:"Select at least one object"});selectedRecordIds=ids;phase="base";updatePrompt("Specify base point");requestRender();return Object.freeze({status:"input-accepted",command:"Copy",kind:"selection",recordIds:selectedRecordIds})}
   function commitTarget(point){
     candidatePoint=Object.freeze({x:point.x,y:point.y});const dx=candidatePoint.x-basePoint.x,dy=candidatePoint.y-basePoint.y
@@ -389,7 +391,7 @@ function createRotateCommandSession({ setPrompt = () => {} } = {}) {
   let centerPoint=null,referencePoint=null,candidatePoint=null,feedbackVisible=false,copyMode=false
   let promptPresentation=createCommandPrompt("Rotate",phase==="selection"?"Select objects":"Specify center point")
   function updatePrompt(instruction){promptPresentation=createCommandPrompt("Rotate",instruction);setPrompt(promptPresentation.text,promptPresentation)}
-  function selectedRecords(){const selected=new Set(selectedRecordIds);return modelReader.records().filter(record=>selected.has(record.id))}
+  function selectedRecords(){const selected=new Set(selectedRecordIds);return editableRecords().filter(record=>selected.has(record.id))}
   function confirmSelection(){const ids=selection.selectedIds();if(!ids.length)return Object.freeze({status:"invalid-input",reason:"empty-selection",command:"Rotate",message:"Select at least one object"});selectedRecordIds=ids;phase="center";updatePrompt("Specify center point");requestRender();return Object.freeze({status:"input-accepted",command:"Rotate",kind:"selection",recordIds:selectedRecordIds})}
   function angleTo(point){if(!centerPoint||!referencePoint||point.x===centerPoint.x&&point.y===centerPoint.y)return null;const start=Math.atan2(referencePoint.y-centerPoint.y,referencePoint.x-centerPoint.x),target=Math.atan2(point.y-centerPoint.y,point.x-centerPoint.x);return window.CaderactGeometryTransform.normalizeAngle(target-start)}
   function commitTarget(point){candidatePoint=Object.freeze({x:point.x,y:point.y});const angle=angleTo(candidatePoint);if(angle===null)return Object.freeze({status:"invalid-input",reason:"undefined-target-direction",command:"Rotate",message:"Target point must differ from center"});if(Math.abs(angle)<=ANGLE_EPSILON){clearSnap();candidatePoint=null;requestRender();return Object.freeze({status:"command-completed",command:"Rotate",outcome:Object.freeze({status:"no-op"})})}let replacements;try{const source=selectedRecords();if(source.length!==selectedRecordIds.length)return Object.freeze({status:"invalid-input",reason:"missing-selection",command:"Rotate",message:"A selected object is no longer available"});replacements=source.map(record=>window.CaderactGeometryTransform.rotateRecord(record,centerPoint,angle));if(copyMode)replacements=replacements.map(record=>recordGateway.copyWithFreshIdentity(record))}catch(error){return Object.freeze({status:"invalid-input",reason:"invalid-rotation",command:"Rotate",message:error.message})}const outcome=copyMode?recordGateway.createAll(replacements):recordGateway.replaceAll(replacements);if(outcome.status!=="committed"){requestRender();return Object.freeze({status:"invalid-input",reason:"commit-failed",command:"Rotate",message:"Unable to rotate; preview preserved",outcome})}if(copyMode)selection.applyRecordIds(replacements.map(record=>record.id));clearSnap();candidatePoint=null;requestRender();return Object.freeze({status:"command-completed",command:"Rotate",outcome,angle,copyMode,recordIds:Object.freeze(replacements.map(record=>record.id))})}
@@ -416,7 +418,7 @@ function createMirrorCommandSession({ setPrompt = () => {} } = {}) {
   let phase=selection.selectedIds().length?"axis-a":"selection",selectedRecordIds=phase==="axis-a"?selection.selectedIds():Object.freeze([]),axisA=null,axisB=null,copyMode=userPreferences.value.mirrorCopyEnabled
   let promptPresentation=createCommandPrompt("Mirror",phase==="selection"?"Select objects":"Specify first mirror-axis point")
   function updatePrompt(instruction){promptPresentation=createCommandPrompt("Mirror",instruction);setPrompt(promptPresentation.text,promptPresentation)}
-  function selectedRecords(){const ids=new Set(selectedRecordIds);return modelReader.records().filter(record=>ids.has(record.id))}
+  function selectedRecords(){const ids=new Set(selectedRecordIds);return editableRecords().filter(record=>ids.has(record.id))}
   function confirmSelection(){const ids=selection.selectedIds();if(!ids.length)return Object.freeze({status:"invalid-input",reason:"empty-selection",command:"Mirror",message:"Select at least one object"});selectedRecordIds=ids;phase="axis-a";updatePrompt("Specify first mirror-axis point");requestRender();return Object.freeze({status:"input-accepted",command:"Mirror",kind:"selection",recordIds:ids})}
   function mirrorRecords(target){const source=selectedRecords();if(source.length!==selectedRecordIds.length)throw new Error("Selected object is no longer available");return source.map(record=>window.CaderactGeometryTransform.mirrorRecord(record,axisA,target))}
   function commit(point){axisB=Object.freeze({x:point.x,y:point.y});let records;try{records=mirrorRecords(axisB);if(copyMode)records=records.map(record=>recordGateway.copyWithFreshIdentity(record))}catch(error){return Object.freeze({status:"invalid-input",reason:"invalid-axis",command:"Mirror",message:error.message})}const outcome=copyMode?recordGateway.createAll(records):recordGateway.replaceAll(records);if(outcome.status!=="committed"){requestRender();return Object.freeze({status:"invalid-input",reason:"commit-failed",command:"Mirror",message:"Unable to mirror; preview preserved",outcome})}if(copyMode)selection.applyRecordIds(records.map(record=>record.id));clearSnap();requestRender();return Object.freeze({status:"command-completed",command:"Mirror",outcome,copyMode,recordIds:Object.freeze(records.map(record=>record.id))})}
@@ -443,7 +445,7 @@ function createScaleCommandSession({ setPrompt = () => {} } = {}) {
   let basePoint=null,referencePoint=null,candidatePoint=null,feedbackVisible=false,copyMode=false
   let promptPresentation=createCommandPrompt("Scale",phase==="selection"?"Select objects":"Specify base point")
   function updatePrompt(instruction){promptPresentation=createCommandPrompt("Scale",instruction);setPrompt(promptPresentation.text,promptPresentation)}
-  function selectedRecords(){const selected=new Set(selectedRecordIds);return modelReader.records().filter(record=>selected.has(record.id))}
+  function selectedRecords(){const selected=new Set(selectedRecordIds);return editableRecords().filter(record=>selected.has(record.id))}
   function confirmSelection(){const ids=selection.selectedIds();if(!ids.length)return Object.freeze({status:"invalid-input",reason:"empty-selection",command:"Scale",message:"Select at least one object"});selectedRecordIds=ids;phase="base";updatePrompt("Specify base point");requestRender();return Object.freeze({status:"input-accepted",command:"Scale",kind:"selection",recordIds:selectedRecordIds})}
   function distanceFromBase(point){return Math.hypot(point.x-basePoint.x,point.y-basePoint.y)}
   function factorTo(point){const referenceDistance=distanceFromBase(referencePoint),targetDistance=distanceFromBase(point),factor=targetDistance/referenceDistance;return Number.isFinite(factor)&&factor>0?factor:null}
@@ -479,7 +481,7 @@ function createTrimCommandSession({ setPrompt = () => {} } = {}) {
   // committed records are honored -- stale/missing preselected IDs are
   // dropped, and if nothing valid remains Trim falls back to the normal
   // "cutting-edges" phase exactly as if nothing had been preselected.
-  const initialSelectedIds = selection.selectedIds().filter(id => modelReader.records().some(record => record.id === id))
+  const initialSelectedIds = selection.selectedIds().filter(id => modelReader.isRecordVisible(id))
   let phase = initialSelectedIds.length ? "targets" : "cutting-edges"
   let confirmedCuttingEdgeIds = phase === "targets" ? Object.freeze(initialSelectedIds) : Object.freeze([])
   let hoveredTargetId = null, pendingPlan = null, pointerLocation = null
@@ -487,7 +489,7 @@ function createTrimCommandSession({ setPrompt = () => {} } = {}) {
   function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Trim", instruction); setPrompt(promptPresentation.text, promptPresentation) }
 
   function resolveCuttingEdges() {
-    const byId = new Map(modelReader.records().map(record => [record.id, record]))
+    const byId = new Map(visibleRecords().map(record => [record.id, record]))
     const resolved = []
     for (const id of confirmedCuttingEdgeIds) { const record = byId.get(id); if (record) resolved.push(record) }
     return resolved
@@ -510,9 +512,9 @@ function createTrimCommandSession({ setPrompt = () => {} } = {}) {
   // have a model-space point still fall back to a projection of that point.
   function hitTestTargetAtRawPointer(fallbackModelPoint) {
     const screenPoint = lastKnownPointerScreen || worldToScreen(fallbackModelPoint.x, fallbackModelPoint.y)
-    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records: modelReader.records(), worldToScreen })
+    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records: editableRecords(), worldToScreen })
     if (!hit.hit) return null
-    return modelReader.records().find(record => record.id === hit.recordId) || null
+    return editableRecords().find(record => record.id === hit.recordId) || null
   }
 
   // Single source of truth for both preview and commit: always re-resolves
@@ -623,7 +625,7 @@ function createTrimCommandSession({ setPrompt = () => {} } = {}) {
 }
 
 function createExtendCommandSession({ setPrompt = () => {} } = {}) {
-  const initialSelectedIds = selection.selectedIds().filter(id => modelReader.records().some(record => record.id === id))
+  const initialSelectedIds = selection.selectedIds().filter(id => modelReader.isRecordVisible(id))
   let phase = initialSelectedIds.length ? "targets" : "boundaries"
   let confirmedBoundaryIds = phase === "targets" ? Object.freeze(initialSelectedIds) : Object.freeze([])
   let hoveredTargetId = null, pendingPlan = null, pointerLocation = null
@@ -631,7 +633,7 @@ function createExtendCommandSession({ setPrompt = () => {} } = {}) {
   function updatePrompt(instruction) { promptPresentation = createCommandPrompt("Extend", instruction); setPrompt(promptPresentation.text, promptPresentation) }
 
   function resolveBoundaries() {
-    const byId = new Map(modelReader.records().map(record => [record.id, record]))
+    const byId = new Map(visibleRecords().map(record => [record.id, record]))
     const resolved = []
     for (const id of confirmedBoundaryIds) { const record = byId.get(id); if (record) resolved.push(record) }
     return resolved
@@ -649,9 +651,9 @@ function createExtendCommandSession({ setPrompt = () => {} } = {}) {
 
   function hitTestTargetAtRawPointer(fallbackModelPoint) {
     const screenPoint = lastKnownPointerScreen || worldToScreen(fallbackModelPoint.x, fallbackModelPoint.y)
-    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records: modelReader.records(), worldToScreen })
+    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records: editableRecords(), worldToScreen })
     if (!hit.hit) return null
-    return modelReader.records().find(record => record.id === hit.recordId) || null
+    return editableRecords().find(record => record.id === hit.recordId) || null
   }
 
   function planForTarget(targetRecord, modelPoint) {
@@ -668,7 +670,7 @@ function createExtendCommandSession({ setPrompt = () => {} } = {}) {
   }
 
   function sourceRecord() {
-    return modelReader.records().find(record => record.id === pendingPlan?.targetRecordId) || null
+    return visibleRecords().find(record => record.id === pendingPlan?.targetRecordId) || null
   }
 
   function handlePointerDown(point) {
@@ -749,7 +751,7 @@ function createExtendCommandSession({ setPrompt = () => {} } = {}) {
 function createOffsetCommandSession({ setPrompt = () => {}, preselectionIds = [] } = {}) {
   const preselectedSource = (() => {
     if (!Array.isArray(preselectionIds) || preselectionIds.length !== 1) return null
-    const record = modelReader.records().find(candidate => candidate.id === preselectionIds[0]) || null
+    const record = editableRecords().find(candidate => candidate.id === preselectionIds[0]) || null
     return ["line", "circle", "arc", "polyline"].includes(record?.type) ? record : null
   })()
   let distance = 1, phase = preselectedSource ? "side" : "select", source = preselectedSource, preview = null
@@ -766,8 +768,8 @@ function createOffsetCommandSession({ setPrompt = () => {}, preselectionIds = []
   }
   function hitAt(point) {
     const screenPoint = lastKnownPointerScreen || worldToScreen(point.x, point.y)
-    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records: modelReader.records(), worldToScreen })
-    return hit.hit ? modelReader.records().find(record => record.id === hit.recordId) || null : null
+    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records: editableRecords(), worldToScreen })
+    return hit.hit ? editableRecords().find(record => record.id === hit.recordId) || null : null
   }
   function updatePreview(point) {
     if (phase !== "side" || !source) return null
@@ -1296,7 +1298,7 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds 
   activeSnapResult = snapResolver.resolve({
     rawWorldPoint: point,
     worldToScreen,
-    records: modelReader.records(),
+    records: visibleRecords(),
     transientCandidates,
     gridSpacing: sceneBuilder.getAdaptiveGridSpacing(),
     enabled: snapModes,
@@ -1348,7 +1350,8 @@ function bindSelectionDocument() {
   selectionHistoryUnsubscribe?.()
   selectionHistoryUnsubscribe = documentController.subscribeHistory(() => {
     const capturedPointerId = grips.active?.pointerId
-    selection.pruneAgainstDocument(modelReader.records())
+    selection.pruneAgainstDocument(editableRecords())
+    objectSnapTracking.reconcileReferences(reference=>{const ids=reference?.recordIds||[reference?.recordId];return ids.length>0&&ids.every(id=>typeof id==="string"&&modelReader.isRecordVisible(id))})
     grips.reconcile()
     if (!grips.isActive) releaseGripPointerCapture(capturedPointerId)
   })
@@ -1366,7 +1369,7 @@ function getInteractionVisualState() { return interactionVisuals.snapshot() }
 function selectAllCommittedGeometry() {
   if (selectionBox.isPending || grips.isActive || getActiveCommandSession()) return Object.freeze({ status: "selection-busy" })
   const selectableTypes = new Set(["line", "circle", "arc", "ellipse", "polyline"])
-  return selection.applyRecordIds(modelReader.records().filter(record => selectableTypes.has(record.type)).map(record => record.id))
+  return selection.applyRecordIds(editableRecords().filter(record => selectableTypes.has(record.type)).map(record => record.id))
 }
 function releaseGripPointerCapture(pointerId) {
   if (pointerId === undefined) return
@@ -1466,7 +1469,8 @@ function onViewportPointerDown(event) {
       return
     }
   }
-  const hit = window.CaderactSelection.hitTestRecords({screenPoint:point,records:modelReader.records(),worldToScreen})
+  const selectionRecords=session?.isSelectionPhase&&(session.name==="Trim"||session.name==="Extend")?visibleRecords():editableRecords()
+  const hit = window.CaderactSelection.hitTestRecords({screenPoint:point,records:selectionRecords,worldToScreen})
   const toggle = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey)
   if (hit.hit) toggle ? selection.toggle(hit.recordId) : selection.selectOnly(hit.recordId)
   else {
@@ -1521,7 +1525,7 @@ function onCommandPointerLeave() {
 function onViewportPointerUp(event) {
   if(selectionBox.isPending&&selectionBox.snapshot().pointerId===event.pointerId){
     const box=selectionBox.update(getCanvasPoint(event))
-    if(box.active){const outcome=window.CaderactSelectionBox.query({start:box.start,current:box.current,records:modelReader.records(),worldToScreen})
+    if(box.active){const session=getActiveCommandSession(),selectionRecords=session?.isSelectionPhase&&(session.name==="Trim"||session.name==="Extend")?visibleRecords():editableRecords(),outcome=window.CaderactSelectionBox.query({start:box.start,current:box.current,records:selectionRecords,worldToScreen})
       selection.applyRecordIds(outcome.recordIds,{toggle:box.modifier})
     }else if(!box.modifier)selection.clear()
     selectionBox.clear();releaseGripPointerCapture(event.pointerId);requestRender();return

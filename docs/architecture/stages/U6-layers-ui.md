@@ -4,6 +4,10 @@
 
 The compact Layers panel sits at the right of the viewport. It is a projection of `DocumentSession.reader.layers()` and the active document's `currentLayerId`/`defaultLayerId`; it owns no layer database. A controller history subscription refreshes it after transactions and Undo/Redo. Session replacement unsubscribes the old controller and binds the new one.
 
+L2 adds compact visibility and lock buttons to each row. Their pressed states,
+labels, and icons read the authoritative layer flags; activating either button
+does not invoke the layer-name/current action.
+
 ## Current layer
 
 U6 adds `layerGateway.setCurrent`, the smallest missing A7 operation. It writes `currentLayerId` through the existing `settings` transaction collection, producing one normal A4 history entry and state identity. Selecting a row invokes that gateway. New Line records continue reading the authoritative current layer in `recordGateway.createLine`. Save/Open already round-trip `currentLayerId` through v1 persistence. L1 subsequently makes a panel-created layer current atomically with its creation.

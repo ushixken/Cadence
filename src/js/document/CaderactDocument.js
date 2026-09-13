@@ -68,6 +68,7 @@
     }
     if (typeof value.defaultLayerId !== "string" || !isRecord(layers) || !has(layers, value.defaultLayerId)) errors.push("Invalid defaultLayerId")
     if (typeof value.currentLayerId !== "string" || !isRecord(layers) || !has(layers, value.currentLayerId)) errors.push("Invalid currentLayerId")
+    else if (!layers[value.currentLayerId].visible || layers[value.currentLayerId].locked) errors.push("Current layer must be visible and unlocked")
     if (!isRecord(objects)) errors.push("Invalid object table")
     else for (const [key, record] of Object.entries(objects)) {
       if (!isRecord(record)) { errors.push("Invalid object"); continue }
@@ -200,6 +201,10 @@
       records: () => Object.freeze(Object.values(state.geometry.objects).sort((a, b) => a.id.localeCompare(b.id))),
       layers: () => Object.freeze(Object.values(state.layers).sort((a, b) => a.id.localeCompare(b.id))),
       layer: layerId => state.layers[layerId] || null,
+      visibleRecords: () => Object.freeze(Object.values(state.geometry.objects).filter(record => state.layers[record.layerId]?.visible).sort((a,b)=>a.id.localeCompare(b.id))),
+      editableRecords: () => Object.freeze(Object.values(state.geometry.objects).filter(record => { const layer=state.layers[record.layerId];return layer?.visible&&!layer.locked }).sort((a,b)=>a.id.localeCompare(b.id))),
+      isRecordVisible: recordId => Boolean(state.layers[state.geometry.objects[recordId]?.layerId]?.visible),
+      isRecordEditable: recordId => { const layer=state.layers[state.geometry.objects[recordId]?.layerId];return Boolean(layer?.visible&&!layer.locked) },
       units: () => state.units,
       // Compatibility query for current Line-oriented callers; render code uses
       // records() and performs its own supported-type projection.
@@ -208,7 +213,11 @@
     // Schema-aware, command-agnostic record gateway. Commands may construct
     // immutable records before publication, while atomic creation remains
     // controlled by one short document transaction.
+    function layerUsable(layerId) { const layer=state.layers[layerId];return Boolean(layer?.visible&&!layer.locked) }
+    function currentDrawingLayerId() { if(!layerUsable(state.currentLayerId))throw new Error("Current layer is hidden or locked");return state.currentLayerId }
+    function recordEditable(recordId) { const record=state.geometry.objects[recordId];return Boolean(record&&layerUsable(record.layerId)) }
     function updateRecordProperties(recordId, properties) {
+      if (!recordEditable(recordId)) return Object.freeze({ status: "record-layer-unavailable", recordId })
       const transaction = controller.beginTransaction()
       try {
         const record = transaction.read(recordId)
@@ -219,34 +228,35 @@
     }
     const recordGateway = Object.freeze({
       createLine(start, end) {
-        return freeze({ id: newId(), type: "line", layerId: state.currentLayerId,
+        return freeze({ id: newId(), type: "line", layerId: currentDrawingLayerId(),
           start: { x: start?.x, y: start?.y, featureId: newId() },
           end: { x: end?.x, y: end?.y, featureId: newId() },
         })
       },
       createPolyline(vertices,closed=false) {
-        return freeze({id:newId(),type:"polyline",layerId:state.currentLayerId,
+        return freeze({id:newId(),type:"polyline",layerId:currentDrawingLayerId(),
           vertices:Array.from(vertices,vertex=>({x:vertex?.x,y:vertex?.y,featureId:newId()})),closed:Boolean(closed)})
       },
       createCircle(center, radius) {
-        return freeze({ id: newId(), type: "circle", layerId: state.currentLayerId,
+        return freeze({ id: newId(), type: "circle", layerId: currentDrawingLayerId(),
           center: { x: center?.x, y: center?.y }, radius,
         })
       },
       createArc(geometry) {
-        return freeze({ id: newId(), type: "arc", layerId: state.currentLayerId,
+        return freeze({ id: newId(), type: "arc", layerId: currentDrawingLayerId(),
           center: { x: geometry.center?.x, y: geometry.center?.y }, radius: geometry.radius,
           start: { x: geometry.start?.x, y: geometry.start?.y, featureId: newId() },
           end: { x: geometry.end?.x, y: geometry.end?.y, featureId: newId() }, sweep: geometry.sweep,
         })
       },
       createEllipse(geometry) {
-        return freeze({ id: newId(), type: "ellipse", layerId: state.currentLayerId,
+        return freeze({ id: newId(), type: "ellipse", layerId: currentDrawingLayerId(),
           center: { x: geometry.center?.x, y: geometry.center?.y },
           majorAxis: { x: geometry.majorAxis?.x, y: geometry.majorAxis?.y }, minorRadius: geometry.minorRadius,
         })
       },
       createAll(records) {
+        if (records.some(record => !layerUsable(record.layerId))) return Object.freeze({ status: "record-layer-unavailable" })
         let transaction
         try {
           transaction = controller.beginTransaction()
@@ -258,11 +268,13 @@
         }
       },
       replace(recordId, record) {
+        if (!recordEditable(recordId)) return Object.freeze({ status: "record-layer-unavailable", recordId })
         const transaction = controller.beginTransaction()
         try { transaction.replace(recordId, record); return transaction.publish() }
         catch (error) { if (transaction.isOpen) transaction.rollback(); throw error }
       },
       replaceAll(records) {
+        if (records.some(record => !recordEditable(record.id))) return Object.freeze({ status: "record-layer-unavailable" })
         let transaction
         try {
           transaction = controller.beginTransaction()
@@ -274,6 +286,7 @@
         }
       },
       removeAll(recordIds) {
+        if (recordIds.some(recordId => !recordEditable(recordId))) return Object.freeze({ status: "record-layer-unavailable" })
         let transaction
         try {
           transaction = controller.beginTransaction()
@@ -312,6 +325,7 @@
         }
         const original = state.geometry.objects[plan.targetRecordId]
         if (!original) return Object.freeze({ status: "missing-record", recordId: plan.targetRecordId })
+        if (!recordEditable(plan.targetRecordId)) return Object.freeze({ status: "record-layer-unavailable", recordId: plan.targetRecordId })
         const layerId = original.layerId
 
         function resolveFeatureId(intent) {
@@ -370,6 +384,7 @@
         }
         const original = state.geometry.objects[plan.targetRecordId]
         if (!original) return Object.freeze({ status: "missing-record", recordId: plan.targetRecordId })
+        if (!recordEditable(plan.targetRecordId)) return Object.freeze({ status: "record-layer-unavailable", recordId: plan.targetRecordId })
         const layerId = original.layerId
 
         function geometrySnapshot(record) {
@@ -438,6 +453,7 @@
     const layerGateway = Object.freeze({
       setCurrent(layerId) {
         if (!has(state.layers, layerId)) return Object.freeze({ status: "unknown-layer", layerId })
+        if (!layerUsable(layerId)) return Object.freeze({ status: "layer-unavailable", layerId })
         if (state.currentLayerId === layerId) return Object.freeze({ status: "no-op", changes: Object.freeze([]) })
         const transaction = controller.beginTransaction()
         transaction.replaceIn("settings", "currentLayerId", layerId)
@@ -474,6 +490,22 @@
         if (layerId === state.currentLayerId) transaction.replaceIn("settings", "currentLayerId", state.defaultLayerId)
         transaction.removeIn("layers", layerId)
         return transaction.publish()
+      },
+      setVisibility(layerId, visible) {
+        const layer=state.layers[layerId],next=Boolean(visible)
+        if(!layer)return Object.freeze({status:"unknown-layer",layerId})
+        if(layer.visible===next)return Object.freeze({status:"no-op",changes:Object.freeze([])})
+        let replacement=null
+        if(!next&&state.currentLayerId===layerId){replacement=Object.values(state.layers).filter(candidate=>candidate.id!==layerId&&candidate.visible&&!candidate.locked).sort((a,b)=>a.id.localeCompare(b.id));replacement=replacement.find(candidate=>candidate.id===state.defaultLayerId)||replacement[0]||null;if(!replacement)return Object.freeze({status:"no-usable-current-layer",layerId})}
+        const transaction=controller.beginTransaction();transaction.replaceIn("layers",layerId,{...layer,visible:next});if(replacement)transaction.replaceIn("settings","currentLayerId",replacement.id);return transaction.publish()
+      },
+      setLocked(layerId, locked) {
+        const layer=state.layers[layerId],next=Boolean(locked)
+        if(!layer)return Object.freeze({status:"unknown-layer",layerId})
+        if(layer.locked===next)return Object.freeze({status:"no-op",changes:Object.freeze([])})
+        let replacement=null
+        if(next&&state.currentLayerId===layerId){replacement=Object.values(state.layers).filter(candidate=>candidate.id!==layerId&&candidate.visible&&!candidate.locked).sort((a,b)=>a.id.localeCompare(b.id));replacement=replacement.find(candidate=>candidate.id===state.defaultLayerId)||replacement[0]||null;if(!replacement)return Object.freeze({status:"no-usable-current-layer",layerId})}
+        const transaction=controller.beginTransaction();transaction.replaceIn("layers",layerId,{...layer,locked:next});if(replacement)transaction.replaceIn("settings","currentLayerId",replacement.id);return transaction.publish()
       },
     })
     const unitGateway = Object.freeze({

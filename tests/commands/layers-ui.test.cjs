@@ -9,8 +9,8 @@ test('layer list and current/default indicators derive from authoritative state'
   const b=await browser();const doc=b.read('modelReader.snapshot()');
   assert.equal(b.layersList.children.length,1);
   const row=b.layersList.children[0];assert.equal(row.dataset.layerId,doc.defaultLayerId);
-  assert.equal(row.getAttribute('aria-current'),'true');assert.equal(row.children[0].textContent,'Default');
-  assert.equal(row.children[3].disabled,true);
+  assert.equal(row.getAttribute('aria-current'),'true');assert.equal(row.children[2].textContent,'Default');
+  assert.equal(row.children[5].disabled,true);
 });
 
 test('create trims names, uses one transaction, and invalid names provide U5 feedback without mutation',async()=>{
@@ -30,7 +30,7 @@ test('create trims names, uses one transaction, and invalid names provide U5 fee
 test('switch current layer is transactional and new Line uses that authoritative layer',async()=>{
   const b=await browser();b.run(`layerGateway.create('Walls')`);const id=layerId(b);
   const beforeRevision=b.read('documentController.currentRevision');
-  b.emit(b.layersList.children.find(row=>row.dataset.layerId===id).children[0],'click');
+  b.emit(b.layersList.children.find(row=>row.dataset.layerId===id).children[2],'click');
   assert.equal(b.read('documentController.currentRevision'),beforeRevision+1);
   assert.equal(b.layersList.children.find(row=>row.dataset.layerId===id).getAttribute('aria-current'),'true');
   b.launch();b.point(100,100);b.point(150,150);b.key('Enter');
@@ -70,10 +70,10 @@ test('delete follows A7 protection and exact history rules',async()=>{
 
 test('inline rename owns focus and Enter commits while Escape cancels',async()=>{
   const b=await browser();b.run(`window.caderactLayers.create('Walls')`);const id=layerId(b);let row=b.layersList.children.find(item=>item.dataset.layerId===id);
-  b.emit(row.children[2],'click');row=b.layersList.children.find(item=>item.dataset.layerId===id);const editor=row.children[0];
+  b.emit(row.children[4],'click');row=b.layersList.children.find(item=>item.dataset.layerId===id);const editor=row.children[2];
   assert.equal(editor.tag,'input');assert.equal(b.document.activeElement,editor);editor.value='Exterior';const selectAll=b.key('a',editor,{ctrlKey:true});assert.equal(selectAll.defaultPrevented,false);
   b.key('Enter',editor);assert.equal(b.read(`modelReader.layer(${JSON.stringify(id)}).name`),'Exterior');
-  row=b.layersList.children.find(item=>item.dataset.layerId===id);b.emit(row.children[2],'click');row=b.layersList.children.find(item=>item.dataset.layerId===id);row.children[0].value='Cancelled';b.key('Escape',row.children[0]);assert.equal(b.read(`modelReader.layer(${JSON.stringify(id)}).name`),'Exterior');
+  row=b.layersList.children.find(item=>item.dataset.layerId===id);b.emit(row.children[4],'click');row=b.layersList.children.find(item=>item.dataset.layerId===id);row.children[2].value='Cancelled';b.key('Escape',row.children[2]);assert.equal(b.read(`modelReader.layer(${JSON.stringify(id)}).name`),'Exterior');
 });
 
 test('all layer mutations are blocked during active commands and controls reflect the policy',async()=>{
@@ -82,7 +82,7 @@ test('all layer mutations are blocked during active commands and controls reflec
   for(const expression of [`window.caderactLayers.create('Other')`,`window.caderactLayers.rename(${JSON.stringify(id)},'Other')`,`window.caderactLayers.remove(${JSON.stringify(id)})`,`window.caderactLayers.setCurrent(${JSON.stringify(id)})`]){
     assert.equal(b.run(`${expression}.status`),'layer-action-blocked-active-command');assert.deepEqual(state(b),before);
   }
-  assert.equal(b.layerCreateButton.disabled,true);assert.ok(b.layersList.children.every(row=>row.children[0].disabled&&row.children[2].disabled&&row.children[3].disabled));
+  assert.equal(b.layerCreateButton.disabled,true);assert.ok(b.layersList.children.every(row=>row.children.every(child=>child.disabled||child.tag==='span')));
 });
 
 test('New/Open rebind layer UI and preserve IDs, current layer, and object references without duplicate actions',async()=>{

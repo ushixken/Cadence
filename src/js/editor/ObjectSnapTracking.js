@@ -18,7 +18,7 @@
       clearProjection()
       const valid = result?.snapped && ELIGIBLE.has(result.kind) && finitePoint(result.point)
       if (!valid) { clearPending(); return emit() }
-      const next = { kind:result.kind, point:point(result.point), reference:result.reference || null }
+      const next = { kind:result.kind, point:point(result.point), reference:result.sourceReference || result.reference || null }
       const key = `${next.kind}:${next.point.x}:${next.point.y}:${stableReference(next.reference)}`
       if (hover?.key === key || acquired.some(item=>samePoint(item.point,next.point))) return state()
       clearPending(); hover = { ...next, key }
@@ -27,6 +27,13 @@
     }
     function clearHover() { clearPending(); clearProjection(); return emit() }
     function clear() { clearPending(); acquired=[];clearProjection();return emit() }
+    function reconcileReferences(isValid) {
+      if(typeof isValid!=="function")return state()
+      const hoverInvalid=hover&&!isValid(hover.reference),next=acquired.filter(item=>isValid(item.reference))
+      if(hoverInvalid)clearPending()
+      if(next.length===acquired.length&&!hoverInvalid)return state()
+      acquired=next;clearProjection();return emit()
+    }
     function project(pointerWorld, worldToScreen, {polarEnabled=false,polarIncrementDegrees=45,polarToleranceDegrees=10}={}) {
       clearProjection()
       if (!acquired.length || !finitePoint(pointerWorld) || typeof worldToScreen!=="function") return emit()
@@ -41,7 +48,7 @@
       if(winner){candidate=winner.point;candidateKind=intersections.includes(winner)?"intersection":"projection";activeGuides=winner.guides;guide=winner.guides.length===1?winner.guides[0].kind:"intersection"}
       return emit()
     }
-    return Object.freeze({observeSnap,clearHover,clear,project,getState:state,dwellMs,guideTolerancePx,maxAcquiredPoints})
+    return Object.freeze({observeSnap,clearHover,clear,reconcileReferences,project,getState:state,dwellMs,guideTolerancePx,maxAcquiredPoints})
   }
   window.CaderactObjectSnapTracking = Object.freeze({ create, ELIGIBLE })
 })()

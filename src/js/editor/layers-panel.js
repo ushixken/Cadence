@@ -16,6 +16,8 @@
       "default-layer-required": "The default layer cannot be deleted",
       "layer-in-use": "Layer is not empty.",
       "unknown-layer": "Layer no longer exists",
+      "layer-unavailable": "Current layer must be visible and unlocked",
+      "no-usable-current-layer": "Another visible, unlocked layer is required",
     }
     const message = messages[outcome.status]
     if (message) window.caderactFeedback?.showTemporary(message, "error")
@@ -40,6 +42,8 @@
   function rename(layerId, name) { return run(() => session.layerGateway.rename(layerId, name)) }
   function remove(layerId) { return run(() => session.layerGateway.remove(layerId)) }
   function setCurrent(layerId) { return run(() => session.layerGateway.setCurrent(layerId)) }
+  function setVisibility(layerId, visible) { return run(() => session.layerGateway.setVisibility(layerId, visible)) }
+  function setLocked(layerId, locked) { return run(() => session.layerGateway.setLocked(layerId, locked)) }
 
   function actionButton(label, className, title, handler) {
     const button = document.createElement("button")
@@ -58,6 +62,12 @@
       const row = document.createElement("div")
       row.classList.add("layer-row"); row.setAttribute("role", "listitem"); row.dataset.layerId = layer.id
       if (layer.id === documentState.currentLayerId) { row.classList.add("is-current"); row.setAttribute("aria-current", "true") }
+      if (!layer.visible) row.classList.add("is-hidden")
+      if (layer.locked) row.classList.add("is-locked")
+      const visibilityButton=actionButton(layer.visible?"●":"○","layer-visibility",layer.visible?`Hide ${layer.name}`:`Show ${layer.name}`,()=>setVisibility(layer.id,!layer.visible))
+      visibilityButton.setAttribute("aria-pressed",String(layer.visible))
+      const lockButton=actionButton(layer.locked?"■":"□","layer-lock",layer.locked?`Unlock ${layer.name}`:`Lock ${layer.name}`,()=>setLocked(layer.id,!layer.locked))
+      lockButton.setAttribute("aria-pressed",String(layer.locked))
       let select
       if (editingLayerId === layer.id) {
         select = document.createElement("input"); select.type = "text"; select.value = layer.name; select.maxLength = 128
@@ -76,7 +86,7 @@
       const renameButton = actionButton("✎", "layer-rename", `Rename ${layer.name}`, () => { editingLayerId=layer.id;render() })
       const deleteButton = actionButton("×", "layer-delete", `Delete ${layer.name}`, () => remove(layer.id))
       deleteButton.disabled = blocked || layer.id === documentState.defaultLayerId
-      row.appendChild(select); row.appendChild(badges); row.appendChild(renameButton); row.appendChild(deleteButton)
+      row.appendChild(visibilityButton);row.appendChild(lockButton);row.appendChild(select); row.appendChild(badges); row.appendChild(renameButton); row.appendChild(deleteButton)
       return row
     })
     list.replaceChildren(...rows)
@@ -91,5 +101,5 @@
   session.subscribe(bindDocument)
   window.caderactCommandRouter.subscribe(render)
   bindDocument()
-  window.caderactLayers = Object.freeze({ create, rename, remove, setCurrent, refresh: render })
+  window.caderactLayers = Object.freeze({ create, rename, remove, setCurrent, setVisibility, setLocked, refresh: render })
 })()

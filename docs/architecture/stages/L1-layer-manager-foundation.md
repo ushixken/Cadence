@@ -64,3 +64,7 @@ different current-layer states.
 Visibility and locking behavior, colors, linetypes, lineweights, property
 overrides, selected-object reassignment, drag ordering, nesting, filters, saved
 layer states, and per-viewport overrides remain deferred.
+
+L2 subsequently activates the existing `visible` and `locked` fields through
+document-derived visible-reference and editable-record projections; L1 remains
+the identity, naming, current-layer, and lifecycle foundation.

@@ -25,7 +25,12 @@
         if (!Number.isFinite(screen.x) || !Number.isFinite(screen.y)) return
         const distancePx = Math.hypot(screen.x - rawScreen.x, screen.y - rawScreen.y)
         if (!Number.isFinite(distancePx) || distancePx > tolerancePx) return
-        candidates.push({ kind, point: freezePoint(point), distancePx, stableKey, reference })
+        let sourceReference=reference
+        if(!sourceReference&&kind!=="grid"&&kind!=="draft-point"){
+          const parts=String(stableKey).split(":")
+          sourceReference=kind==="intersection"?Object.freeze({kind:"objects",recordIds:Object.freeze([parts[1],parts[2]])}):window.CaderactReferences.createObjectReference(parts[1])
+        }
+        candidates.push({ kind, point: freezePoint(point), distancePx, stableKey, reference, sourceReference })
       }
       function addContinuousGrid(point) {
         if (enabled.grid === false || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return
@@ -111,8 +116,8 @@
       if (!winner) return Object.freeze({ snapped: false, point: rawPoint })
       const objectSnap = candidates.filter(candidate => candidate.kind !== "grid" && candidate.kind !== "draft-point").sort((a,b)=>a.distancePx-b.distancePx||priorities[a.kind]-priorities[b.kind]||a.stableKey.localeCompare(b.stableKey))[0] || null
       return Object.freeze({ snapped: true, kind: winner.kind, kinds:Object.freeze(winner.kinds.slice()), point: winner.point,
-        distancePx: winner.distancePx, reference: winner.reference, references:Object.freeze(winner.references.slice()),
-        objectSnap: objectSnap && Object.freeze({ kind:objectSnap.kind, kinds:Object.freeze(objectSnap.kinds.slice()), point:objectSnap.point, distancePx:objectSnap.distancePx, reference:objectSnap.reference, references:Object.freeze(objectSnap.references.slice()) }) })
+        distancePx: winner.distancePx, reference: winner.reference, sourceReference:winner.sourceReference, references:Object.freeze(winner.references.slice()),
+        objectSnap: objectSnap && Object.freeze({ kind:objectSnap.kind, kinds:Object.freeze(objectSnap.kinds.slice()), point:objectSnap.point, distancePx:objectSnap.distancePx, reference:objectSnap.reference, sourceReference:objectSnap.sourceReference, references:Object.freeze(objectSnap.references.slice()) }) })
     }
     return Object.freeze({ resolve, tolerancePx, priorityWindowPx })
   }
