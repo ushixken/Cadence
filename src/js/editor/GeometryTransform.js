@@ -66,7 +66,10 @@
   function mirrorPoint(value, axisA, axisB) {
     const axis=mirrorAxis(axisA,axisB);if(!Number.isFinite(value?.x)||!Number.isFinite(value?.y))throw new Error("Invalid mirror point")
     const px=value.x-axis.axisA.x,py=value.y-axis.axisA.y,t=(px*axis.dx+py*axis.dy)/axis.lengthSquared
-    const x=axis.axisA.x+2*t*axis.dx-value.x,y=axis.axisA.y+2*t*axis.dy-value.y
+    // P' = 2 * (A + t(B - A)) - P.  Both coordinates of A are part of
+    // the projected point; omitting one made every non-origin axis rebase
+    // incorrectly toward the source geometry.
+    const x=2*axis.axisA.x+2*t*axis.dx-value.x,y=2*axis.axisA.y+2*t*axis.dy-value.y
     if(!Number.isFinite(x)||!Number.isFinite(y))throw new Error("Invalid mirror result")
     return Object.freeze({...value,x,y})
   }

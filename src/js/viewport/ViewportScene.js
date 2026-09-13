@@ -538,7 +538,11 @@
         }
         if (candidate)
           addSegment(moveGuide, base.x, base.y, candidate.x, candidate.y)
-        if (movePreview.mode === "rotate" || movePreview.mode === "scale") {
+        if (
+          movePreview.mode === "rotate" ||
+          movePreview.mode === "scale" ||
+          movePreview.mode === "mirror"
+        ) {
           const anchor = 4,
             arm = 6
           addSegment(
@@ -688,7 +692,9 @@
           )
         }
         const markers =
-          movePreview.mode === "rotate" || movePreview.mode === "scale"
+          movePreview.mode === "rotate" ||
+          movePreview.mode === "scale" ||
+          movePreview.mode === "mirror"
             ? Object.freeze({
                 center: Object.freeze({
                   point: Object.freeze({ x: base.x, y: base.y }),

@@ -368,7 +368,7 @@ function createRotateCommandSession({ setPrompt = () => {} } = {}) {
 }
 
 function createMirrorCommandSession({ setPrompt = () => {} } = {}) {
-  let phase=selection.selectedIds().length?"axis-a":"selection",selectedRecordIds=phase==="axis-a"?selection.selectedIds():Object.freeze([]),axisA=null,axisB=null,copyMode=false
+  let phase=selection.selectedIds().length?"axis-a":"selection",selectedRecordIds=phase==="axis-a"?selection.selectedIds():Object.freeze([]),axisA=null,axisB=null,copyMode=userPreferences.value.mirrorCopyEnabled
   let promptPresentation=createCommandPrompt("Mirror",phase==="selection"?"Select objects":"Specify first mirror-axis point")
   function updatePrompt(instruction){promptPresentation=createCommandPrompt("Mirror",instruction);setPrompt(promptPresentation.text,promptPresentation)}
   function selectedRecords(){const ids=new Set(selectedRecordIds);return modelReader.records().filter(record=>ids.has(record.id))}
@@ -382,9 +382,12 @@ function createMirrorCommandSession({ setPrompt = () => {} } = {}) {
   function handleInput(input){if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Mirror",message:"Press Enter to confirm selection"});clearSnap();const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor:phase==="axis-b"?axisA:null});if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Mirror",message:"Enter a point as x,y"});return acceptPoint(Object.freeze({x:parsed.x,y:parsed.y}))}
   function finish(){if(phase==="selection")return confirmSelection();return Object.freeze({status:"invalid-input",reason:"point-required",command:"Mirror",message:phase==="axis-a"?"Specify first mirror-axis point":"Specify second mirror-axis point"})}
   function cancel(){axisA=null;axisB=null;clearSnap();requestRender();return Object.freeze({status:"command-cancelled",command:"Mirror"})}
-  function handleOption(optionId){if(optionId!=="copy")return Object.freeze({status:"option-unavailable",reason:"unknown-option",command:"Mirror",optionId});copyMode=!copyMode;requestRender();return Object.freeze({status:"option-updated",command:"Mirror",optionId,value:copyMode?"Yes":"No"})}
+  function handleOption(optionId){if(optionId!=="copy")return Object.freeze({status:"option-unavailable",reason:"unknown-option",command:"Mirror",optionId});copyMode=!copyMode;userPreferences.set({mirrorCopyEnabled:copyMode});requestRender();return Object.freeze({status:"option-updated",command:"Mirror",optionId,value:copyMode?"Yes":"No"})}
   function options(){return Object.freeze([Object.freeze({id:"copy",label:"Copy",value:copyMode?"Yes":"No",enabled:true})])}
-  function getMovePreview(){if(phase!=="axis-b"||!axisA||!axisB)return null;let records=[];try{records=mirrorRecords(axisB)}catch{}return Object.freeze({mode:"rotate",recordIds:selectedRecordIds,basePoint:axisA,centerPoint:axisA,referencePoint:axisB,candidatePoint:axisB,copyMode,preserveSourceVisible:copyMode,sourceRecords:Object.freeze(copyMode?[]:selectedRecords()),records:Object.freeze(records)})}
+  // The two accepted drafting points are the entire mirror-axis contract.
+  // Keep them explicit in the preview too: unlike Rotate, there is no source
+  // geometry-derived center, reference vector, or implicit transform origin.
+  function getMovePreview(){if(phase!=="axis-b"||!axisA||!axisB)return null;let records=[];try{records=mirrorRecords(axisB)}catch{}return Object.freeze({mode:"mirror",recordIds:selectedRecordIds,basePoint:axisA,candidatePoint:axisB,copyMode,preserveSourceVisible:copyMode,sourceRecords:Object.freeze(copyMode?[]:selectedRecords()),records:Object.freeze(records)})}
   requestRender();return Object.freeze({name:"Mirror",finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,handleOption,getMovePreview,getOrthoReference:()=>phase==="axis-b"?axisA:null,hasPointerPreview:()=>phase!=="selection",getExcludedSnapRecordIds:()=>phase==="axis-b"?selectedRecordIds:Object.freeze([]),get isSelectionPhase(){return phase==="selection"},get phase(){return phase},get selectedRecordIds(){return selectedRecordIds},get copyMode(){return copyMode},get options(){return options()},get axisA(){return axisA},get axisB(){return axisB},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 

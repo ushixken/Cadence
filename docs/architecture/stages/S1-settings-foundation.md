@@ -4,6 +4,10 @@
 
 Defaults are grid visible on, Grid Snap off, Ortho off, Polar off, and Polar increment 45°. Preferences are subscription-ready runtime state and are never included in document serialization, revision, dirty state, or history.
 
+Transform defaults also use this authority. `mirrorCopyEnabled` defaults to
+true and is written by Mirror's existing Copy command option; it persists with
+the user profile and Reset to Defaults restores it without changing drawings.
+
 Grid Snap, Ortho, Polar, and Polar increment are initialized from preferences and written back through the shared viewport setters. Ortho/Polar mutual exclusion is normalized deterministically in both preferences and the drafting authority. New/Open resets document interaction state only and preserves user preferences. Future settings categories can use this same authority.
 
 The existing Settings menu opens a compact accessible Drafting dialog. Its controls subscribe to the same preference and viewport authorities as the footer, apply changes live, close with Escape, focus the close control on open, and return focus to the menu trigger on close. Reset restores and persists S1 defaults without touching document state.
