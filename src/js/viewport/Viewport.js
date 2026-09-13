@@ -27,6 +27,13 @@ let renderer = null, isInitialized = false, isRenderScheduled = false
 let rendererStatus = "initializing", rendererError = null, recoveryPromise = null
 let navigation = null, resizeObserver = null
 let activeSnapResult = null
+function resolveTypedPrecisionPoint(input, anchor = null) {
+  const candidate = activeSnapResult?.point
+  const direction = anchor && candidate ? { x: candidate.x - anchor.x, y: candidate.y - anchor.y } : null
+  return window.CaderactPrecisionInput.resolvePoint(input, {
+    currentUnit: modelReader.units().length, anchor, direction,
+  })
+}
 const userPreferences = window.CaderactUserPreferences.create()
 window.caderactUserPreferences = userPreferences
 function preferenceColor(hex, opacity) { if (opacity === 1) return hex; const value = Number.parseInt(hex.slice(1), 16); return `rgba(${value >> 16 & 255}, ${value >> 8 & 255}, ${value & 255}, ${opacity})` }
@@ -181,11 +188,8 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     if (draft.preview() !== null) { draft.clearPointer(); requestRender() }
   }
   function handleInput(input) {
+    const parsed = resolveTypedPrecisionPoint(input, draft.currentPoint)
     clearSnap()
-    const parsed = window.CaderactPointInput.parseAndResolve(input, {
-      currentUnit: modelReader.units().length,
-      anchor: draft.currentPoint,
-    })
     if (parsed.status !== "point-resolved") {
       const messages = {
         "invalid-coordinate": "Enter a point as x,y",
@@ -297,8 +301,7 @@ function createMoveCommandSession({ setPrompt = () => {} } = {}) {
   function handlePointerLeave(){candidatePoint=null;clearSnap();requestRender()}
   function handleInput(input){
     if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Move",message:"Press Enter to confirm selection"})
-    clearSnap()
-    const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor:phase==="target"?basePoint:null})
+    const parsed=resolveTypedPrecisionPoint(input,phase==="target"?basePoint:null);clearSnap()
     if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Move",message:"Enter a point as x,y"})
     return acceptPoint(Object.freeze({x:parsed.x,y:parsed.y}))
   }
@@ -342,7 +345,7 @@ function createCopyCommandSession({ setPrompt = () => {} } = {}) {
   function handlePointerDown(point){return acceptPoint(point)}
   function handlePointerMove(point){if(phase==="target")candidatePoint=Object.freeze({x:point.x,y:point.y});requestRender()}
   function handlePointerLeave(){candidatePoint=null;clearSnap();requestRender()}
-  function handleInput(input){if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Copy",message:"Press Enter to confirm selection"});clearSnap();const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor:phase==="target"?basePoint:null});if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Copy",message:"Enter a point as x,y"});return acceptPoint(Object.freeze({x:parsed.x,y:parsed.y}))}
+  function handleInput(input){if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Copy",message:"Press Enter to confirm selection"});const parsed=resolveTypedPrecisionPoint(input,phase==="target"?basePoint:null);clearSnap();if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Copy",message:"Enter a point as x,y"});return acceptPoint(Object.freeze({x:parsed.x,y:parsed.y}))}
   function finish(){if(phase==="selection")return confirmSelection();return Object.freeze({status:"invalid-input",reason:"point-required",command:"Copy",message:phase==="base"?"Specify a base point":"Specify a destination point"})}
   function cancel(){candidatePoint=null;clearSnap();requestRender();return Object.freeze({status:"command-cancelled",command:"Copy"})}
   function getMovePreview(){if(phase!=="target"||!candidatePoint)return null;const dx=candidatePoint.x-basePoint.x,dy=candidatePoint.y-basePoint.y,sourceRecords=selectedRecords();return Object.freeze({mode:"copy",recordIds:selectedRecordIds,basePoint,candidatePoint,dx,dy,sourceRecords:Object.freeze(sourceRecords),records:Object.freeze(sourceRecords.map(record=>window.CaderactGeometryTransform.translateRecord(record,dx,dy)))})}
@@ -370,7 +373,7 @@ function createRotateCommandSession({ setPrompt = () => {} } = {}) {
   function handlePointerDown(point){return acceptPoint(point)}
   function handlePointerMove(point){if(centerPoint)feedbackVisible=true;if(phase==="target")candidatePoint=Object.freeze({x:point.x,y:point.y});requestRender()}
   function handlePointerLeave(){candidatePoint=null;feedbackVisible=false;clearSnap();requestRender()}
-  function handleInput(input){if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Rotate",message:"Press Enter to confirm selection"});clearSnap();const anchor=phase==="reference"?centerPoint:phase==="target"?referencePoint:null;const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor});if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Rotate",message:"Enter a point as x,y"});return acceptPoint(Object.freeze({x:parsed.x,y:parsed.y}))}
+  function handleInput(input){if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Rotate",message:"Press Enter to confirm selection"});const angle=phase==="target"?window.CaderactPrecisionInput.parseAngle(input):null;if(angle?.status==="precision-parsed"){const vector={x:referencePoint.x-centerPoint.x,y:referencePoint.y-centerPoint.y},radians=angle.degrees*Math.PI/180;clearSnap();return acceptPoint(Object.freeze({x:centerPoint.x+vector.x*Math.cos(radians)-vector.y*Math.sin(radians),y:centerPoint.y+vector.x*Math.sin(radians)+vector.y*Math.cos(radians)}))}const anchor=phase==="reference"?centerPoint:phase==="target"?referencePoint:null;const parsed=resolveTypedPrecisionPoint(input,anchor);clearSnap();if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Rotate",message:"Enter a point as x,y or an angle"});return acceptPoint(Object.freeze({x:parsed.x,y:parsed.y}))}
   function finish(){if(phase==="selection")return confirmSelection();return Object.freeze({status:"invalid-input",reason:"point-required",command:"Rotate",message:phase==="center"?"Specify a center point":phase==="reference"?"Specify a reference point":"Specify a target point"})}
   function cancel(){candidatePoint=null;feedbackVisible=false;clearSnap();requestRender();return Object.freeze({status:"command-cancelled",command:"Rotate"})}
   function handleOption(optionId){if(optionId!=="copy")return Object.freeze({status:"option-unavailable",reason:"unknown-option",command:"Rotate",optionId});copyMode=!copyMode;requestRender();return Object.freeze({status:"option-updated",command:"Rotate",optionId,value:copyMode?"Yes":"No"})}
@@ -392,7 +395,7 @@ function createMirrorCommandSession({ setPrompt = () => {} } = {}) {
   function handlePointerDown(point){return acceptPoint(point)}
   function handlePointerMove(point){if(phase==="axis-b")axisB=Object.freeze({x:point.x,y:point.y});requestRender()}
   function handlePointerLeave(){if(phase==="axis-b")axisB=null;clearSnap();requestRender()}
-  function handleInput(input){if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Mirror",message:"Press Enter to confirm selection"});clearSnap();const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor:phase==="axis-b"?axisA:null});if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Mirror",message:"Enter a point as x,y"});return acceptPoint(Object.freeze({x:parsed.x,y:parsed.y}))}
+  function handleInput(input){if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Mirror",message:"Press Enter to confirm selection"});const parsed=resolveTypedPrecisionPoint(input,phase==="axis-b"?axisA:null);clearSnap();if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Mirror",message:"Enter a point as x,y"});return acceptPoint(Object.freeze({x:parsed.x,y:parsed.y}))}
   function finish(){if(phase==="selection")return confirmSelection();return Object.freeze({status:"invalid-input",reason:"point-required",command:"Mirror",message:phase==="axis-a"?"Specify first mirror-axis point":"Specify second mirror-axis point"})}
   function cancel(){axisA=null;axisB=null;clearSnap();requestRender();return Object.freeze({status:"command-cancelled",command:"Mirror"})}
   function handleOption(optionId){if(optionId!=="copy")return Object.freeze({status:"option-unavailable",reason:"unknown-option",command:"Mirror",optionId});copyMode=!copyMode;userPreferences.set({mirrorCopyEnabled:copyMode});requestRender();return Object.freeze({status:"option-updated",command:"Mirror",optionId,value:copyMode?"Yes":"No"})}
@@ -420,7 +423,7 @@ function createScaleCommandSession({ setPrompt = () => {} } = {}) {
   function handlePointerDown(point){return acceptPoint(point)}
   function handlePointerMove(point){if(basePoint)feedbackVisible=true;if(phase==="target")candidatePoint=Object.freeze({x:point.x,y:point.y});requestRender()}
   function handlePointerLeave(){candidatePoint=null;feedbackVisible=false;clearSnap();requestRender()}
-  function handleInput(input){if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Scale",message:"Press Enter to confirm selection"});clearSnap();const anchor=phase==="reference"?basePoint:phase==="target"?referencePoint:null,parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor});if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Scale",message:"Enter a point as x,y"});return acceptPoint(Object.freeze({x:parsed.x,y:parsed.y}))}
+  function handleInput(input){if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Scale",message:"Press Enter to confirm selection"});const scalar=phase==="target"?window.CaderactPrecisionInput.parseScalar(input,modelReader.units().length):null;if(scalar?.status==="precision-parsed"){if(!(scalar.value>0))return Object.freeze({status:"invalid-input",reason:"invalid-scale-factor",command:"Scale",message:"Scale factor must be positive"});clearSnap();return acceptPoint(Object.freeze({x:basePoint.x+(referencePoint.x-basePoint.x)*scalar.value,y:basePoint.y+(referencePoint.y-basePoint.y)*scalar.value}))}const anchor=phase==="reference"?basePoint:phase==="target"?referencePoint:null,parsed=resolveTypedPrecisionPoint(input,anchor);clearSnap();if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Scale",message:"Enter a point as x,y or a scale factor"});return acceptPoint(Object.freeze({x:parsed.x,y:parsed.y}))}
   function finish(){if(phase==="selection")return confirmSelection();return Object.freeze({status:"invalid-input",reason:"point-required",command:"Scale",message:phase==="base"?"Specify a base point":phase==="reference"?"Specify a reference point":"Specify a scale target"})}
   function cancel(){candidatePoint=null;feedbackVisible=false;clearSnap();requestRender();return Object.freeze({status:"command-cancelled",command:"Scale"})}
   function handleOption(optionId){if(optionId!=="copy")return Object.freeze({status:"option-unavailable",reason:"unknown-option",command:"Scale",optionId});copyMode=!copyMode;requestRender();return Object.freeze({status:"option-updated",command:"Scale",optionId,value:copyMode?"Yes":"No"})}
@@ -747,7 +750,8 @@ function createOffsetCommandSession({ setPrompt = () => {}, preselectionIds = []
   function handleInput(input) {
     if (phase !== "distance") return Object.freeze({ status: "invalid-input", reason: "distance-not-editing", command: "Offset", message: "Select an object or choose Distance" })
     const text = String(input ?? "").trim()
-    const value = text === "" ? distance : Number(text)
+    const parsed = text === "" ? null : window.CaderactPrecisionInput.parseScalar(text, modelReader.units().length)
+    const value = text === "" ? distance : parsed?.value
     if (!(Number.isFinite(value) && value > 0)) return Object.freeze({ status: "invalid-input", reason: "invalid-distance", command: "Offset", message: "Offset distance must be a positive finite number" })
     distance = value
     source = null; preview = null; phase = "select"; updatePrompt("Select object to offset")
@@ -822,11 +826,8 @@ function createCircleCommandSession({ setPrompt = () => {} } = {}) {
   function handlePointerMove(point) { draft.updatePointer(point); requestRender() }
   function handlePointerLeave() { draft.clearPointer(); clearSnap(); requestRender() }
   function handleInput(input) {
+    const parsed = resolveTypedPrecisionPoint(input, draft.center)
     clearSnap()
-    const parsed = window.CaderactPointInput.parseAndResolve(input, {
-      currentUnit: modelReader.units().length,
-      anchor: draft.center,
-    })
     if (parsed.status !== "point-resolved") {
       const messages = {
         "invalid-coordinate": "Enter a point as x,y", "invalid-number": "Coordinate values must be finite numbers",
@@ -882,8 +883,7 @@ function createArcCommandSession({setPrompt=()=>{}}={}){
   function handlePointerMove(point){draft.updatePointer(point);requestRender()}
   function handlePointerLeave(){draft.clearPointer();clearSnap();requestRender()}
   function handleInput(input){
-    clearSnap()
-    const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor:draft.currentPoint})
+    const parsed=resolveTypedPrecisionPoint(input,draft.currentPoint);clearSnap()
     if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Arc",message:"Enter a point as x,y"})
     const point=Object.freeze({x:parsed.x,y:parsed.y});return presentOutcome(draft.acceptPoint(point),point)
   }
@@ -915,8 +915,7 @@ function createEllipseCommandSession({setPrompt=()=>{}}={}){
   function handlePointerMove(point){draft.updatePointer(point);requestRender()}
   function handlePointerLeave(){draft.clearPointer();clearSnap();requestRender()}
   function handleInput(input){
-    clearSnap()
-    const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor:draft.currentPoint})
+    const parsed=resolveTypedPrecisionPoint(input,draft.currentPoint);clearSnap()
     if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Ellipse",message:"Enter a point as x,y"})
     const point=Object.freeze({x:parsed.x,y:parsed.y});return presentOutcome(draft.acceptPoint(point),point)
   }
@@ -957,7 +956,7 @@ function createPolygonCommandSession({setPrompt=()=>{}}={}){
       updatePrompt(draft.hasCenter?"Specify radius point":"Specify center of polygon");requestRender()
       return Object.freeze({status:"input-accepted",command:"Polygon",kind:"option",sideCount:parsed.value,usedDefault})
     }
-    const parsed=window.CaderactPointInput.parseAndResolve(input,{currentUnit:modelReader.units().length,anchor:draft.center})
+    const parsed=resolveTypedPrecisionPoint(input,draft.center)
     if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Polygon",message:"Enter a point as x,y"})
     const point=Object.freeze({x:parsed.x,y:parsed.y});return presentPoint(draft.acceptPoint(point),point)
   }
@@ -1006,11 +1005,8 @@ function createRectangleCommandSession({ setPrompt = () => {} } = {}) {
   function handlePointerMove(point) { draft.updatePointer(point); requestRender() }
   function handlePointerLeave() { draft.clearPointer(); clearSnap(); requestRender() }
   function handleInput(input) {
+    const parsed = resolveTypedPrecisionPoint(input, draft.firstCorner)
     clearSnap()
-    const parsed = window.CaderactPointInput.parseAndResolve(input, {
-      currentUnit: modelReader.units().length,
-      anchor: draft.firstCorner,
-    })
     if (parsed.status !== "point-resolved") {
       const messages = {
         "invalid-coordinate": "Enter a point as x,y", "invalid-number": "Coordinate values must be finite numbers",
@@ -1087,12 +1083,9 @@ function createPolylineCommandSession({ setPrompt = () => {} } = {}) {
   function handlePointerMove(point) { draft.updatePointer(point); requestRender() }
   function handlePointerLeave() { draft.clearPointer(); clearSnap(); requestRender() }
   function handleInput(input) {
-    clearSnap()
     if (typeof input === "string" && input.trim().toLowerCase() === "close") return presentPublication(draft.close())
-    const parsed = window.CaderactPointInput.parseAndResolve(input, {
-      currentUnit: modelReader.units().length,
-      anchor: draft.currentPoint,
-    })
+    const parsed = resolveTypedPrecisionPoint(input, draft.currentPoint)
+    clearSnap()
     if (parsed.status !== "point-resolved") {
       const messages = {
         "invalid-coordinate": "Enter a point as x,y or Close", "invalid-number": "Coordinate values must be finite numbers",
