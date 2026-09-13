@@ -533,8 +533,9 @@
                 type="button"
                 aria-expanded="false"
                 aria-controls="snap-menu"
+                aria-pressed="true"
               >
-                Snap
+                Osnap
                 <svg
                   class="dropdown-icon"
                   viewBox="0 0 12 12"
@@ -544,14 +545,13 @@
                 </svg>
               </button>
               <div class="snap-menu" id="snap-menu" hidden>
-                <div class="snap-menu-title">Snap</div>
+                <div class="snap-menu-title">Object Snaps</div>
                 <div class="snap-menu-divider"></div>
                 <label class="snap-option"
                   ><input id="snap-enabled" data-snap-mode="object" type="checkbox" checked />
-                  <span>Snap Enabled</span></label
+                  <span>Object Snap Enabled</span></label
                 >
                 <section class="snap-dependent">
-                  <div class="snap-section-title">Object Snaps</div>
                   <label class="snap-option"
                     ><input data-snap-mode="endpoint" type="checkbox" checked />
                     <span>Endpoint</span></label
@@ -583,15 +583,6 @@
                   >
                   <label class="snap-option"
                     ><input data-snap-mode="vertex" type="checkbox" checked /> <span>Vertex</span></label
-                  >
-                  <div class="snap-section-title">Angle</div>
-                  <label class="snap-option"
-                    ><input type="checkbox" checked />
-                    <span>Angle Snap</span></label
-                  >
-                  <label class="snap-option snap-indent"
-                    ><input type="checkbox" />
-                    <span>Increment: 45°</span></label
                   >
                 </section>
                 <div class="snap-menu-divider"></div>

@@ -89,7 +89,7 @@ function refreshGridSnapButton(modes) {
 gridSnapToggle.addEventListener("mousedown", event => event.preventDefault())
 gridSnapToggle.addEventListener("click", () => window.caderactViewport.setGridSnapEnabled(!window.caderactViewport.snapModes.grid))
 window.caderactViewport.subscribeSnapModes(refreshGridSnapButton)
-window.caderactViewport.subscribeSnapModes(modes => { snapModeOptions.forEach(option => { option.checked=Boolean(modes[option.dataset.snapMode]); option.disabled=option.dataset.snapMode!=="object"&&!modes.object }); updateSnapOptions() })
+window.caderactViewport.subscribeSnapModes(modes => { snapModeOptions.forEach(option => { option.checked=Boolean(modes[option.dataset.snapMode]); option.disabled=option.dataset.snapMode!=="object"&&!modes.object }); snapTrigger.classList.toggle("is-active",modes.object);snapTrigger.setAttribute("aria-pressed",String(modes.object));updateSnapOptions() })
 orthoToggle?.addEventListener("mousedown", event => event.preventDefault())
 orthoToggle?.addEventListener("click", () => window.caderactViewport.setOrthoEnabled(!window.caderactViewport.orthoEnabled))
 if (orthoToggle) window.caderactViewport.subscribeEffectiveOrtho?.(enabled => { orthoToggle.classList.toggle("is-active", enabled); orthoToggle.setAttribute("aria-pressed", String(enabled)) })

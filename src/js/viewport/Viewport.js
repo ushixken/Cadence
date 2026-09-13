@@ -42,6 +42,8 @@ applyGridAppearance(userPreferences.value)
 userPreferences.subscribe(applyGridAppearance)
 let snapModes = Object.freeze({ object: userPreferences.value.objectSnapEnabled, endpoint: userPreferences.value.endpointSnapEnabled, midpoint: userPreferences.value.midpointSnapEnabled, center: userPreferences.value.centerSnapEnabled, intersection: userPreferences.value.intersectionSnapEnabled, quadrant: userPreferences.value.quadrantSnapEnabled, nearest: userPreferences.value.nearestSnapEnabled, perpendicular: userPreferences.value.perpendicularSnapEnabled, tangent: userPreferences.value.tangentSnapEnabled, vertex: userPreferences.value.vertexSnapEnabled, grid: userPreferences.value.gridSnapEnabled })
 const snapModeListeners = new Set()
+function snapModesFromPreferences(value){return Object.freeze({object:value.objectSnapEnabled,endpoint:value.endpointSnapEnabled,midpoint:value.midpointSnapEnabled,center:value.centerSnapEnabled,intersection:value.intersectionSnapEnabled,quadrant:value.quadrantSnapEnabled,nearest:value.nearestSnapEnabled,perpendicular:value.perpendicularSnapEnabled,tangent:value.tangentSnapEnabled,vertex:value.vertexSnapEnabled,grid:value.gridSnapEnabled})}
+userPreferences.subscribe(value=>{const next=snapModesFromPreferences(value);if(Object.keys(next).every(key=>next[key]===snapModes[key]))return;snapModes=next;for(const listener of snapModeListeners)listener(snapModes);updateSnapAtPointer()})
 let orthoEnabled = userPreferences.value.orthoEnabled
 const orthoListeners = new Set()
 const effectiveOrthoListeners = new Set()
@@ -88,7 +90,7 @@ function dynamicReference(session) {
 }
 function refreshDynamicInput() {
   const session=getActiveCommandSession(),candidate=activeSnapResult?.point
-  if(!dynamicInputEnabled||!session||session.isSelectionPhase||navigation?.isActive?.()||!lastKnownPointerScreen||!candidate){dynamicInput.clear();return}
+  if(!dynamicInputEnabled||!session||session.isSelectionPhase||session.usesResolvedPoint===false||navigation?.isActive?.()||!lastKnownPointerScreen||!candidate){dynamicInput.clear();return}
   const fields=[],format=window.CaderactDynamicInput.formatNumber,angleFormat=window.CaderactDynamicInput.formatAngle
   const reference=dynamicReference(session)
   if(session.name==="Scale"&&session.phase==="target"&&session.basePoint&&session.referencePoint){const baseLength=Math.hypot(session.referencePoint.x-session.basePoint.x,session.referencePoint.y-session.basePoint.y),targetLength=Math.hypot(candidate.x-session.basePoint.x,candidate.y-session.basePoint.y);if(baseLength>0)fields.push({id:"factor",kind:"scalar",label:"Factor",value:format(targetLength/baseLength),editable:true,active:false})}
@@ -816,7 +818,7 @@ function createOffsetCommandSession({ setPrompt = () => {}, preselectionIds = []
   function getOffsetPreview() { return preview && source ? Object.freeze({ mode: "offset", preserveSourceVisible: true, records: Object.freeze([Object.freeze({ id: null, ...preview })]), sourceRecords: Object.freeze([]), recordIds: Object.freeze([]) }) : null }
   requestRender()
   return Object.freeze({ name: "Offset", finish, cancel, handleInput, handlePointerDown, handlePointerMove, handlePointerLeave, handleOption,
-    hasPointerPreview: () => phase === "side", getOffsetPreview, get options() { return options() }, get phase() { return phase }, get distance() { return distance }, get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation } })
+    hasPointerPreview: () => phase === "side", usesResolvedPoint: false, getOffsetPreview, get options() { return options() }, get phase() { return phase }, get distance() { return distance }, get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation } })
 }
 
 function createCircleCommandSession({ setPrompt = () => {} } = {}) {
@@ -1245,6 +1247,7 @@ function notifyEffectivePolar() { for (const listener of effectivePolarListeners
 function subscribeEffectivePolar(listener) { effectivePolarListeners.add(listener); listener(effectivePolar()); return () => effectivePolarListeners.delete(listener) }
 function isOrthoActive() { return effectiveOrtho() }
 function resolveCommandPointer(rawPoint, session, options = {}) {
+  if(session?.usesResolvedPoint===false){clearSnap();objectSnapTracking.clearHover();return Object.freeze({snapped:false,point:Object.freeze({x:rawPoint.x,y:rawPoint.y})})}
   const reference = session?.getOrthoReference?.()
   let constrained = window.CaderactOrthoConstraint.constrain(rawPoint, reference, isOrthoActive())
   polarGuide = null

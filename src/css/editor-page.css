@@ -341,7 +341,8 @@ canvas.is-navigating {
   border-radius: 0.3rem;
 }
 
-.footer-tool.is-active {
+.footer-tool.is-active,
+.snap-trigger.is-active {
   color: #d9e6ff;
   background-color: #15366a;
   border-color: var(--activeText);
