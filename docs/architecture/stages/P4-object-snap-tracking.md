@@ -54,3 +54,9 @@ replacement, and Track off clear all state; pointer leave, blur, and visibility
 loss cancel pending hover and active guide/candidate while retaining an acquired
 point only for the active command. In P4B this policy applies to the entire
 bounded acquired-point set.
+
+Osnap master state is upstream authority for tracking. While Osnap is off, P4
+observes no new semantic candidates and performs no projection. Turning the
+master off clears pending, acquired, guide, and candidate state immediately;
+turning it back on starts a fresh dwell. The Track preference is unchanged and
+Grid never becomes a tracking origin.

@@ -16,8 +16,11 @@ three decimals while displaying angles to two decimal degrees.
 
 Compact relationship tags are derived from authoritative resolution metadata:
 `OnOrtho`, `OnPolar`, `OnPerp`, `OnTan`, and `OnTrack`. The HUD may also show the
-winning short compound Osnap label. It never infers a relationship from visual
-alignment, so disabling a contextual mode removes its tag. Existing placement
+winning short compound Osnap label, or `Grid` when continuous Grid Snap is the
+final candidate. Snap-acquisition labels and geometric relationship tags remain
+separate and may coexist when both are authoritative. The HUD uses the same P7
+formatter and final result as SnapOverlay; it never infers either state from
+visual alignment. Existing placement
 keeps the HUD offset from the exact pointer/snap marker and clamps or flips it at
 viewport edges.
 

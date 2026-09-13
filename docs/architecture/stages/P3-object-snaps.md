@@ -3,6 +3,9 @@
 Object Snap remains a single D2/D2A `SnapResolver` concern. Its user-level
 preferences provide a master `objectSnapEnabled` gate and independently stored
 mode settings; Grid Snap remains a separate continuous lattice quantizer.
+Master off removes every semantic candidate from resolution rather than merely
+hiding its marker. This applies to first points, later points, transforms, and
+tracking observation; Grid and Draft Point retain their separate authority.
 Defaults enable Endpoint, Midpoint, Center, Intersection, and Vertex while
 leaving Quadrant, Nearest, Perpendicular, and Tangent disabled to avoid noisy
 acquisition. Preferences never enter a drawing, history, revision, dirty
@@ -32,3 +35,5 @@ a compact square, Nearest a dot, Perpendicular a right angle, and Tangent a
 small circle with tangent stroke. Labels are `End`, `Mid`, `Cen`, `Int`, `Near`,
 `Perp`, `Tan`, `Quad`, and `Vertex`, joined in resolver-priority order;
 the overlay is cleared whenever snapping is lost or the command ends.
+SnapOverlay and the cursor HUD format the same final resolver result, so their
+short semantic label cannot disagree.

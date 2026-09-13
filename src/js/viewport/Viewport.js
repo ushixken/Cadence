@@ -43,7 +43,7 @@ userPreferences.subscribe(applyGridAppearance)
 let snapModes = Object.freeze({ object: userPreferences.value.objectSnapEnabled, endpoint: userPreferences.value.endpointSnapEnabled, midpoint: userPreferences.value.midpointSnapEnabled, center: userPreferences.value.centerSnapEnabled, intersection: userPreferences.value.intersectionSnapEnabled, quadrant: userPreferences.value.quadrantSnapEnabled, nearest: userPreferences.value.nearestSnapEnabled, perpendicular: userPreferences.value.perpendicularSnapEnabled, tangent: userPreferences.value.tangentSnapEnabled, vertex: userPreferences.value.vertexSnapEnabled, grid: userPreferences.value.gridSnapEnabled })
 const snapModeListeners = new Set()
 function snapModesFromPreferences(value){return Object.freeze({object:value.objectSnapEnabled,endpoint:value.endpointSnapEnabled,midpoint:value.midpointSnapEnabled,center:value.centerSnapEnabled,intersection:value.intersectionSnapEnabled,quadrant:value.quadrantSnapEnabled,nearest:value.nearestSnapEnabled,perpendicular:value.perpendicularSnapEnabled,tangent:value.tangentSnapEnabled,vertex:value.vertexSnapEnabled,grid:value.gridSnapEnabled})}
-userPreferences.subscribe(value=>{const next=snapModesFromPreferences(value);if(Object.keys(next).every(key=>next[key]===snapModes[key]))return;snapModes=next;for(const listener of snapModeListeners)listener(snapModes);updateSnapAtPointer()})
+userPreferences.subscribe(value=>{const next=snapModesFromPreferences(value);if(Object.keys(next).every(key=>next[key]===snapModes[key]))return;snapModes=next;if(!next.object)objectSnapTracking.clear();for(const listener of snapModeListeners)listener(snapModes);updateSnapAtPointer()})
 let orthoEnabled = userPreferences.value.orthoEnabled
 const orthoListeners = new Set()
 const effectiveOrthoListeners = new Set()
@@ -98,7 +98,7 @@ function refreshDynamicInput() {
   else if(reference){const dx=candidate.x-reference.x,dy=candidate.y-reference.y;fields.push({id:session.name==="Circle"?"radius":"distance",kind:"distance",label:session.name==="Circle"?"Radius":"Distance",value:format(Math.hypot(dx,dy)),editable:true,active:false});if(session.name!=="Circle")fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(Math.atan2(dy,dx)*180/Math.PI),editable:false,active:false})}
   else {fields.push({id:"x",kind:"coordinate",label:"X",value:format(candidate.x),editable:false,active:false},{id:"y",kind:"coordinate",label:"Y",value:format(candidate.y),editable:false,active:false})}
   const relationshipLabels={ortho:"OnOrtho",polar:"OnPolar",perpendicular:"OnPerp",tangent:"OnTan",tracking:"OnTrack"},tags=(activeSnapResult?.relationships||[]).map(kind=>relationshipLabels[kind]).filter(Boolean),snapLabel=window.CaderactViewportScene.snapLabel(activeSnapResult)
-  if(activeSnapResult?.kinds?.length&&snapLabel)tags.push(snapLabel)
+  if((activeSnapResult?.kinds?.length||activeSnapResult?.kind==="grid")&&snapLabel)tags.push(snapLabel)
   dynamicInput.update({screenPoint:lastKnownPointerScreen,viewport:{width:viewportWidth,height:viewportHeight},prompt:session.prompt,fields,tags:[...new Set(tags)]})
 }
 function setDynamicInputEnabled(enabled){dynamicInputEnabled=Boolean(enabled);userPreferences.set({dynamicInputEnabled});if(!dynamicInputEnabled)dynamicInput.clear();else refreshDynamicInput();return dynamicInputEnabled}
@@ -1217,6 +1217,7 @@ function setObjectSnapMode(mode, enabled) {
   const next = Boolean(enabled)
   if (snapModes[mode] === next) return snapModes
   snapModes = Object.freeze({ ...snapModes, [mode]: next })
+  if (mode === "object" && !next) { objectSnapTracking.clear(); clearSnap() }
   const preferenceKey = mode === "object" ? "objectSnapEnabled" : `${mode}SnapEnabled`
   userPreferences.set({ [preferenceKey]: next })
   for (const listener of snapModeListeners) listener(snapModes)
@@ -1303,12 +1304,13 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds 
     excludedFeatureIds,
     excludedRecordIds,
   })
-  const direct = activeSnapResult.objectSnap
-  if (objectSnapTrackingEnabled) objectSnapTracking.observeSnap(direct ? { snapped:true, ...direct } : activeSnapResult)
+  const semanticObjectSnapsEnabled = snapModes.object !== false
+  const direct = semanticObjectSnapsEnabled ? activeSnapResult.objectSnap : null
+  if (objectSnapTrackingEnabled && semanticObjectSnapsEnabled) objectSnapTracking.observeSnap(direct ? { snapped:true, ...direct } : activeSnapResult)
   else objectSnapTracking.clear()
   if (direct) activeSnapResult = Object.freeze({ ...activeSnapResult, kind:direct.kind, kinds:direct.kinds, point:direct.point, distancePx:direct.distancePx, reference:direct.reference, references:direct.references, tracking:false })
   else {
-    const tracked = objectSnapTrackingEnabled ? objectSnapTracking.project(point, worldToScreen, {
+    const tracked = objectSnapTrackingEnabled && semanticObjectSnapsEnabled ? objectSnapTracking.project(point, worldToScreen, {
       polarEnabled: effectivePolar(),
       polarIncrementDegrees,
       polarToleranceDegrees: window.CaderactPolarConstraint.ACQUISITION_TOLERANCE_DEGREES,

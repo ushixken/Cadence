@@ -30,12 +30,22 @@ path directly and are not snapped or constrained a second time. Offset side
 classification explicitly consumes the raw pointer and does not participate in
 point snapping, constraints, tracking, or the coordinate HUD.
 
+Osnap master off removes semantic Object Snap candidates at the shared resolver
+and viewport-arbitration boundary. It also clears and disables object-derived
+tracking until Osnap is enabled again. Grid Snap remains an independent drafting
+aid and can become the stationary final candidate while Osnap is off, including
+when the visual grid is hidden.
+
 Static Endpoint, Vertex, Midpoint, Center, Intersection, Quadrant, and Nearest
 are available before a command reference or P1 exists. Perpendicular and Tangent
 remain contextual. The resolver keeps a deterministic primary snap plus ordered
 same-point contributing kinds; presentation converts those into short compound
 labels. Relationship feedback is carried with the final point and is not
 reverse-engineered from cursor geometry.
+Snap-acquisition feedback (`End`, `Mid`, `Cen`, `Int`, `Near`, `Perp`, `Tan`,
+`Quad`, `Vertex`, or `Grid`) is distinct from relationship feedback (`OnOrtho`,
+`OnPolar`, `OnPerp`, `OnTan`, or `OnTrack`). SnapOverlay and the P6 HUD consume
+the same final result and shared label formatter.
 
 Shift inverts effective Ortho and temporarily frees Polar. It never bypasses
 Osnap or Grid Snap. Modifier changes recompute stationary pointer previews;
