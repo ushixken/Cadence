@@ -6,13 +6,13 @@ The compact Layers panel sits at the right of the viewport. It is a projection o
 
 ## Current layer
 
-U6 adds `layerGateway.setCurrent`, the smallest missing A7 operation. It writes `currentLayerId` through the existing `settings` transaction collection, producing one normal A4 history entry and state identity. Selecting a row invokes that gateway. New Line records continue reading the authoritative current layer in `recordGateway.createLine`. Save/Open already round-trip `currentLayerId` through v1 persistence.
+U6 adds `layerGateway.setCurrent`, the smallest missing A7 operation. It writes `currentLayerId` through the existing `settings` transaction collection, producing one normal A4 history entry and state identity. Selecting a row invokes that gateway. New Line records continue reading the authoritative current layer in `recordGateway.createLine`. Save/Open already round-trip `currentLayerId` through v1 persistence. L1 subsequently makes a panel-created layer current atomically with its creation.
 
 ## Create, rename, and delete
 
-Create proposes the first unused deterministic `Layer N` name. Explicit names still pass through A7 trimming, non-empty, and case-insensitive uniqueness validation. Rename uses a simple browser prompt and the existing gateway, preserving the stable layer ID and all references.
+Create proposes the first unused deterministic `Layer N` name. Explicit names still pass through trimming, bounded/control-safe, non-empty, and case-insensitive uniqueness validation. Rename uses a compact inline native text editor, preserving the stable layer ID and all references; Enter commits and Escape cancels.
 
-Delete invokes A7 directly. The default layer is visually identified and its delete control is disabled. Default, referenced, current, missing, or otherwise invalid deletion never moves or deletes objects and never publishes partial state. Successful deletion is one transaction; Undo/Redo restore/remove the exact identity.
+Delete invokes A7 directly. The default layer is visually identified and its delete control is disabled. Default, referenced, missing, or otherwise invalid deletion never moves or deletes objects and never publishes partial state. Deleting an empty current non-default layer atomically selects the default layer as replacement. Successful deletion is one transaction; Undo/Redo restore/remove the exact identity and current state.
 
 ## Feedback and interaction
 

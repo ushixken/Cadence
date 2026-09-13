@@ -18,6 +18,9 @@ test('create trims names, uses one transaction, and invalid names provide U5 fee
   assert.equal(b.run(`window.caderactLayers.create(' Details ').status`),'committed');
   assert.equal(b.read('documentController.currentRevision'),revision+1);assert.equal(b.layersList.children.length,2);
   assert.equal(b.read(`modelReader.layer(${JSON.stringify(layerId(b))}).name`),'Details');
+  const createdId=layerId(b);assert.equal(b.read('modelReader.snapshot().currentLayerId'),createdId);
+  b.run('window.caderactHistory.undo()');assert.equal(b.run(`modelReader.layer(${JSON.stringify(createdId)})`),null);assert.equal(b.read('modelReader.snapshot().currentLayerId===modelReader.snapshot().defaultLayerId'),true);
+  b.run('window.caderactHistory.redo()');assert.equal(b.read('modelReader.snapshot().currentLayerId'),createdId);
   for(const [name,message] of [[' details ','A layer with that name already exists'],['   ','Layer name cannot be empty']]){
     const before=state(b);assert.notEqual(b.run(`window.caderactLayers.create(${JSON.stringify(name)}).status`),'committed');
     assert.deepEqual(state(b),before);assert.equal(b.commandPrompt.children[0].textContent,message);assert.equal(b.input.classList.contains('has-command-error'),true);
@@ -25,7 +28,7 @@ test('create trims names, uses one transaction, and invalid names provide U5 fee
 });
 
 test('switch current layer is transactional and new Line uses that authoritative layer',async()=>{
-  const b=await browser();b.run(`window.caderactLayers.create('Walls')`);const id=layerId(b);
+  const b=await browser();b.run(`layerGateway.create('Walls')`);const id=layerId(b);
   const beforeRevision=b.read('documentController.currentRevision');
   b.emit(b.layersList.children.find(row=>row.dataset.layerId===id).children[0],'click');
   assert.equal(b.read('documentController.currentRevision'),beforeRevision+1);
@@ -41,7 +44,7 @@ test('rename preserves identity and Undo/Redo restore exact names',async()=>{
   const b=await browser();b.run(`window.caderactLayers.create('Walls')`);const id=layerId(b);
   assert.equal(b.run(`window.caderactLayers.rename(${JSON.stringify(id)},' Exterior Walls ').status`),'committed');
   assert.equal(b.read(`modelReader.layer(${JSON.stringify(id)}).name`),'Exterior Walls');
-  assert.notEqual(b.read('modelReader.snapshot().currentLayerId'),id);
+  assert.equal(b.read('modelReader.snapshot().currentLayerId'),id);
   b.run('window.caderactHistory.undo()');assert.equal(b.read(`modelReader.layer(${JSON.stringify(id)}).name`),'Walls');
   b.run('window.caderactHistory.redo()');assert.equal(b.read(`modelReader.layer(${JSON.stringify(id)}).name`),'Exterior Walls');
 });
@@ -55,14 +58,22 @@ test('delete follows A7 protection and exact history rules',async()=>{
   assert.equal(b.run(`modelReader.layer(${JSON.stringify(temporary)})`),null);
   b.run('window.caderactHistory.undo()');assert.equal(b.read(`modelReader.layer(${JSON.stringify(temporary)}).id`),temporary);
   b.run('window.caderactHistory.redo()');assert.equal(b.run(`modelReader.layer(${JSON.stringify(temporary)})`),null);
-  b.run(`window.caderactLayers.create('Current')`);const current=layerId(b);b.run(`window.caderactLayers.setCurrent(${JSON.stringify(current)})`);
-  const currentBefore=state(b);assert.equal(b.run(`window.caderactLayers.remove(${JSON.stringify(current)}).status`),'validation-failed');
-  assert.deepEqual(state(b),currentBefore);assert.equal(b.commandPrompt.children[0].textContent,'The current layer cannot be deleted');
-  b.run(`window.caderactLayers.setCurrent(${JSON.stringify(defaultId)})`);
+  b.run(`window.caderactLayers.create('Current')`);const current=layerId(b);
+  assert.equal(b.run(`window.caderactLayers.remove(${JSON.stringify(current)}).status`),'committed');
+  assert.equal(b.read('modelReader.snapshot().currentLayerId'),defaultId);assert.equal(b.run(`modelReader.layer(${JSON.stringify(current)})`),null);
+  b.run('window.caderactHistory.undo()');assert.equal(b.read('modelReader.snapshot().currentLayerId'),current);assert.equal(b.read(`modelReader.layer(${JSON.stringify(current)}).name`),'Current');b.run('window.caderactHistory.redo()');assert.equal(b.read('modelReader.snapshot().currentLayerId'),defaultId);
   b.run(`window.caderactLayers.create('Objects')`);const objects=layerId(b);
   b.run(`window.caderactLayers.setCurrent(${JSON.stringify(objects)});window.__r=recordGateway.createLine({x:0,y:0},{x:1,y:1});recordGateway.createAll([window.__r])`);
   const before=state(b);assert.equal(b.run(`window.caderactLayers.remove(${JSON.stringify(objects)}).status`),'layer-in-use');
-  assert.deepEqual(state(b),before);assert.equal(b.commandPrompt.children[0].textContent,'Layer cannot be deleted while objects use it');
+  assert.deepEqual(state(b),before);assert.equal(b.commandPrompt.children[0].textContent,'Layer is not empty.');
+});
+
+test('inline rename owns focus and Enter commits while Escape cancels',async()=>{
+  const b=await browser();b.run(`window.caderactLayers.create('Walls')`);const id=layerId(b);let row=b.layersList.children.find(item=>item.dataset.layerId===id);
+  b.emit(row.children[2],'click');row=b.layersList.children.find(item=>item.dataset.layerId===id);const editor=row.children[0];
+  assert.equal(editor.tag,'input');assert.equal(b.document.activeElement,editor);editor.value='Exterior';const selectAll=b.key('a',editor,{ctrlKey:true});assert.equal(selectAll.defaultPrevented,false);
+  b.key('Enter',editor);assert.equal(b.read(`modelReader.layer(${JSON.stringify(id)}).name`),'Exterior');
+  row=b.layersList.children.find(item=>item.dataset.layerId===id);b.emit(row.children[2],'click');row=b.layersList.children.find(item=>item.dataset.layerId===id);row.children[0].value='Cancelled';b.key('Escape',row.children[0]);assert.equal(b.read(`modelReader.layer(${JSON.stringify(id)}).name`),'Exterior');
 });
 
 test('all layer mutations are blocked during active commands and controls reflect the policy',async()=>{

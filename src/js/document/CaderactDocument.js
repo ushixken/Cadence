@@ -4,6 +4,7 @@
   const has = (table, key) => Object.prototype.hasOwnProperty.call(table, key)
   const normalizeLayerName = value => typeof value === "string" ? value.trim() : ""
   const layerNameKey = value => normalizeLayerName(value).toLowerCase()
+  const validLayerName = value => value.length <= 128 && !/[\u0000-\u001f\u007f]/.test(value)
   const fields = values => Object.freeze(values)
   const V1_FIELDS = Object.freeze({
     fileEnvelope: fields(["fileVersion", "document"]),
@@ -61,7 +62,7 @@
       identity(layer.id, "layer")
       if (key !== layer.id) errors.push("Layer key/ID mismatch")
       const normalizedName = normalizeLayerName(layer.name), nameKey = layerNameKey(layer.name)
-      if (!normalizedName || normalizedName !== layer.name || typeof layer.visible !== "boolean" || typeof layer.locked !== "boolean") errors.push("Invalid layer fields")
+      if (!normalizedName || !validLayerName(normalizedName) || normalizedName !== layer.name || typeof layer.visible !== "boolean" || typeof layer.locked !== "boolean") errors.push("Invalid layer fields")
       else if (layerNames.has(nameKey)) errors.push(`Duplicate layer name ${layer.name}`)
       else layerNames.add(nameKey)
     }
@@ -442,19 +443,20 @@
         transaction.replaceIn("settings", "currentLayerId", layerId)
         return transaction.publish()
       },
-      create(name) {
+      create(name, { makeCurrent = false } = {}) {
         const normalizedName = normalizeLayerName(name)
-        if (!normalizedName) return Object.freeze({ status: "invalid-layer-name" })
+        if (!normalizedName || !validLayerName(normalizedName)) return Object.freeze({ status: "invalid-layer-name" })
         if (layerByName(normalizedName)) return Object.freeze({ status: "duplicate-layer-name", name: normalizedName })
         const layer = freeze({ id: newId(), name: normalizedName, visible: true, locked: false })
         const transaction = controller.beginTransaction()
         transaction.createIn("layers", layer.id, layer)
+        if (makeCurrent) transaction.replaceIn("settings", "currentLayerId", layer.id)
         return transaction.publish()
       },
       rename(layerId, name) {
         const layer = state.layers[layerId], normalizedName = normalizeLayerName(name)
         if (!layer) return Object.freeze({ status: "unknown-layer", layerId })
-        if (!normalizedName) return Object.freeze({ status: "invalid-layer-name" })
+        if (!normalizedName || !validLayerName(normalizedName)) return Object.freeze({ status: "invalid-layer-name" })
         if (layerNameKey(layer.name) === layerNameKey(normalizedName)) return Object.freeze({ status: "no-op", changes: Object.freeze([]) })
         if (layerByName(normalizedName)) return Object.freeze({ status: "duplicate-layer-name", name: normalizedName })
         const transaction = controller.beginTransaction()
@@ -469,6 +471,7 @@
           return Object.freeze({ status: "layer-in-use", layerId })
         }
         const transaction = controller.beginTransaction()
+        if (layerId === state.currentLayerId) transaction.replaceIn("settings", "currentLayerId", state.defaultLayerId)
         transaction.removeIn("layers", layerId)
         return transaction.publish()
       },
