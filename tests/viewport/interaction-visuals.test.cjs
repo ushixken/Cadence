@@ -19,34 +19,36 @@ test('CAD cursor enters, follows raw CSS-pixel pointer position, and leaves the 
   assert.equal(b.read('window.caderactViewport.getInteractionVisualState().visible'), false);
 });
 
-test('point-command CAD crosshair joins D2 preview and marker at the snapped point', async () => {
+test('point-command CAD crosshair stays raw while D2 preview and marker use the snapped point', async () => {
   const b = await browser();
   b.launch(); b.point(400, 300);
   b.point(403, 303, 'pointermove');
+  b.flush();
   const state = b.read('window.caderactViewport.getInteractionVisualState()');
-  assert.deepEqual({x:state.x,y:state.y,mode:state.mode,snapAcquired:state.snapAcquired}, {x:410,y:310,mode:'point',snapAcquired:true});
+  assert.deepEqual({x:state.x,y:state.y,mode:state.mode,snapAcquired:state.snapAcquired}, {x:413,y:313,mode:'point',snapAcquired:true});
   assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.preview().end'), {x:0,y:0});
   assert.deepEqual(b.read('activeSnapResult.point'), {x:0,y:0});
+  assert.deepEqual({x:b.renders.at(-1).snapOverlay.point.x,y:b.renders.at(-1).snapOverlay.point.y}, {x:400,y:300});
 });
 
-test('point-command CAD cursor follows the final constrained candidate even without a semantic snap', async () => {
+test('point-command CAD cursor stays raw while an unsnapped constraint moves the final candidate', async () => {
   const b = await browser();
   b.launch(); b.point(400, 300); b.run('window.caderactViewport.setOrthoEnabled(true)');
   b.point(430, 318, 'pointermove');
   assert.deepEqual(b.read('activeSnapResult.point'), {x:6,y:0});
   assert.deepEqual(b.read('(({x,y,snapAcquired})=>({x,y,snapAcquired}))(window.caderactViewport.getInteractionVisualState())'), {
-    x:440,y:310,snapAcquired:false,
+    x:440,y:328,snapAcquired:false,
   });
   assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.preview().end'), {x:6,y:0});
 });
 
-test('stationary snap-mode recomputation moves the CAD cursor to the new authoritative point', async () => {
+test('stationary snap-mode recomputation preserves the raw CAD cursor position', async () => {
   const b = await browser();
   b.launch(); b.point(400, 300); b.point(423, 317, 'pointermove');
   assert.deepEqual(b.read('(({x,y})=>({x,y}))(window.caderactViewport.getInteractionVisualState())'), {x:433,y:327});
   b.run('window.caderactViewport.setGridSnapEnabled(true)');
   assert.deepEqual(b.read('activeSnapResult.point'), {x:0,y:0});
-  assert.deepEqual(b.read('(({x,y})=>({x,y}))(window.caderactViewport.getInteractionVisualState())'), {x:410,y:310});
+  assert.deepEqual(b.read('(({x,y})=>({x,y}))(window.caderactViewport.getInteractionVisualState())'), {x:433,y:327});
   b.run('window.caderactViewport.setGridSnapEnabled(false)');
   assert.deepEqual(b.read('(({x,y})=>({x,y}))(window.caderactViewport.getInteractionVisualState())'), {x:433,y:327});
 });
