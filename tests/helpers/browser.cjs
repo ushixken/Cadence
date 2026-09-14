@@ -170,6 +170,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/viewport/AnnotationOverlay.js');
   load('src/js/editor/LineDraftSession.js');
   load('src/js/editor/LinearDimensionDraftSession.js');
+  load('src/js/editor/AngularDimensionDraftSession.js');
   load('src/js/editor/GeometryTransform.js');
   load('src/js/editor/RectangleDraftSession.js');
   load('src/js/editor/PolylineDraftSession.js');
