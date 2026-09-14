@@ -99,7 +99,7 @@ function refreshDynamicInput() {
   else if(session.name==="Rotate"&&session.phase==="target"){const angle=session.getMovePreview?.()?.angle;if(Number.isFinite(angle))fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(angle*180/Math.PI),editable:true,active:false})}
   else if(reference){const dx=candidate.x-reference.x,dy=candidate.y-reference.y;fields.push({id:session.name==="Circle"?"radius":"distance",kind:"distance",label:session.name==="Circle"?"Radius":"Distance",value:format(Math.hypot(dx,dy)),editable:true,active:false});if(session.name!=="Circle")fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(Math.atan2(dy,dx)*180/Math.PI),editable:false,active:false})}
   else {fields.push({id:"x",kind:"coordinate",label:"X",value:format(candidate.x),editable:false,active:false},{id:"y",kind:"coordinate",label:"Y",value:format(candidate.y),editable:false,active:false})}
-  const relationshipLabels={ortho:"OnOrtho",polar:"OnPolar",perpendicular:"OnPerp",tangent:"OnTan",tracking:"OnTrack"},tags=(activeSnapResult?.relationships||[]).map(kind=>relationshipLabels[kind]).filter(Boolean),snapLabel=window.CaderactViewportScene.snapLabel(activeSnapResult)
+  const relationshipLabels={ortho:"OnOrtho",polar:"OnPolar",perpendicular:"OnPerp",tangent:"OnTan",tracking:"OnTrack",parallel:"OnParallel"},tags=(activeSnapResult?.relationships||[]).map(kind=>relationshipLabels[kind]).filter(Boolean),snapLabel=window.CaderactViewportScene.snapLabel(activeSnapResult)
   if((activeSnapResult?.kinds?.length||activeSnapResult?.kind==="grid")&&snapLabel)tags.push(snapLabel)
   dynamicInput.update({screenPoint:lastKnownPointerScreen,viewport:{width:viewportWidth,height:viewportHeight},prompt:session.prompt,fields,tags:[...new Set(tags)]})
 }
@@ -184,7 +184,7 @@ function createCommandPrompt(commandName, instruction) {
 }
 
 const FINISHING_OBJECT_SNAP_KINDS=new Set(["nearest","endpoint","midpoint","intersection","vertex","perpendicular","tangent"])
-function isFinishingObjectSnap(snap){return Boolean(snap?.snapped&&snap.kind!=="grid"&&snap.kind!=="draft-point"&&snap.kind!=="tracking"&&(snap.kinds||[snap.kind]).some(kind=>FINISHING_OBJECT_SNAP_KINDS.has(kind)))}
+function isFinishingObjectSnap(snap){return Boolean(snap?.snapped&&(snap.trackingGeometry||snap.kind!=="tracking")&&snap.kind!=="grid"&&snap.kind!=="draft-point"&&((snap.kinds||[snap.kind]).some(kind=>FINISHING_OBJECT_SNAP_KINDS.has(kind))||snap.trackingGeometry))}
 function createLineCommandSession({ setPrompt = () => {} } = {}) {
   const draft = window.CaderactLineDraftSession.createSession({
     createSegment: recordGateway.createLine,
@@ -1274,7 +1274,7 @@ function resolveCommandPointer(rawPoint, session, options = {}) {
   if(orthoActive&&(Math.abs(resolved.point.x-reference.x)<=epsilon||Math.abs(resolved.point.y-reference.y)<=epsilon))relationships.push("ortho")
   if(polarTracked){const angle=Math.atan2(resolved.point.y-reference.y,resolved.point.x-reference.x),delta=Math.atan2(Math.sin(angle-polarAngle),Math.cos(angle-polarAngle));if(Math.abs(delta)<=1e-9)relationships.push("polar")}
   const trackingState=objectSnapTracking.getState()
-  if(resolved.tracking){relationships.push("tracking");if(trackingState.activeGuides.some(guide=>guide.kind==="polar"))relationships.push("polar")}
+  if(resolved.tracking){relationships.push("tracking");if(trackingState.activeGuides.some(guide=>guide.kind==="polar"))relationships.push("polar");if(trackingState.activeGuides.some(guide=>guide.kind==="parallel"))relationships.push("parallel")}
   if((resolved.kinds||[]).includes("perpendicular")||resolved.kind==="perpendicular")relationships.push("perpendicular")
   if((resolved.kinds||[]).includes("tangent")||resolved.kind==="tangent")relationships.push("tangent")
   activeSnapResult=Object.freeze({...resolved,relationships:Object.freeze([...new Set(relationships)])})
@@ -1312,14 +1312,21 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds 
   const direct = semanticObjectSnapsEnabled ? activeSnapResult.objectSnap : null
   if (objectSnapTrackingEnabled && semanticObjectSnapsEnabled) objectSnapTracking.observeSnap(direct ? { snapped:true, ...direct } : activeSnapResult)
   else objectSnapTracking.clear()
-  if (direct) activeSnapResult = Object.freeze({ ...activeSnapResult, kind:direct.kind, kinds:direct.kinds, point:direct.point, distancePx:direct.distancePx, reference:direct.reference, references:direct.references, tracking:false })
+  if (direct) activeSnapResult = Object.freeze({ ...activeSnapResult, kind:direct.kind, kinds:direct.kinds, point:direct.point, distancePx:direct.distancePx, reference:direct.reference,sourceReference:direct.sourceReference, references:direct.references, tracking:false })
   else {
-    const tracked = objectSnapTrackingEnabled && semanticObjectSnapsEnabled ? objectSnapTracking.project(point, worldToScreen, {
+    let trackingState = objectSnapTrackingEnabled && semanticObjectSnapsEnabled ? objectSnapTracking.project(point, worldToScreen, {
       polarEnabled: effectivePolar(),
       polarIncrementDegrees,
       polarToleranceDegrees: window.CaderactPolarConstraint.ACQUISITION_TOLERANCE_DEGREES,
-    }).candidate : null
-    if (tracked) activeSnapResult = Object.freeze({ ...activeSnapResult, snapped:true, kind:"tracking", point:tracked, distancePx:0, reference:null, tracking:true })
+    }) : null
+    if(!trackingState?.candidate&&activeSnapResult.kind!=="draft-point"){const session=getActiveCommandSession(),points=session?.draft?.acceptedPoints?.()||[],origin=points.at(-1),previous=points.at(-2);if(origin&&previous){const angle=Math.atan2(origin.y-previous.y,origin.x-previous.x),rawAngle=Math.atan2(point.y-origin.y,point.x-origin.x),delta=Math.min(Math.abs(Math.atan2(Math.sin(rawAngle-angle),Math.cos(rawAngle-angle))),Math.abs(Math.atan2(Math.sin(rawAngle-angle-Math.PI),Math.cos(rawAngle-angle-Math.PI))));if(delta<=Math.PI/36){const ux=Math.cos(angle),uy=Math.sin(angle),t=(point.x-origin.x)*ux+(point.y-origin.y)*uy,parallel={x:origin.x+t*ux,y:origin.y+t*uy};trackingState=objectSnapTracking.setCandidate(parallel,"parallel",[{kind:"parallel",origin,angle,acquisitionOrder:Number.MAX_SAFE_INTEGER}])}}}
+    const guideHits=[]
+    for(const guide of trackingState?.activeGuides||[]){const angle=guide.kind==="horizontal"?0:guide.kind==="vertical"?Math.PI/2:guide.angle;if(!Number.isFinite(angle))continue;const descriptor=window.CaderactCurveDescriptor.describeLine(guide.origin,{x:guide.origin.x+Math.cos(angle),y:guide.origin.y+Math.sin(angle)});for(const record of visibleRecords()){const flattened=window.CaderactCurveDescriptor.atomicCurves(record);if(!flattened.valid)continue;for(const curve of flattened.curves){const outcome=window.CaderactCurveIntersection.intersectAtomic(descriptor,curve);if(!outcome.valid)continue;for(const hit of outcome.hits){if(!hit.onB||(guide.kind==="polar"&&hit.parameterA<0))continue;const screen=worldToScreen(hit.point.x,hit.point.y),raw=worldToScreen(point.x,point.y),distancePx=Math.hypot(screen.x-raw.x,screen.y-raw.y);if(distancePx<=objectSnapTracking.guideTolerancePx)guideHits.push({point:hit.point,distancePx,recordId:record.id,segmentIndex:curve.segmentIndex??-1,guide})}}}}
+    guideHits.sort((a,b)=>a.distancePx-b.distancePx||a.recordId.localeCompare(b.recordId)||a.segmentIndex-b.segmentIndex||a.point.x-b.point.x||a.point.y-b.point.y)
+    const geometryHit=guideHits[0]
+    if(geometryHit)trackingState=objectSnapTracking.setCandidate(geometryHit.point,"geometry-intersection",[geometryHit.guide],window.CaderactReferences.createObjectReference(geometryHit.recordId))
+    const tracked=trackingState?.candidate
+    if (tracked) activeSnapResult = Object.freeze({ ...activeSnapResult, snapped:true, kind:"tracking", kinds:Object.freeze([]), point:tracked, distancePx:geometryHit?.distancePx||0, reference:geometryHit?window.CaderactReferences.createObjectReference(geometryHit.recordId):null,sourceReference:geometryHit?window.CaderactReferences.createObjectReference(geometryHit.recordId):null, tracking:true,trackingGeometry:Boolean(geometryHit),relationships:Object.freeze(trackingState.candidateKind==="parallel"?["tracking","parallel"]:["tracking"]) })
   }
   return activeSnapResult
 }
@@ -1564,6 +1571,8 @@ function onDocumentKeyDown(event) {
   if(event.key==="Escape"&&selectionBox.isPending){const pointerId=selectionBox.snapshot().pointerId;selectionBox.clear();releaseGripPointerCapture(pointerId);requestRender();event.caderactSelectionBoxHandled=true;event.preventDefault();return}
   const commandInput=document.querySelector("#command-input"),commandBarOwns=event.target===commandInput||document.activeElement===commandInput
   if(commandBarOwns){cancelDynamicInputEdit();return}
+  const editableTarget=event.target?.matches?.("input,textarea,select,[contenteditable=true]")||event.target?.isContentEditable
+  if(event.ctrlKey&&event.altKey&&!event.metaKey&&event.key?.toLowerCase()==="t"&&!editableTarget&&window.caderactCommandRouter?.isActive&&!dynamicInput.getState().editing){const semantic=activeSnapResult?.snapped&&window.CaderactObjectSnapTracking.ELIGIBLE.has(activeSnapResult.kind)?activeSnapResult:null;if(semantic){event.preventDefault();objectSnapTracking.toggleAcquire(semantic);requestRender()}return}
   if(!event.ctrlKey&&!event.altKey&&!event.metaKey){
     if(dynamicInput.getState().editing){
       if(event.key==="Escape"){cancelDynamicInputEdit();event.caderactDynamicInputHandled=true;event.preventDefault();return}

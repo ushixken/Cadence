@@ -27,6 +27,14 @@
     }
     function clearHover() { clearPending(); clearProjection(); return emit() }
     function clear() { clearPending(); acquired=[];clearProjection();return emit() }
+    function toggleAcquire(result){
+      const valid=result?.snapped&&ELIGIBLE.has(result.kind)&&finitePoint(result.point);if(!valid)return state()
+      clearPending();clearProjection();const index=acquired.findIndex(item=>samePoint(item.point,result.point))
+      if(index>=0)acquired.splice(index,1)
+      else{acquired.push({kind:result.kind,point:point(result.point),reference:result.sourceReference||result.reference||null,acquisitionOrder:++acquisitionOrder});if(acquired.length>maxAcquiredPoints)acquired=acquired.slice(-maxAcquiredPoints)}
+      return emit()
+    }
+    function setCandidate(value,kind,guides,reference=null){if(!finitePoint(value))return state();candidate=point(value);candidateKind=kind;activeGuides=Array.from(guides||[],guide=>Object.freeze({...guide,origin:point(guide.origin)}));guide=activeGuides.length===1?activeGuides[0].kind:"intersection";const next=emit();return Object.freeze({...next,candidateReference:reference})}
     function reconcileReferences(isValid) {
       if(typeof isValid!=="function")return state()
       const hoverInvalid=hover&&!isValid(hover.reference),next=acquired.filter(item=>isValid(item.reference))
@@ -48,7 +56,7 @@
       if(winner){candidate=winner.point;candidateKind=intersections.includes(winner)?"intersection":"projection";activeGuides=winner.guides;guide=winner.guides.length===1?winner.guides[0].kind:"intersection"}
       return emit()
     }
-    return Object.freeze({observeSnap,clearHover,clear,reconcileReferences,project,getState:state,dwellMs,guideTolerancePx,maxAcquiredPoints})
+    return Object.freeze({observeSnap,toggleAcquire,setCandidate,clearHover,clear,reconcileReferences,project,getState:state,dwellMs,guideTolerancePx,maxAcquiredPoints})
   }
   window.CaderactObjectSnapTracking = Object.freeze({ create, ELIGIBLE })
 })()

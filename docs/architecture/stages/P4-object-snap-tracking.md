@@ -1,5 +1,7 @@
 # P4 — Object Snap Tracking
 
+P8 extends this foundation with active-guide intersections against committed geometry, manual point toggling, and an established-segment Parallel relationship; see [P8-advanced-object-snap-tracking.md](./P8-advanced-object-snap-tracking.md).
+
 P4A introduced one ephemeral acquired P3 semantic snap. P4B extends the same
 DOM-, renderer-, document-, and command-independent `ObjectSnapTracking`
 controller to retain at most four acquired points. Stable eligible candidates
