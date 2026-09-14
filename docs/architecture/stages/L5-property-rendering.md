@@ -26,6 +26,10 @@ Selection remains a separate high-contrast overlay and never mutates object prop
 
 Scenes resolve styles from the authoritative document on every rebuild, so property edits, layer edits, Undo, Redo, New/Open, and renderer recovery cannot retain stale style caches. Persistence stays at v1 and adds no L5 fields.
 
+## L6 surface
+
+The right-sidebar Properties tab described in [L6-properties-panel.md](./L6-properties-panel.md) edits these same L4 values and relies on this renderer-neutral resolution path for immediate visual updates.
+
 ## Deferred
 
 L6 owns the Properties panel and context action. Custom linetypes, transparency, fills/materials, plot styles, print scaling, locked-object fading, and per-viewport overrides remain deferred.

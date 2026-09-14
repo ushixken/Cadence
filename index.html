@@ -72,6 +72,7 @@
     <script src="./src/js/editor/history-actions.js" defer></script>
     <script src="./src/js/editor/file-actions.js" defer></script>
     <script src="./src/js/editor/layers-panel.js" defer></script>
+    <script src="./src/js/editor/properties-panel.js" defer></script>
     <script src="./src/js/editor/ContextMenu.js" defer></script>
     <script src="./src/js/editor/context-menu.js" defer></script>
   </head>
@@ -464,7 +465,12 @@
           <div class="viewport">
             <canvas></canvas>
           </div>
-          <aside class="layers-panel" aria-label="Layers">
+          <aside class="layers-panel editor-sidebar" aria-label="Editor panels">
+            <div class="sidebar-tabs" role="tablist" aria-label="Editor panels">
+              <button id="sidebar-layers-tab" type="button" role="tab" aria-selected="true" aria-controls="layers-panel-view">Layers</button>
+              <button id="sidebar-properties-tab" type="button" role="tab" aria-selected="false" aria-controls="properties-panel-view">Properties</button>
+            </div>
+            <section id="layers-panel-view" class="sidebar-panel" role="tabpanel" aria-labelledby="sidebar-layers-tab">
             <header class="layers-panel-header">
               <strong>Layers</strong>
               <button
@@ -485,6 +491,11 @@
               </button>
             </header>
             <div id="layers-list" class="layers-list" role="list"></div>
+            </section>
+            <section id="properties-panel-view" class="sidebar-panel properties-panel" role="tabpanel" aria-labelledby="sidebar-properties-tab" hidden>
+              <header class="properties-panel-header"><strong>Properties</strong></header>
+              <div id="properties-content" class="properties-content" tabindex="-1"></div>
+            </section>
           </aside>
         </div>
         <footer class="editor-footer" aria-label="Editor status bar">

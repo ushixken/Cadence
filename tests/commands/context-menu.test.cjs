@@ -20,7 +20,7 @@ test('canvas context selection preserves a selected set, replaces on an editable
 
 test('geometry and empty-canvas menus expose only implemented semantic actions',async()=>{
   const b=await browser();line(b,{x:-20,y:0},{x:20,y:0});openCanvas(b,400,300);
-  assert.deepEqual(labels(b),['Move','Copy','Rotate','Scale','Mirror','Assign to Current Layer','Delete']);
+  assert.deepEqual(labels(b),['Move','Copy','Rotate','Scale','Mirror','Properties','Assign to Current Layer','Delete']);
   b.window.caderactContextMenu.close();openCanvas(b,700,500);assert.deepEqual(labels(b),['Repeat Line','Select All']);assert.equal(labels(b).includes('Zoom Extents'),false)
 });
 
