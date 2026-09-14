@@ -45,6 +45,7 @@ function setCommandHint(message, presentation = null) {
 }
 
 const commandRegistry = window.CaderactCommandRegistry.createRegistry([
+  { name: "Aligned", aliases: ["DIMALIGNED", "DAL"], repeatable: true, activate: context => window.caderactViewport.createAlignedDimensionCommandSession(context) },
   { name: "Arc", aliases: ["A"], repeatable: true, activate: context => window.caderactViewport.createArcCommandSession(context) },
   { name: "Angle", aliases: ["ANG"], repeatable: true, activate: context => window.caderactViewport.createAngleMeasurementCommandSession(context) },
   { name: "Area", aliases: [], repeatable: true, activate: context => window.caderactViewport.createObjectMeasurementCommandSession("Area", context) },
