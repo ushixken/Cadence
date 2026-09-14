@@ -3,6 +3,7 @@
   const DEFAULT_TOLERANCE_PX = 10
   const PRIORITY_WINDOW_PX = 0.75
   const priorities = Object.freeze({ endpoint: 0, vertex: 0, intersection: 1, "draft-point": 2, midpoint: 3, center: 4, quadrant: 5, perpendicular: 6, tangent: 7, nearest: 8, grid: 9 })
+  const objectTier=kind=>kind==="nearest"?2:(kind==="perpendicular"||kind==="tangent")?1:0
   const freezePoint = point => Object.freeze({ x: point.x, y: point.y })
   // Exact half-cells resolve to the greater lattice index (toward +infinity).
   const nearestGridIndex = value => Math.floor(value + 0.5)
@@ -100,8 +101,8 @@
       const isSemantic=kind=>kind!=="grid"&&kind!=="draft-point"
       for(const candidate of candidates){
         const existing=deduplicated.find(other=>Math.hypot(other.point.x-candidate.point.x,other.point.y-candidate.point.y)<=1e-9)
-        if(existing){if(isSemantic(candidate.kind)&&!existing.kinds.includes(candidate.kind)){existing.kinds.push(candidate.kind);existing.kinds.sort((a,b)=>priorities[a]-priorities[b])}if(isSemantic(candidate.kind)&&candidate.reference)existing.references.push(candidate.reference)}
-        else deduplicated.push({...candidate,kinds:isSemantic(candidate.kind)?[candidate.kind]:[],references:isSemantic(candidate.kind)&&candidate.reference?[candidate.reference]:[]})
+        if(existing){const mergeSemantic=isSemantic(candidate.kind)&&!(candidate.kind==="nearest"&&objectTier(existing.kind)<objectTier(candidate.kind));if(mergeSemantic&&!existing.kinds.includes(candidate.kind)){existing.kinds.push(candidate.kind);existing.kinds.sort((a,b)=>priorities[a]-priorities[b])}const reference=candidate.reference||candidate.sourceReference;if(mergeSemantic&&reference)existing.references.push(reference)}
+        else {const reference=candidate.reference||candidate.sourceReference;deduplicated.push({...candidate,kinds:isSemantic(candidate.kind)?[candidate.kind]:[],references:isSemantic(candidate.kind)&&reference?[reference]:[]})}
       }
       candidates.length=0;candidates.push(...deduplicated)
       candidates.sort((a, b) => a.distancePx - b.distancePx
@@ -114,7 +115,7 @@
         || a.stableKey.localeCompare(b.stableKey))
       const winner = nearTieCandidates[0]
       if (!winner) return Object.freeze({ snapped: false, point: rawPoint })
-      const objectSnap = candidates.filter(candidate => candidate.kind !== "grid" && candidate.kind !== "draft-point").sort((a,b)=>a.distancePx-b.distancePx||priorities[a.kind]-priorities[b.kind]||a.stableKey.localeCompare(b.stableKey))[0] || null
+      const objectSnap = candidates.filter(candidate => candidate.kind !== "grid" && candidate.kind !== "draft-point").sort((a,b)=>objectTier(a.kind)-objectTier(b.kind)||a.distancePx-b.distancePx||priorities[a.kind]-priorities[b.kind]||a.stableKey.localeCompare(b.stableKey))[0] || null
       return Object.freeze({ snapped: true, kind: winner.kind, kinds:Object.freeze(winner.kinds.slice()), point: winner.point,
         distancePx: winner.distancePx, reference: winner.reference, sourceReference:winner.sourceReference, references:Object.freeze(winner.references.slice()),
         objectSnap: objectSnap && Object.freeze({ kind:objectSnap.kind, kinds:Object.freeze(objectSnap.kinds.slice()), point:objectSnap.point, distancePx:objectSnap.distancePx, reference:objectSnap.reference, sourceReference:objectSnap.sourceReference, references:Object.freeze(objectSnap.references.slice()) }) })

@@ -1553,6 +1553,7 @@ function onCommandPointerMove(event) {
     excludedRecordIds: session.getExcludedSnapRecordIds?.() || [],
   })
   interactionVisuals.setSnapAcquired(snap.snapped)
+  if(snap.snapped){const projected=worldToScreen(snap.point.x,snap.point.y),canvasBounds=canvas.getBoundingClientRect(),hostBounds=viewportHost.getBoundingClientRect();interactionVisuals.move({x:projected.x+canvasBounds.left-hostBounds.left,y:projected.y+canvasBounds.top-hostBounds.top})}
   session.handlePointerMove(snap.point, { rawPoint: screenToWorld(point.x, point.y) })
   refreshDynamicInput()
 }

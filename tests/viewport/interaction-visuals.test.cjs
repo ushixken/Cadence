@@ -19,12 +19,12 @@ test('CAD cursor enters, follows raw CSS-pixel pointer position, and leaves the 
   assert.equal(b.read('window.caderactViewport.getInteractionVisualState().visible'), false);
 });
 
-test('point-command cursor remains raw while D2 owns snapped preview and marker positions', async () => {
+test('point-command CAD crosshair joins D2 preview and marker at the snapped point', async () => {
   const b = await browser();
   b.launch(); b.point(400, 300);
   b.point(403, 303, 'pointermove');
   const state = b.read('window.caderactViewport.getInteractionVisualState()');
-  assert.deepEqual({x:state.x,y:state.y,mode:state.mode,snapAcquired:state.snapAcquired}, {x:413,y:313,mode:'point',snapAcquired:true});
+  assert.deepEqual({x:state.x,y:state.y,mode:state.mode,snapAcquired:state.snapAcquired}, {x:410,y:310,mode:'point',snapAcquired:true});
   assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.preview().end'), {x:0,y:0});
   assert.deepEqual(b.read('activeSnapResult.point'), {x:0,y:0});
 });
