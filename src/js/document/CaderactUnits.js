@@ -27,8 +27,15 @@
     const fixed = value.toFixed(precision)
     return `${Number(fixed) === 0 ? (0).toFixed(precision) : fixed} ${unit}`
   }
+  function formatArea(value,unit,precision=3){
+    if(!Number.isFinite(value))throw new Error("Measurement must be finite")
+    requireUnit(unit)
+    if(!Number.isInteger(precision)||precision<0||precision>15)throw new Error("Precision must be an integer from 0 to 15")
+    const fixed=value.toFixed(precision)
+    return `${Number(fixed)===0?(0).toFixed(precision):fixed} ${unit}²`
+  }
 
   window.CaderactUnits = Object.freeze({
-    supportedLengthUnits, isSupportedLengthUnit, conversionFactor, convert, format,
+    supportedLengthUnits, isSupportedLengthUnit, conversionFactor, convert, format, formatArea,
   })
 })()

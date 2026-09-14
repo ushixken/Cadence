@@ -19,6 +19,7 @@ function setCommandHint(message, presentation = null) {
 
 const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Arc", aliases: ["A"], repeatable: true, activate: context => window.caderactViewport.createArcCommandSession(context) },
+  { name: "Area", aliases: [], repeatable: true, activate: context => window.caderactViewport.createObjectMeasurementCommandSession("Area", context) },
   { name: "Circle", aliases: ["C"], repeatable: true, activate: context => window.caderactViewport.createCircleCommandSession(context) },
   { name: "Copy", aliases: ["CP"], repeatable: true, activate: context => window.caderactViewport.createCopyCommandSession(context) },
   { name: "Delete", aliases: ["DEL", "E", "ERASE"], repeatable: true, activate: context => window.caderactViewport.createDeleteCommandSession(context) },
@@ -30,6 +31,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Move", aliases: ["M"], repeatable: true, activate: context => window.caderactViewport.createMoveCommandSession(context) },
   { name: "Mirror", aliases: ["MI"], repeatable: true, activate: context => window.caderactViewport.createMirrorCommandSession(context) },
   { name: "Offset", aliases: ["O"], repeatable: true, activate: context => window.caderactViewport.createOffsetCommandSession(context) },
+  { name: "Perimeter", aliases: ["PERIM"], repeatable: true, activate: context => window.caderactViewport.createObjectMeasurementCommandSession("Perimeter", context) },
   { name: "Polyline", aliases: ["Pline", "PL"], priority: 10, repeatable: true, activate: context => window.caderactViewport.createPolylineCommandSession(context) },
   { name: "Polygon", aliases: ["PG"], repeatable: true, activate: context => window.caderactViewport.createPolygonCommandSession(context) },
   { name: "Rectangle", aliases: ["Rect"], repeatable: true, activate: context => window.caderactViewport.createRectangleCommandSession(context) },
