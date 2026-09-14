@@ -46,6 +46,7 @@
       activeSession = session
       if (definition.repeatable) lastRepeatableCommand = definition.name
       showSessionPrompt()
+      if (session.activationOutcome) return acceptSessionOutcome(session, session.activationOutcome)
       return publish(result("command-started", { command: definition.name }))
     }
     function execute(input) {
