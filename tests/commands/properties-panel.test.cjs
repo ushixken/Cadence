@@ -26,7 +26,7 @@ test('single-selection geometry is read-only and active commands disable all pro
 });
 
 test('selection/document lifecycle refreshes without mutations and empty selection shows an empty state',async()=>{
-  const b=await browser(),records=seed(b),before=state(b);b.run(`window.caderactSelection.selectOnly(${JSON.stringify(records[2].id)})`);b.window.caderactPropertiesPanel.open();assert.equal(row(b,'Geometry','Vertices').children[1].textContent,'3');assert.equal(row(b,'Geometry','Status').children[1].textContent,'Closed');assert.deepEqual(state(b),before);b.run('window.caderactSelection.clear()');assert.equal(b.propertiesContent.children[0].classList.contains('properties-empty'),true);b.run(`window.caderactDocumentSession.replaceStore(window.CaderactDocument.createStore(),{reason:'test'})`);assert.equal(b.window.caderactPropertiesPanel.getState().selectedCount,0)
+  const b=await browser(),records=seed(b),before=state(b);b.run(`window.caderactSelection.selectOnly(${JSON.stringify(records[2].id)})`);b.window.caderactPropertiesPanel.open();assert.equal(row(b,'Geometry','Vertex Count').children[1].textContent,'3');assert.equal(row(b,'Geometry','Open/Closed').children[1].textContent,'Closed');assert.deepEqual(state(b),before);b.run('window.caderactSelection.clear()');assert.equal(b.propertiesContent.children[0].classList.contains('properties-empty'),true);b.run(`window.caderactDocumentSession.replaceStore(window.CaderactDocument.createStore(),{reason:'test'})`);assert.equal(b.window.caderactPropertiesPanel.getState().selectedCount,0)
 });
 
 test('ByLayer remains the property state while inherited appearance is communicated without arbitrary mixed values',async()=>{

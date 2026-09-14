@@ -70,6 +70,7 @@
     <script src="./src/js/editor/footer-controls.js" defer></script>
     <script src="./src/js/editor/settings-panel.js" defer></script>
     <script src="./src/js/editor/command-input.js" defer></script>
+    <script src="./src/js/editor/measure-menu.js" defer></script>
     <script src="./src/js/editor/history-actions.js" defer></script>
     <script src="./src/js/editor/file-actions.js" defer></script>
     <script src="./src/js/editor/layers-panel.js" defer></script>
@@ -398,7 +399,22 @@
             </li>
             <li><button type="button">Edit</button></li>
             <li><button type="button">View</button></li>
-            <li><button type="button">Tools</button></li>
+            <li class="tools-menu">
+              <button class="tools-menu-trigger" type="button" aria-expanded="false" aria-controls="measure-menu-actions">Tools</button>
+              <div class="measure-menu-dropdown" id="measure-menu-actions" role="menu" aria-label="Measure commands" hidden>
+                <span class="measure-menu-heading">Measure</span>
+                <button type="button" role="menuitem" data-measure-command="Distance">Distance</button>
+                <button type="button" role="menuitem" data-measure-command="Length">Length</button>
+                <button type="button" role="menuitem" data-measure-command="Radius">Radius</button>
+                <button type="button" role="menuitem" data-measure-command="Diameter">Diameter</button>
+                <button type="button" role="menuitem" data-measure-command="Area">Area</button>
+                <button type="button" role="menuitem" data-measure-command="Perimeter">Perimeter</button>
+                <button type="button" role="menuitem" data-measure-command="Angle">Angle</button>
+                <button type="button" role="menuitem" data-measure-command="DistanceObject">Distance to Object</button>
+                <button type="button" role="menuitem" data-measure-command="MinDist">Minimum Distance</button>
+                <button type="button" role="menuitem" data-measure-command="DistanceSum">Cumulative Distance</button>
+              </div>
+            </li>
             <li><button id="settings-trigger" type="button">Settings</button></li>
             <li><button type="button">Window</button></li>
             <li><button type="button">Help</button></li>

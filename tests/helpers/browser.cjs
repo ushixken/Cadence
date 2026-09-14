@@ -40,6 +40,7 @@ class Element {
   contains(target) { for (let node = target; node; node = node.parent) if (node === this) return true; return false; }
   closest(selector) {
     if (this.suggestion && selector === '.command-suggestion') return this;
+    if (selector === '[data-measure-command]') for (let node = this; node; node = node.parent) if (node.dataset?.measureCommand) return node;
     if (!selector.startsWith('.')) return null;
     const name = selector.slice(1);
     for (let node = this; node; node = node.parent) if (node.classes?.has(name)) return node;
@@ -60,6 +61,10 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const undoButton = new Element('button'); const redoButton = new Element('button');
   const fileNewButton = new Element('button'); const fileOpenButton = new Element('button'); const fileSaveButton = new Element('button');
   const fileMenu = new Element('li'); const fileMenuTrigger = new Element('button'); const fileMenuDropdown = new Element(); const editMenuTrigger = new Element('button');
+  const toolsMenu = new Element('li'); const toolsMenuTrigger = new Element('button'); const measureMenuDropdown = new Element();
+  const measureCommands=['Distance','Length','Radius','Diameter','Area','Perimeter','Angle','DistanceObject','MinDist','DistanceSum'];
+  const measureLabels=['Distance','Length','Radius','Diameter','Area','Perimeter','Angle','Distance to Object','Minimum Distance','Cumulative Distance'];
+  const measureMenuItems=measureCommands.map((command,index)=>{const item=new Element('button');item.dataset.measureCommand=command;item.textContent=measureLabels[index];return item});
   const snapWrap = new Element(); const snapTrigger = new Element('button'); const snapMenu = new Element(); const snapEnabled = new Element('input'); const snapDependent = new Element();
   const unitsWrap = new Element(); const unitsTrigger = new Element('button'); const unitsMenu = new Element(); const unitValue = new Element('strong');
   const unitOptions = ['mm','cm','m','in','ft'].map(unit => { const option=new Element('button'); option.dataset.unit=unit; return option; });
@@ -81,10 +86,11 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const commandHistory = new Element();
   commandHistory.parent=commandWrap;commandHistory.owner=document;
   for (const el of [input, suggestions, commandPrompt]) { el.parent = commandInputArea; el.owner = document; }
-  for (const el of [undoButton, redoButton, fileMenu, editMenuTrigger]) { el.parent = document; el.owner = document; }
+  for (const el of [undoButton, redoButton, fileMenu, toolsMenu, editMenuTrigger]) { el.parent = document; el.owner = document; }
   fileMenuTrigger.parent = fileMenu; fileMenuDropdown.parent = fileMenu;
   for (const el of [fileNewButton, fileOpenButton, fileSaveButton]) el.parent = fileMenuDropdown;
   for (const el of [fileMenuTrigger, fileMenuDropdown, fileNewButton, fileOpenButton, fileSaveButton]) el.owner = document;
+  toolsMenuTrigger.parent=toolsMenu;measureMenuDropdown.parent=toolsMenu;measureMenuDropdown.querySelectorAll=selector=>selector==='[data-measure-command]'?measureMenuItems:[];for(const item of measureMenuItems)item.parent=measureMenuDropdown;for(const el of [toolsMenuTrigger,measureMenuDropdown,...measureMenuItems])el.owner=document;
   snapWrap.classList.add('footer-dropdown'); unitsWrap.classList.add('footer-dropdown');
   snapTrigger.parent=snapWrap; snapMenu.parent=snapWrap; snapEnabled.parent=snapMenu; snapDependent.parent=snapMenu;
   unitsTrigger.parent=unitsWrap; unitsMenu.parent=unitsWrap; unitValue.parent=unitsTrigger;
@@ -109,8 +115,8 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
     };
   }
   canvas._configure = configureCanvas; canvas._replace = replacement => { canvas = replacement; }; configureCanvas(canvas);
-  document.querySelector = selector => ({ canvas, '.viewport': viewportHost, '#grid-snap-toggle': gridSnapButton, '#ortho-toggle': orthoButton, '#polar-toggle': polarButton, '#track-toggle': trackButton, '#command-input': input, '#command-suggestions': suggestions, '#command-history': commandHistory, '#command-prompt': commandPrompt, '#command-name': commandName, '#undo-button': undoButton, '#redo-button': redoButton, '#file-new': fileNewButton, '#file-open': fileOpenButton, '#file-save': fileSaveButton, '.file-menu': fileMenu, '.file-menu-trigger': fileMenuTrigger, '#file-menu-actions': fileMenuDropdown, '.snap-trigger': snapTrigger, '.snap-menu': snapMenu, '#snap-enabled': snapEnabled, '.snap-dependent': snapDependent, '.units-control': unitsTrigger, '.units-menu': unitsMenu, '[data-unit-value]': unitValue, '#layers-list': layersList, '#layer-create': layerCreateButton, '#layer-assign': layerAssignButton, '#sidebar-layers-tab':layersTab, '#sidebar-properties-tab':propertiesTab, '#layers-panel-view':layersView, '#properties-panel-view':propertiesView, '#properties-content':propertiesContent, '#editor-context-menu': contextMenu })[selector];
-  document.querySelectorAll = selector => ({ '.menu-items > li > button':[fileMenuTrigger,editMenuTrigger], '.snap-dependent input':[], '[data-snap-mode]':[snapEnabled], '.footer-tool':[gridSnapButton,orthoButton,polarButton,trackButton], '.unit-option':unitOptions })[selector] || [];
+  document.querySelector = selector => ({ canvas, '.viewport': viewportHost, '#grid-snap-toggle': gridSnapButton, '#ortho-toggle': orthoButton, '#polar-toggle': polarButton, '#track-toggle': trackButton, '#command-input': input, '#command-suggestions': suggestions, '#command-history': commandHistory, '#command-prompt': commandPrompt, '#command-name': commandName, '#undo-button': undoButton, '#redo-button': redoButton, '#file-new': fileNewButton, '#file-open': fileOpenButton, '#file-save': fileSaveButton, '.file-menu': fileMenu, '.file-menu-trigger': fileMenuTrigger, '#file-menu-actions': fileMenuDropdown, '.tools-menu':toolsMenu,'.tools-menu-trigger':toolsMenuTrigger,'#measure-menu-actions':measureMenuDropdown, '.snap-trigger': snapTrigger, '.snap-menu': snapMenu, '#snap-enabled': snapEnabled, '.snap-dependent': snapDependent, '.units-control': unitsTrigger, '.units-menu': unitsMenu, '[data-unit-value]': unitValue, '#layers-list': layersList, '#layer-create': layerCreateButton, '#layer-assign': layerAssignButton, '#sidebar-layers-tab':layersTab, '#sidebar-properties-tab':propertiesTab, '#layers-panel-view':layersView, '#properties-panel-view':propertiesView, '#properties-content':propertiesContent, '#editor-context-menu': contextMenu })[selector];
+  document.querySelectorAll = selector => ({ '.menu-items > li > button':[fileMenuTrigger,toolsMenuTrigger,editMenuTrigger], '.snap-dependent input':[], '[data-snap-mode]':[snapEnabled], '.footer-tool':[gridSnapButton,orthoButton,polarButton,trackButton], '.unit-option':unitOptions })[selector] || [];
   document.createElement = tag => { const element = new Element(tag); element.owner = document; return element; };
   window.devicePixelRatio = 1;
   const frames = []; const renders = []; const sizes = [];
@@ -184,6 +190,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/viewport/Viewport.js');
   load('src/js/editor/footer-controls.js');
   if (commands) load('src/js/editor/command-input.js');
+  if (commands) load('src/js/editor/measure-menu.js');
   if (commands) load('src/js/editor/history-actions.js');
   if (commands) load('src/js/editor/file-actions.js');
   if (commands) load('src/js/editor/layers-panel.js');
@@ -196,7 +203,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
       defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...props };
     target.dispatchEvent(event); return event;
   };
-  return { window, document, viewportHost, contextMenu, gridSnapButton, orthoButton, polarButton, trackButton, snapTrigger, snapEnabled, get canvas() { return canvas; }, input, suggestions, commandHistory, commandPrompt, undoButton, redoButton, fileNewButton, fileOpenButton, fileSaveButton, fileMenu, fileMenuTrigger, fileMenuDropdown, editMenuTrigger, unitsTrigger, unitsMenu, unitValue, unitOptions, layersList, layerCreateButton, layerAssignButton, layersTab,propertiesTab,layersView,propertiesView,propertiesContent,context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
+  return { window, document, viewportHost, contextMenu, gridSnapButton, orthoButton, polarButton, trackButton, snapTrigger, snapEnabled, get canvas() { return canvas; }, input, suggestions, commandHistory, commandPrompt, undoButton, redoButton, fileNewButton, fileOpenButton, fileSaveButton, fileMenu, fileMenuTrigger, fileMenuDropdown, toolsMenu,toolsMenuTrigger,measureMenuDropdown,measureMenuItems, editMenuTrigger, unitsTrigger, unitsMenu, unitValue, unitOptions, layersList, layerCreateButton, layerAssignButton, layersTab,propertiesTab,layersView,propertiesView,propertiesContent,context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
     advance(milliseconds) { clock += milliseconds; let ran; do { ran = false; for (const [id,timer] of [...timers].sort((a,b)=>a[1].at-b[1].at)) if (timer.at <= clock) { timers.delete(id); timer.fn(); ran = true; } } while (ran); },
     flushOne() { const frame = frames.shift(); if (frame) frame(); return Boolean(frame); },
     flush() { while (frames.length) frames.shift()(); },
