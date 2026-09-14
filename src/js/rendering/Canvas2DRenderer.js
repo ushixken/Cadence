@@ -60,6 +60,7 @@ class Canvas2DRenderer extends window.CaderactRenderer {
         context.stroke()
       }
     }
+    for(const group of scene.triangleGroups||[])for(const triangle of group.triangles||[]){const [a,b,c]=triangle.points;context.beginPath();context.moveTo(a.x,a.y);context.lineTo(b.x,b.y);context.lineTo(c.x,c.y);context.closePath?.();context.fillStyle=triangle.color;context.fill()}
     context.setLineDash?.([])
     context.lineDashOffset = 0
     context.lineWidth = 1

@@ -96,6 +96,8 @@ canvas {
   touch-action: none;
   cursor: crosshair;
 }
+.annotation-overlay { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:3; }
+.dimension-annotation { position:absolute; white-space:nowrap; line-height:1; transform-origin:center; user-select:none; }
 
 canvas.is-navigation-ready {
   cursor: grab;

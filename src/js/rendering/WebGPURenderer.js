@@ -13,17 +13,19 @@ class WebGPURenderer extends window.CaderactRenderer {
       size: 16,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
-    this.pipeline = this.createPipeline()
+    this.pipeline = this.createPipeline("line-list")
+    this.trianglePipeline=this.createPipeline("triangle-list")
     this.bindGroup = device.createBindGroup({
       layout: this.pipeline.getBindGroupLayout(0),
       entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }],
     })
+    this.triangleBindGroup=device.createBindGroup({layout:this.trianglePipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:this.uniformBuffer}}]})
     device.lost.then(onDeviceLost, onDeviceLost).catch(error => {
       console.warn("Caderact renderer recovery callback failed", error)
     })
   }
 
-  createPipeline() {
+  createPipeline(topology) {
     const shader = this.device.createShaderModule({
       code: `struct Viewport { size: vec2f, _padding: vec2f };
 @group(0) @binding(0) var<uniform> viewport: Viewport;
@@ -55,7 +57,7 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
           alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" },
         } }],
       },
-      primitive: { topology: "line-list" },
+      primitive: { topology },
     })
   }
 
@@ -88,7 +90,8 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
         batches.push({segments,color:ellipseGroup.colorData});vertexCount+=(segments.length/4)*2
       }
     }
-    const data = new Float32Array(vertexCount * 6)
+    const triangles=(scene.triangleGroups||[]).flatMap(group=>group.triangles||[]),triangleVertexCount=triangles.length*3
+    const data = new Float32Array((vertexCount+triangleVertexCount) * 6)
     let offset = 0
     for (const batch of batches) {
       for (let index = 0; index < batch.segments.length; index += 4) {
@@ -97,6 +100,7 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
         offset += 12
       }
     }
+    for(const triangle of triangles)for(const point of triangle.points){data.set([point.x,point.y,...triangle.colorData],offset);offset+=6}
     const bytes = Math.max(24, data.byteLength)
     if (bytes > this.vertexCapacity) {
       this.vertexBuffer?.destroy()
@@ -113,6 +117,7 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
       pass.setVertexBuffer(0, this.vertexBuffer)
       pass.draw(vertexCount)
     }
+    if(triangleVertexCount){pass.setPipeline(this.trianglePipeline);pass.setBindGroup(0,this.triangleBindGroup);pass.setVertexBuffer(0,this.vertexBuffer);pass.draw(triangleVertexCount,1,vertexCount)}
     pass.end()
     this.device.queue.submit([encoder.finish()])
   }

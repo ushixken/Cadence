@@ -1,6 +1,6 @@
 // A8: deterministic, versioned serialization for durable document content.
 (() => {
-  const FILE_VERSION = 1
+  const FILE_VERSION = 2
   const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value)
 
   function invalid(message) { throw new Error(`Invalid Caderact file: ${message}`) }
@@ -36,6 +36,10 @@
       center: { x: record.center?.x, y: record.center?.y },
       majorAxis: { x: record.majorAxis?.x, y: record.majorAxis?.y }, minorRadius: record.minorRadius,
     }
+    const feature=value=>({x:value?.x,y:value?.y,featureId:value?.featureId})
+    if(record.type==="dimension-linear")return {id:record.id,type:record.type,layerId:record.layerId,...properties(record),mode:record.mode,firstPoint:feature(record.firstPoint),secondPoint:feature(record.secondPoint),dimensionLinePoint:feature(record.dimensionLinePoint),textOverride:record.textOverride}
+    if(record.type==="dimension-angular")return {id:record.id,type:record.type,layerId:record.layerId,...properties(record),firstRayPoint:feature(record.firstRayPoint),vertex:feature(record.vertex),secondRayPoint:feature(record.secondRayPoint),dimensionArcPoint:feature(record.dimensionArcPoint),textOverride:record.textOverride}
+    if(record.type==="dimension-radial")return {id:record.id,type:record.type,layerId:record.layerId,...properties(record),mode:record.mode,centerPoint:feature(record.centerPoint),dimensionPoint:feature(record.dimensionPoint),leaderPoint:feature(record.leaderPoint),textOverride:record.textOverride}
     return { id: record.id, type: record.type }
   }
   function payloadFor(document) {
@@ -48,6 +52,7 @@
         name: document.name,
         formatVersion: document.formatVersion,
         units: { length: document.units.length },
+        dimensionStyle:{...document.dimensionStyle},
         defaultLayerId: document.defaultLayerId,
         currentLayerId: document.currentLayerId,
         layers: sortById(Object.values(document.layers)).map(canonicalLayer),
@@ -62,14 +67,17 @@
     let payload
     try { payload = JSON.parse(serialized) } catch { invalid("malformed JSON") }
     if (!isRecord(payload)) invalid("root must be an object")
-    const fields = window.CaderactDocument.V1_FIELDS
+    if (payload.fileVersion !== 1 && payload.fileVersion !== FILE_VERSION) invalid(`unsupported fileVersion ${String(payload.fileVersion)}`)
+    const legacy=payload.fileVersion===1
+    const fields = legacy?window.CaderactDocument.V1_FIELDS:window.CaderactDocument.V2_FIELDS
     rejectUnknown(payload, fields.fileEnvelope, "root")
-    if (payload.fileVersion !== FILE_VERSION) invalid(`unsupported fileVersion ${String(payload.fileVersion)}`)
     const source = payload.document
     if (!isRecord(source)) invalid("missing document")
     rejectUnknown(source, fields.persistedDocument, "document")
     if (!isRecord(source.units)) invalid("units must be an object")
     rejectUnknown(source.units, fields.units, "units")
+    if(!legacy){if(!isRecord(source.dimensionStyle))invalid("dimensionStyle must be an object");rejectUnknown(source.dimensionStyle,fields.dimensionStyle,"dimensionStyle")}
+    if(source.formatVersion!==(legacy?1:2))invalid(`document formatVersion does not match fileVersion ${payload.fileVersion}`)
     if (!Array.isArray(source.layers)) invalid("layers must be an array")
     if (!Array.isArray(source.records)) invalid("records must be an array")
 
@@ -103,6 +111,12 @@
             if (!isRecord(item.center) || !isRecord(item.majorAxis)) invalid("Ellipse center and major axis must be objects")
             rejectUnknown(item.center, fields.coordinate, "Ellipse center")
             rejectUnknown(item.majorAxis, fields.coordinate, "Ellipse major axis")
+          } else if(!legacy&&item.type==="dimension-linear"){
+            rejectUnknown(item,fields.dimensionLinear,"Linear dimension record");for(const key of ["firstPoint","secondPoint","dimensionLinePoint"]){if(!isRecord(item[key]))invalid(`Linear dimension ${key} must be an object`);rejectUnknown(item[key],fields.endpoint,`Linear dimension ${key}`)}
+          } else if(!legacy&&item.type==="dimension-angular"){
+            rejectUnknown(item,fields.dimensionAngular,"Angular dimension record");for(const key of ["firstRayPoint","vertex","secondRayPoint","dimensionArcPoint"]){if(!isRecord(item[key]))invalid(`Angular dimension ${key} must be an object`);rejectUnknown(item[key],fields.endpoint,`Angular dimension ${key}`)}
+          } else if(!legacy&&item.type==="dimension-radial"){
+            rejectUnknown(item,fields.dimensionRadial,"Radial dimension record");for(const key of ["centerPoint","dimensionPoint","leaderPoint"]){if(!isRecord(item[key]))invalid(`Radial dimension ${key} must be an object`);rejectUnknown(item[key],fields.endpoint,`Radial dimension ${key}`)}
           } else invalid(`unsupported record type ${String(item.type)}`)
         }
         if (typeof item.id !== "string" || item.id.trim() === "") invalid(`${label} entry is missing an ID`)
@@ -117,8 +131,9 @@
     const candidate = {
       id: source.id,
       name: source.name,
-      formatVersion: source.formatVersion,
+      formatVersion: 2,
       units: { length: source.units?.length },
+      dimensionStyle:legacy?{...window.CaderactDocument.DEFAULT_DIMENSION_STYLE}:{...source.dimensionStyle},
       geometry: { objects },
       layers,
       defaultLayerId: source.defaultLayerId,

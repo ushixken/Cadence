@@ -80,7 +80,7 @@ test('publishExtendPlan preserves Polyline vertex feature IDs and strict v1 pers
   assert.deepEqual(after.vertices.map(v => v.featureId), target.vertices.map(v => v.featureId));
   assert.equal(after.vertices.at(-1).y, 12);
   const persisted = JSON.parse(b.run('window.CaderactPersistence.serializeDocument(modelReader.snapshot())'));
-  assert.equal(persisted.fileVersion, 1);
+  assert.equal(persisted.fileVersion, 2);
   assert.equal(persisted.document.records[0].type, 'polyline');
 });
 

@@ -97,5 +97,5 @@ test('existing topology IDs and detached reference values survive A8 round-trip'
     window.__roundTripRef=JSON.parse(JSON.stringify(window.__endRef))`);
   assert.equal(b.run('window.__loadedResolver.resolve(window.__roundTripRef).status'), 'resolved');
   assert.deepEqual(b.read('window.__loadedResolver.resolve(window.__roundTripRef).feature'), b.read('window.__referenceRecord.end'));
-  assert.equal(b.run('window.CaderactPersistence.FILE_VERSION'), 1);
+  assert.equal(b.run('window.CaderactPersistence.FILE_VERSION'), 2);
 });

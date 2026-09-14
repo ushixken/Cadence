@@ -22,6 +22,8 @@
     ellipse: fields(["id", "type", "layerId", "color", "linetype", "lineweight", "center", "majorAxis", "minorRadius"]),
     coordinate: fields(["x", "y"]),
   })
+  const DEFAULT_DIMENSION_STYLE=Object.freeze({textHeight:2.5,arrowSize:2.5,extensionGap:1,extensionBeyond:1,textGap:.75,linearPrecision:3,angularPrecision:2,showUnit:true,prefix:"",suffix:"",arrowStyle:"closed-filled"})
+  const V2_FIELDS=Object.freeze({...V1_FIELDS,persistedDocument:fields([...V1_FIELDS.persistedDocument,"dimensionStyle"]),document:fields([...V1_FIELDS.document,"dimensionStyle"]),dimensionStyle:fields(Object.keys(DEFAULT_DIMENSION_STYLE)),dimensionLinear:fields(["id","type","layerId","color","linetype","lineweight","mode","firstPoint","secondPoint","dimensionLinePoint","textOverride"]),dimensionAngular:fields(["id","type","layerId","color","linetype","lineweight","firstRayPoint","vertex","secondRayPoint","dimensionArcPoint","textOverride"]),dimensionRadial:fields(["id","type","layerId","color","linetype","lineweight","mode","centerPoint","dimensionPoint","leaderPoint","textOverride"])})
   function unknownFields(value, allowedFields) {
     if (!isRecord(value)) return []
     const allowed = new Set(allowedFields)
@@ -48,12 +50,17 @@
     function objectProperties(value,label){const properties=window.CaderactObjectProperties;for(const key of properties.PROPERTY_KEYS)if(Object.prototype.hasOwnProperty.call(value,key)&&value[key]!==null){const valid=key==="color"?properties.validColor(value[key]):key==="linetype"?properties.validLinetype(value[key]):properties.validLineweight(value[key]);if(!valid)errors.push(`${label}: invalid ${key}`)}}
     function layerProperties(value,label){const properties=window.CaderactObjectProperties;for(const key of properties.PROPERTY_KEYS)if(Object.prototype.hasOwnProperty.call(value,key)){const valid=key==="color"?properties.validColor(value[key]):key==="linetype"?properties.validLinetype(value[key]):properties.validLineweight(value[key]);if(!valid)errors.push(`${label}: invalid ${key}`)}}
     if (!isRecord(value)) return ["Invalid document"]
-    closedShape(value, V1_FIELDS.document, "document")
+    const schema=value.formatVersion===2?V2_FIELDS:V1_FIELDS
+    closedShape(value, schema.document, "document")
     identity(value.id, "document")
-    if (value.formatVersion !== 1) errors.push("Unsupported formatVersion")
+    if (value.formatVersion !== 2) errors.push("Unsupported formatVersion")
     if (typeof value.name !== "string") errors.push("Invalid document name")
     closedShape(value.units, V1_FIELDS.units, "document units")
     if (!isRecord(value.units) || !window.CaderactUnits.isSupportedLengthUnit(value.units.length)) errors.push("Invalid document length unit")
+    closedShape(value.dimensionStyle,schema.dimensionStyle,"dimension style")
+    const style=value.dimensionStyle
+    if(!isRecord(style))errors.push("Invalid dimension style")
+    else {for(const key of ["textHeight","arrowSize","extensionGap","extensionBeyond","textGap"])if(!Number.isFinite(style[key])||style[key]<0)errors.push(`Invalid dimension style ${key}`);for(const key of ["linearPrecision","angularPrecision"])if(!Number.isInteger(style[key])||style[key]<0||style[key]>15)errors.push(`Invalid dimension style ${key}`);if(typeof style.showUnit!=="boolean"||typeof style.prefix!=="string"||typeof style.suffix!=="string"||style.arrowStyle!=="closed-filled")errors.push("Invalid dimension style fields")}
     closedShape(value.geometry, V1_FIELDS.geometry, "document geometry")
     const layers = value.layers, objects = value.geometry?.objects
     const layerNames = new Set()
@@ -125,6 +132,12 @@
         closedShape(record.majorAxis, V1_FIELDS.coordinate, "Ellipse major axis")
         if (!(Math.hypot(record.majorAxis?.x, record.majorAxis?.y) > 0)) errors.push("Ellipse: major axis must be finite and greater than zero")
         if (!Number.isFinite(record.minorRadius) || record.minorRadius <= 0) errors.push("Ellipse: minor radius must be finite and greater than zero")
+      } else if(record.type==="dimension-linear"){
+        closedShape(record,schema.dimensionLinear,"Linear dimension");if(!["horizontal","vertical","aligned"].includes(record.mode))errors.push("Linear dimension: invalid mode");for(const key of ["firstPoint","secondPoint","dimensionLinePoint"]){point(record[key],`Linear dimension ${key}`);closedShape(record[key],schema.endpoint,`Linear dimension ${key}`);identity(record[key]?.featureId,`Linear dimension ${key} feature`)}if(record.firstPoint?.x===record.secondPoint?.x&&record.firstPoint?.y===record.secondPoint?.y)errors.push("Linear dimension: definition points must differ");if(record.textOverride!==null&&typeof record.textOverride!=="string")errors.push("Linear dimension: invalid textOverride")
+      } else if(record.type==="dimension-angular"){
+        closedShape(record,schema.dimensionAngular,"Angular dimension");for(const key of ["firstRayPoint","vertex","secondRayPoint","dimensionArcPoint"]){point(record[key],`Angular dimension ${key}`);closedShape(record[key],schema.endpoint,`Angular dimension ${key}`);identity(record[key]?.featureId,`Angular dimension ${key} feature`)}if(Math.hypot(record.firstRayPoint?.x-record.vertex?.x,record.firstRayPoint?.y-record.vertex?.y)===0||Math.hypot(record.secondRayPoint?.x-record.vertex?.x,record.secondRayPoint?.y-record.vertex?.y)===0)errors.push("Angular dimension: rays must have non-zero length");if(record.textOverride!==null&&typeof record.textOverride!=="string")errors.push("Angular dimension: invalid textOverride")
+      } else if(record.type==="dimension-radial"){
+        closedShape(record,schema.dimensionRadial,"Radial dimension");if(!["radius","diameter"].includes(record.mode))errors.push("Radial dimension: invalid mode");for(const key of ["centerPoint","dimensionPoint","leaderPoint"]){point(record[key],`Radial dimension ${key}`);closedShape(record[key],schema.endpoint,`Radial dimension ${key}`);identity(record[key]?.featureId,`Radial dimension ${key} feature`)}if(record.centerPoint?.x===record.dimensionPoint?.x&&record.centerPoint?.y===record.dimensionPoint?.y)errors.push("Radial dimension: radius must be non-zero");if(record.textOverride!==null&&typeof record.textOverride!=="string")errors.push("Radial dimension: invalid textOverride")
       } else errors.push("Unsupported object type")
     }
     return errors
@@ -165,11 +178,12 @@
           allocated.add(record.start.featureId)
           allocated.add(record.end.featureId)
         } else if(record.type === "polyline")for(const vertex of record.vertices)allocated.add(vertex.featureId)
+        else if(record.type.startsWith("dimension-"))for(const child of Object.values(record))if(child?.featureId)allocated.add(child.featureId)
       }
       state = freeze(candidate)
     } else {
       const id = newId(), layerId = newId()
-      state = freeze({ id, name: "Untitled", formatVersion: 1, units: { length: "mm" },
+      state = freeze({ id, name: "Untitled", formatVersion: 2, units: { length: "mm" }, dimensionStyle:{...DEFAULT_DIMENSION_STYLE},
         geometry: { objects: {} },
         layers: { [layerId]: { id: layerId, name: "Default", visible: true, locked: false, ...window.CaderactObjectProperties.DEFAULT_LAYER_PROPERTIES } },
         defaultLayerId: layerId,
@@ -182,13 +196,14 @@
     const controller = window.DocumentController.createController({
       getDocument: () => state,
       getCollections: document => ({ records: document.geometry.objects, layers: document.layers,
-        settings: { units: document.units, currentLayerId: document.currentLayerId } }),
+        settings: { units: document.units, currentLayerId: document.currentLayerId,dimensionStyle:document.dimensionStyle } }),
       assembleDocument: (baseDocument, collections) => ({
         ...baseDocument,
         geometry: { objects: collections.records },
         layers: collections.layers,
         units: collections.settings.units,
         currentLayerId: collections.settings.currentLayerId,
+        dimensionStyle:collections.settings.dimensionStyle,
       }),
       validate: validateDocument,
       onPublish: (newDocument) => { state = newDocument },
@@ -211,6 +226,7 @@
       isRecordEditable: recordId => { const layer=state.layers[state.geometry.objects[recordId]?.layerId];return Boolean(layer?.visible&&!layer.locked) },
       aggregateRecordProperties: recordIds => window.CaderactObjectProperties.aggregate(Array.from(recordIds||[],id=>state.geometry.objects[id]).filter(Boolean)),
       units: () => state.units,
+      dimensionStyle:()=>state.dimensionStyle,
       // Compatibility query for current Line-oriented callers; render code uses
       // records() and performs its own supported-type projection.
       lines: () => Object.freeze(Object.values(state.geometry.objects).filter(record => record.type === "line")),
@@ -289,6 +305,9 @@
           majorAxis: { x: geometry.majorAxis?.x, y: geometry.majorAxis?.y }, minorRadius: geometry.minorRadius,
         })
       },
+      createLinearDimension(geometry){const feature=value=>({x:value?.x,y:value?.y,featureId:newId()});return freeze({id:newId(),type:"dimension-linear",layerId:currentDrawingLayerId(),...window.CaderactObjectProperties.BY_LAYER_PROPERTIES,mode:geometry.mode,firstPoint:feature(geometry.firstPoint),secondPoint:feature(geometry.secondPoint),dimensionLinePoint:feature(geometry.dimensionLinePoint),textOverride:geometry.textOverride??null})},
+      createAngularDimension(geometry){const feature=value=>({x:value?.x,y:value?.y,featureId:newId()});return freeze({id:newId(),type:"dimension-angular",layerId:currentDrawingLayerId(),...window.CaderactObjectProperties.BY_LAYER_PROPERTIES,firstRayPoint:feature(geometry.firstRayPoint),vertex:feature(geometry.vertex),secondRayPoint:feature(geometry.secondRayPoint),dimensionArcPoint:feature(geometry.dimensionArcPoint),textOverride:geometry.textOverride??null})},
+      createRadialDimension(geometry){const feature=value=>({x:value?.x,y:value?.y,featureId:newId()});return freeze({id:newId(),type:"dimension-radial",layerId:currentDrawingLayerId(),...window.CaderactObjectProperties.BY_LAYER_PROPERTIES,mode:geometry.mode,centerPoint:feature(geometry.centerPoint),dimensionPoint:feature(geometry.dimensionPoint),leaderPoint:feature(geometry.leaderPoint),textOverride:geometry.textOverride??null})},
       createAll(records) {
         if (records.some(record => !layerUsable(record.layerId))) return Object.freeze({ status: "record-layer-unavailable" })
         let transaction
@@ -336,6 +355,7 @@
         if(record.type==="arc")return freeze({...record,id:newId(),start:{...record.start,featureId:newId()},end:{...record.end,featureId:newId()}})
         if(record.type==="polyline")return freeze({...record,id:newId(),vertices:record.vertices.map(vertex=>({...vertex,featureId:newId()}))})
         if(record.type==="circle"||record.type==="ellipse")return freeze({...record,id:newId()})
+        if(record.type.startsWith("dimension-")){const copy={...record,id:newId()};for(const [key,value] of Object.entries(copy))if(value?.featureId)copy[key]={...value,featureId:newId()};return freeze(copy)}
         throw new Error(`Unsupported geometry type: ${record.type}`)
       },
       updateProperties(recordId, properties) {
@@ -552,7 +572,8 @@
         return transaction.publish()
       },
     })
-    return Object.freeze({ reader, recordGateway, layerGateway, unitGateway, controller })
+    const dimensionStyleGateway=Object.freeze({set(patch){const next={...state.dimensionStyle,...patch};if(JSON.stringify(next)===JSON.stringify(state.dimensionStyle))return Object.freeze({status:"no-op",changes:Object.freeze([])});const transaction=controller.beginTransaction();transaction.replaceIn("settings","dimensionStyle",next);return transaction.publish()}})
+    return Object.freeze({ reader, recordGateway, layerGateway, unitGateway, dimensionStyleGateway, controller })
   }
-  window.CaderactDocument = Object.freeze({ createStore, validateDocument, V1_FIELDS, unknownFields })
+  window.CaderactDocument = Object.freeze({ createStore, validateDocument, V1_FIELDS,V2_FIELDS,DEFAULT_DIMENSION_STYLE, unknownFields })
 })()

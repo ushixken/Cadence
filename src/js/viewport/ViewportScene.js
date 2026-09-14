@@ -6,6 +6,7 @@
     camera,
     getViewportSize,
     getDocumentUnit = () => "mm",
+    getDimensionStyle = () => window.CaderactDocument.DEFAULT_DIMENSION_STYLE,
     getRecords,
     getLayer = () => null,
     getDraftLines = () => [],
@@ -120,7 +121,7 @@
         acceptedDraft = [],
         nextPreview = [],
         snapMarker = [], polarGuideSegments = [], objectTrackingGuide = [], objectTrackingMarkers = [], measurementSegments = [], measurementMarkers = [],
-        selection = []
+        selection = [], dimensionTriangles=[],dimensionAnnotations=[]
       const selectionWindow = [],
         selectionCrossing = []
       const selectionWindowFill = [],
@@ -326,6 +327,9 @@
             if (selectedIds.has(record.id))
               addSegment(selection, a.x, a.y, b.x, b.y)
           }
+        } else if(record?.type==="dimension-linear"){
+          const presentation=window.CaderactDimensionGeometry.derive(record,getDimensionStyle(),{length:getDocumentUnit()})
+          if(presentation.supported){for(const [start,end] of presentation.lines){const a=camera.worldToScreen(start.x,start.y),b=camera.worldToScreen(end.x,end.y);addSegment(bucket.segments,a.x,a.y,b.x,b.y)}for(const triangle of presentation.triangles)dimensionTriangles.push(Object.freeze({points:Object.freeze(triangle.map(value=>Object.freeze(camera.worldToScreen(value.x,value.y)))),color:bucket.style.color,colorData:colorToRgba(bucket.style.color)}));const anchor=camera.worldToScreen(presentation.text.point.x,presentation.text.point.y);dimensionAnnotations.push(Object.freeze({recordId:record.id,text:presentation.text.value,x:anchor.x,y:anchor.y,rotation:-presentation.text.rotation,fontSize:presentation.text.height*camera.state.zoom,color:bucket.style.color}))}
         } else if (record?.type === "circle") {
           const center = camera.worldToScreen(record.center.x, record.center.y)
           const edge = camera.worldToScreen(
@@ -1256,6 +1260,8 @@
         circleGroups,
         arcGroups,
         ellipseGroups,
+        triangleGroups:Object.freeze([Object.freeze({triangles:Object.freeze(dimensionTriangles)})]),
+        annotationOverlay:Object.freeze({items:Object.freeze(dimensionAnnotations)}),
         propertyDrawGroups:Object.freeze(propertyDrawGroups),
         propertyPreviewDrawGroups:Object.freeze(propertyPreviewDrawGroups),
         drawGroups: Object.freeze(

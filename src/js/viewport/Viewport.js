@@ -20,7 +20,7 @@ const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettin
 const camera = viewportCamera.state
 const documentSession = window.CaderactDocumentSession.createSession()
 window.caderactDocumentSession = documentSession
-let { reader: modelReader, recordGateway, layerGateway, unitGateway, controller: documentController } = documentSession.store
+let { reader: modelReader, recordGateway, layerGateway, unitGateway, dimensionStyleGateway, controller: documentController } = documentSession.store
 
 let viewportWidth = 0, viewportHeight = 0
 let renderer = null, isInitialized = false, isRenderScheduled = false
@@ -54,6 +54,7 @@ const effectivePolarListeners = new Set()
 let polarGuide = null
 const viewportHost = canvas.parentElement || canvas.parent
 const interactionVisuals = window.CaderactInteractionVisuals.createController({ host: viewportHost })
+const annotationOverlay = window.CaderactAnnotationOverlay.create({host:viewportHost})
 const dynamicInputView = window.CaderactDynamicInput.createView({ host: viewportHost })
 const dynamicInput = window.CaderactDynamicInput.createController({ onChange: dynamicInputView.render })
 let dynamicInputEnabled = userPreferences.value.dynamicInputEnabled
@@ -135,6 +136,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   camera: viewportCamera,
   getViewportSize: () => ({ width: viewportWidth, height: viewportHeight }),
   getDocumentUnit: () => modelReader.units().length,
+  getDimensionStyle:()=>modelReader.dimensionStyle(),
   getRecords: visibleRecords,
   getLayer: layerId => modelReader.layer(layerId),
   getDraftLines: () => getActiveCommandSession()?.getDraftLines?.() || [],
@@ -158,7 +160,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
 })
 
 function createScene() {
-  return sceneBuilder.createScene()
+  const scene=sceneBuilder.createScene();annotationOverlay.render(scene.annotationOverlay?.items||[]);return scene
 }
 
 function requestRender() {
@@ -1390,6 +1392,7 @@ documentSession.subscribe(({ store }) => {
   recordGateway = store.recordGateway
   layerGateway = store.layerGateway
   unitGateway = store.unitGateway
+  dimensionStyleGateway=store.dimensionStyleGateway
   documentController = store.controller
   selection.clear()
   cancelGripEdit()
