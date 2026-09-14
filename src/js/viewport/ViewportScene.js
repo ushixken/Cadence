@@ -376,7 +376,7 @@
       }
       const measurementPreview=getMeasurementPreview()
       let measurementOverlay=null
-      if(measurementPreview){const a=camera.worldToScreen(measurementPreview.start.x,measurementPreview.start.y),b=camera.worldToScreen(measurementPreview.end.x,measurementPreview.end.y),size=3;addSegment(measurementSegments,a.x,a.y,b.x,b.y);for(const p of [a,b]){addSegment(measurementMarkers,p.x-size,p.y,p.x+size,p.y);addSegment(measurementMarkers,p.x,p.y-size,p.x,p.y+size)}nextPreview.push(...measurementSegments,...measurementMarkers);measurementOverlay=Object.freeze({startPoint:Object.freeze(a),endPoint:Object.freeze(b),segments:new Float32Array(measurementSegments),markerSegments:new Float32Array(measurementMarkers),distance:measurementPreview.distance,angleRadians:measurementPreview.angleRadians})}
+      if(measurementPreview){const worldSegments=measurementPreview.rays||[[measurementPreview.start,measurementPreview.end]],projected=[];for(const [start,end] of worldSegments){const a=camera.worldToScreen(start.x,start.y),b=camera.worldToScreen(end.x,end.y);addSegment(measurementSegments,a.x,a.y,b.x,b.y);projected.push(a,b)}const size=3;for(const p of projected){addSegment(measurementMarkers,p.x-size,p.y,p.x+size,p.y);addSegment(measurementMarkers,p.x,p.y-size,p.x,p.y+size)}nextPreview.push(...measurementSegments,...measurementMarkers);measurementOverlay=Object.freeze({startPoint:projected[0]&&Object.freeze(projected[0]),endPoint:projected.at(-1)&&Object.freeze(projected.at(-1)),segments:new Float32Array(measurementSegments),markerSegments:new Float32Array(measurementMarkers),distance:measurementPreview.distance,angleRadians:measurementPreview.angleRadians})}
 
       const circlePreview = getCirclePreview()
       if (

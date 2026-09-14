@@ -1,35 +1,66 @@
-const commandInput = document.querySelector("#command-input")
-const viewportCanvas = document.querySelector("canvas")
-const commandSuggestions = document.querySelector("#command-suggestions")
-const commandHistory = document.querySelector("#command-history")
-const commandPrompt = document.querySelector("#command-prompt")
-const commandName = document.querySelector("#command-name")
+// @ts-check
+
+/** @param {string} selector @returns {HTMLElement} */
+function requiredElement(selector) {
+  const element = document.querySelector(selector)
+  if (!(element instanceof HTMLElement)) throw new Error(`Required element not found: ${selector}`)
+  return element
+}
+
+/** @param {string} selector @returns {HTMLInputElement} */
+function requiredInput(selector) {
+  return /** @type {HTMLInputElement} */ (requiredElement(selector))
+}
+
+/** @param {string} selector @returns {HTMLCanvasElement} */
+function requiredCanvas(selector) {
+  return /** @type {HTMLCanvasElement} */ (requiredElement(selector))
+}
+
+/** @param {EventTarget | null} target @returns {HTMLElement | null} */
+function eventElement(target) { return target instanceof HTMLElement ? target : null }
+
+const commandInput = requiredInput("#command-input")
+const viewportCanvas = requiredCanvas("canvas")
+const commandSuggestions = requiredElement("#command-suggestions")
+const commandHistory = requiredElement("#command-history")
+const commandPrompt = requiredElement("#command-prompt")
+const commandName = requiredElement("#command-name")
 const commandInputWrap = commandInput.closest(".command-input-wrap")
+if (!(commandInputWrap instanceof HTMLElement)) throw new Error("Required element not found: .command-input-wrap")
 let selectedSuggestionIndex = 0
 let suggestionExplicitlySelected = false
+/** @type {CaderactCommandFeedbackController | null} */
 let feedbackController = null
+/** @type {CaderactCommandRouter} */
+let commandRouter
 
 function syncCommandInputPresentation() {
   commandInputWrap?.classList.toggle("has-typed-input", commandInput.value.length > 0)
 }
 
+/** @param {string} message @param {CaderactPromptPresentation | null} [presentation] */
 function setCommandHint(message, presentation = null) {
   feedbackController?.setActivePrompt(message, commandRouter?.activeSession?.options || [], presentation)
 }
 
 const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Arc", aliases: ["A"], repeatable: true, activate: context => window.caderactViewport.createArcCommandSession(context) },
+  { name: "Angle", aliases: ["ANG"], repeatable: true, activate: context => window.caderactViewport.createAngleMeasurementCommandSession(context) },
   { name: "Area", aliases: [], repeatable: true, activate: context => window.caderactViewport.createObjectMeasurementCommandSession("Area", context) },
   { name: "Circle", aliases: ["C"], repeatable: true, activate: context => window.caderactViewport.createCircleCommandSession(context) },
   { name: "Copy", aliases: ["CP"], repeatable: true, activate: context => window.caderactViewport.createCopyCommandSession(context) },
   { name: "Delete", aliases: ["DEL", "E", "ERASE"], repeatable: true, activate: context => window.caderactViewport.createDeleteCommandSession(context) },
   { name: "Distance", aliases: ["DI", "DIST"], repeatable: true, activate: context => window.caderactViewport.createDistanceCommandSession(context) },
+  { name: "DistanceObject", aliases: ["DOBJ"], repeatable: true, activate: context => window.caderactViewport.createDistanceObjectCommandSession(context) },
+  { name: "DistanceSum", aliases: ["DSUM"], repeatable: true, activate: context => window.caderactViewport.createDistanceSumCommandSession(context) },
   { name: "Ellipse", aliases: ["EL"], repeatable: true, activate: context => window.caderactViewport.createEllipseCommandSession(context) },
   { name: "Extend", aliases: ["EX"], repeatable: true, activate: context => window.caderactViewport.createExtendCommandSession(context) },
   { name: "Line", aliases: ["L"], repeatable: true, activate: context => window.caderactViewport.createLineCommandSession(context) },
   { name: "Length", aliases: ["LEN"], repeatable: true, activate: context => window.caderactViewport.createObjectMeasurementCommandSession("Length", context) },
   { name: "Move", aliases: ["M"], repeatable: true, activate: context => window.caderactViewport.createMoveCommandSession(context) },
   { name: "Mirror", aliases: ["MI"], repeatable: true, activate: context => window.caderactViewport.createMirrorCommandSession(context) },
+  { name: "MinDist", aliases: [], repeatable: true, activate: context => window.caderactViewport.createMinDistanceCommandSession(context) },
   { name: "Offset", aliases: ["O"], repeatable: true, activate: context => window.caderactViewport.createOffsetCommandSession(context) },
   { name: "Perimeter", aliases: ["PERIM"], repeatable: true, activate: context => window.caderactViewport.createObjectMeasurementCommandSession("Perimeter", context) },
   { name: "Polyline", aliases: ["Pline", "PL"], priority: 10, repeatable: true, activate: context => window.caderactViewport.createPolylineCommandSession(context) },
@@ -41,7 +72,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Diameter", aliases: ["DIA"], repeatable: true, activate: context => window.caderactViewport.createObjectMeasurementCommandSession("Diameter", context) },
   { name: "Trim", aliases: ["TR"], repeatable: true, activate: context => window.caderactViewport.createTrimCommandSession(context) },
 ])
-const commandRouter = window.CaderactCommandRouter.createRouter({ registry: commandRegistry, setPrompt: setCommandHint,
+commandRouter = window.CaderactCommandRouter.createRouter({ registry: commandRegistry, setPrompt: setCommandHint,
   getPreselectionIds: () => window.caderactSelection?.selectedIds?.() || [] })
 window.caderactCommandRegistry = commandRegistry
 window.caderactCommandRouter = commandRouter
@@ -85,8 +116,10 @@ commandRouter.subscribe(feedbackController.presentResult)
 commandRouter.subscribe(() => window.caderactViewport.setCommandActive(commandRouter.isActive))
 window.caderactFeedback = feedbackController
 
+/** @param {string} value */
 function getMatchingCommands(value) { return commandRegistry.search(value, { limit: 8 }) }
 
+/** @param {HTMLElement} parent @param {string} text @param {readonly number[]} indices */
 function appendHighlightedText(parent, text, indices) {
   const matched = new Set(indices)
   for (let index = 0; index < text.length; index++) {
@@ -96,6 +129,7 @@ function appendHighlightedText(parent, text, indices) {
   }
 }
 
+/** @param {CaderactCommandMatch} result @param {number} index */
 function createSuggestion(result, index) {
   const button = document.createElement("button")
   button.classList.add("command-suggestion")
@@ -130,6 +164,7 @@ function showSuggestions() {
   return matches
 }
 
+/** @param {CaderactCommandOutcome} outcome */
 function applyCommandResult(outcome) {
   if (outcome.status === "command-started") {
     commandInput.value = ""
@@ -196,23 +231,30 @@ function resetCommandInput() {
 }
 
 commandPrompt.addEventListener("click", event => {
-  const button=event.target.closest(".command-option")
-  if(!button||button.disabled||!commandRouter.isActive)return
-  commandRouter.activateOption(button.dataset.optionId)
+  const button=eventElement(event.target)?.closest(".command-option")
+  if (!(button instanceof HTMLElement)) return
+  const optionButton = /** @type {HTMLButtonElement} */ (button)
+  if(optionButton.disabled||!commandRouter.isActive)return
+  commandRouter.activateOption(optionButton.dataset.optionId)
   commandInput.value="";syncCommandInputPresentation();hideSuggestions();commandInput.focus()
 })
 
-commandInputWrap?.addEventListener("click", event => {
-  if (event.target.closest?.(".command-option")) return
+commandInputWrap.addEventListener("click", event => {
+  if (eventElement(event.target)?.closest(".command-option")) return
   window.caderactViewport.cancelDynamicInputEdit?.()
   commandInput.focus()
 })
 commandInput.addEventListener("focus", () => window.caderactViewport.cancelDynamicInputEdit?.())
 
+/** @param {EventTarget | null} target */
 function isTypingInAnotherField(target) {
   return target instanceof HTMLElement && target !== commandInput &&
     (target.matches("input, textarea, select") || target.isContentEditable)
 }
+
+function hasSelection() { return (window.caderactSelection?.selectedIds().length || 0) > 0 }
+
+function clearSelection() { window.caderactSelection?.clear() }
 
 commandInput.addEventListener("input", () => {
   syncCommandInputPresentation()
@@ -239,16 +281,16 @@ commandInput.addEventListener("keydown", (event) => {
     event.preventDefault()
     submitCurrentInput()
   } else if (event.key === "Enter" && !commandRouter.isActive && commandInput.value.trim() === "") {
-    if (window.caderactSelection?.selectedIds().length > 0) {
+    if (hasSelection()) {
       event.preventDefault()
-      window.caderactSelection.clear()
+      clearSelection()
     }
   }
 })
 
 commandSuggestions.addEventListener("click", (event) => {
-  const suggestion = event.target.closest(".command-suggestion")
-  if (!suggestion || commandRouter.isActive) return
+  const suggestion = eventElement(event.target)?.closest(".command-suggestion")
+  if (!(suggestion instanceof HTMLElement) || commandRouter.isActive) return
   const matches = getMatchingCommands(commandInput.value)
   selectedSuggestionIndex = Number(suggestion.dataset.commandIndex)
   const selected = matches[selectedSuggestionIndex]
@@ -279,17 +321,17 @@ document.addEventListener("keydown", (event) => {
       commandRouter.cancelActive(); event.preventDefault(); resetCommandInput(); commandInput.blur()
     } else if (!commandSuggestions.hidden || commandInput.value !== "") {
       event.preventDefault(); resetCommandInput(); commandInput.blur()
-    } else if (window.caderactSelection?.selectedIds().length > 0) {
+    } else if (hasSelection()) {
       event.preventDefault()
-      window.caderactSelection.clear()
+      clearSelection()
     }
     return
   }
   if (event.key === "Enter" && event.target !== commandInput) {
     if (!commandRouter.isActive && !isTypingInAnotherField(event.target)) {
-      if (window.caderactSelection?.selectedIds().length > 0) {
+      if (hasSelection()) {
         event.preventDefault()
-        window.caderactSelection.clear()
+        clearSelection()
         return
       }
     }
@@ -298,7 +340,7 @@ document.addEventListener("keydown", (event) => {
   if ((event.key === "Delete" || event.key === "Backspace")
     && event.target !== commandInput && !isTypingInAnotherField(event.target)
     && !commandRouter.isActive && !window.caderactGrips?.isActive
-    && window.caderactSelection?.selectedIds().length > 0) {
+    && hasSelection()) {
     event.preventDefault()
     applyCommandResult(commandRouter.execute("Delete"))
     applyCommandResult(commandRouter.finishActive())
