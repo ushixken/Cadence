@@ -7,6 +7,7 @@
     getViewportSize,
     getDocumentUnit = () => "mm",
     getRecords,
+    getLayer = () => null,
     getDraftLines = () => [],
     getPreview = () => null,
     getPreviewLines = null,
@@ -93,11 +94,14 @@
       return [values[0] / 255, values[1] / 255, values[2] / 255, values[3] ?? 1]
     }
 
-    function lineGroup(color, segments) {
+    function lineGroup(color, segments, {linetype="continuous",lineWidth=1,lineweight=null}={}) {
       return {
         color,
         colorData: colorToRgba(color),
-        lineWidth: 1,
+        linetype,
+        lineweight,
+        dashPattern: window.CaderactStrokeStyle.dashPattern(linetype),
+        lineWidth,
         segments: new Float32Array(segments),
       }
     }
@@ -134,6 +138,12 @@
         selectedEllipses = []
       const committedPolylines = [],
         selectedPolylines = []
+      const propertyBuckets=new Map()
+      function propertyStyle(record){const layer=getLayer(record.layerId),properties=window.CaderactObjectProperties;const color=properties.effectiveColor(record,layer),linetype=properties.effectiveLinetype(record,layer),lineweight=properties.effectiveLineweight(record,layer);return Object.freeze({color,linetype,lineweight,lineWidth:window.CaderactStrokeStyle.lineweightToCssPixels(lineweight)})}
+      function propertyBucket(record){const style=propertyStyle(record),key=`${style.color}|${style.linetype}|${style.lineweight}`;if(!propertyBuckets.has(key))propertyBuckets.set(key,{style,segments:[],circles:[],arcs:[],ellipses:[],recordIds:[]});const bucket=propertyBuckets.get(key);bucket.recordIds.push(record.id);return bucket}
+      const previewPropertyBuckets=new Map()
+      function previewPropertyBucket(record){const style=propertyStyle(record),key=`${style.color}|${style.linetype}|${style.lineweight}`;if(!previewPropertyBuckets.has(key))previewPropertyBuckets.set(key,{style,segments:[],circles:[],arcs:[],ellipses:[],recordIds:[]});const bucket=previewPropertyBuckets.get(key);if(record.id)bucket.recordIds.push(record.id);return bucket}
+      function appendStyledPreview(record){const bucket=previewPropertyBucket(record);if(record.type==="line"){const a=camera.worldToScreen(record.start.x,record.start.y),b=camera.worldToScreen(record.end.x,record.end.y);addSegment(bucket.segments,a.x,a.y,b.x,b.y);addSegment(nextPreview,a.x,a.y,b.x,b.y)}else if(record.type==="polyline"){const count=record.closed?record.vertices.length:record.vertices.length-1;for(let index=0;index<count;index++){const a=record.vertices[index],b=record.vertices[(index+1)%record.vertices.length],pa=camera.worldToScreen(a.x,a.y),pb=camera.worldToScreen(b.x,b.y);addSegment(bucket.segments,pa.x,pa.y,pb.x,pb.y);addSegment(nextPreview,pa.x,pa.y,pb.x,pb.y)}}else if(record.type==="circle"){const center=camera.worldToScreen(record.center.x,record.center.y),edge=camera.worldToScreen(record.center.x+record.radius,record.center.y);bucket.circles.push(Object.freeze({recordId:record.id,center:Object.freeze(center),radius:Math.hypot(edge.x-center.x,edge.y-center.y)}))}else if(record.type==="arc")bucket.arcs.push(projectArc(record));else if(record.type==="ellipse")bucket.ellipses.push(projectEllipse(record))}
       const moveSourceGhost = [],
         moveGuide = [],
         moveSourceCircles = [],
@@ -284,10 +294,11 @@
       )
       for (const record of records) {
         if (movingIds.has(record.id)) continue
+        const bucket=propertyBucket(record)
         if (record?.type === "line") {
           const a = camera.worldToScreen(record.start.x, record.start.y)
           const b = camera.worldToScreen(record.end.x, record.end.y)
-          addSegment(geometry, a.x, a.y, b.x, b.y)
+          addSegment(bucket.segments, a.x, a.y, b.x, b.y)
           if (selectedIds.has(record.id))
             addSegment(selection, a.x, a.y, b.x, b.y)
         } else if (record?.type === "polyline") {
@@ -310,7 +321,7 @@
           for (let index = 0; index < count; index++) {
             const a = vertices[index],
               b = vertices[(index + 1) % vertices.length]
-            addSegment(geometry, a.x, a.y, b.x, b.y)
+            addSegment(bucket.segments, a.x, a.y, b.x, b.y)
             if (selectedIds.has(record.id))
               addSegment(selection, a.x, a.y, b.x, b.y)
           }
@@ -325,18 +336,20 @@
             center: Object.freeze({ x: center.x, y: center.y }),
             radius: Math.hypot(edge.x - center.x, edge.y - center.y),
           })
-          committedCircles.push(circle)
+          bucket.circles.push(circle)
           if (selectedIds.has(record.id)) selectedCircles.push(circle)
         } else if (record?.type === "arc") {
           const arc = projectArc(record)
-          committedArcs.push(arc)
+          bucket.arcs.push(arc)
           if (selectedIds.has(record.id)) selectedArcs.push(arc)
         } else if (record?.type === "ellipse") {
           const ellipse = projectEllipse(record)
-          committedEllipses.push(ellipse)
+          bucket.ellipses.push(ellipse)
           if (selectedIds.has(record.id)) selectedEllipses.push(ellipse)
         }
       }
+      const defaultStyleKey=`${viewportSettings.geometryColor}|continuous|0.25`,propertyDrawGroups=[]
+      for(const [key,bucket] of propertyBuckets){const style=bucket.style;if(key===defaultStyleKey){geometry.push(...bucket.segments);committedCircles.push(...bucket.circles);committedArcs.push(...bucket.arcs);committedEllipses.push(...bucket.ellipses);continue}const styledLine=lineGroup(style.color,bucket.segments,style);propertyDrawGroups.push(Object.freeze({style,recordIds:Object.freeze(bucket.recordIds.slice().sort()),lineGroup:styledLine,circleGroup:Object.freeze({...styledLine,circles:Object.freeze(bucket.circles)}),arcGroup:Object.freeze({...styledLine,arcs:Object.freeze(bucket.arcs)}),ellipseGroup:Object.freeze({...styledLine,ellipses:Object.freeze(bucket.ellipses)})}))}
 
       // Accepted draft geometry and the next-segment rubber band deliberately
       // use independent buffers. Pointer movement can only rebuild nextPreview.
@@ -403,39 +416,7 @@
           }),
         )
 
-      for (const record of movePreview?.records || []) {
-        if (record.type === "line") {
-          const a = camera.worldToScreen(record.start.x, record.start.y),
-            b = camera.worldToScreen(record.end.x, record.end.y)
-          addSegment(nextPreview, a.x, a.y, b.x, b.y)
-        } else if (record.type === "polyline") {
-          const count = record.closed
-            ? record.vertices.length
-            : record.vertices.length - 1
-          for (let index = 0; index < count; index++) {
-            const a = record.vertices[index],
-              b = record.vertices[(index + 1) % record.vertices.length],
-              pa = camera.worldToScreen(a.x, a.y),
-              pb = camera.worldToScreen(b.x, b.y)
-            addSegment(nextPreview, pa.x, pa.y, pb.x, pb.y)
-          }
-        } else if (record.type === "circle") {
-          const center = camera.worldToScreen(record.center.x, record.center.y),
-            edge = camera.worldToScreen(
-              record.center.x + record.radius,
-              record.center.y,
-            )
-          previewCircles.push(
-            Object.freeze({
-              recordId: record.id,
-              center: Object.freeze(center),
-              radius: Math.hypot(edge.x - center.x, edge.y - center.y),
-            }),
-          )
-        } else if (record.type === "arc") previewArcs.push(projectArc(record))
-        else if (record.type === "ellipse")
-          previewEllipses.push(projectEllipse(record))
-      }
+      for (const record of movePreview?.records || []) appendStyledPreview(record)
       // M6P6: Trim preview -- renderer-neutral transient survivor geometry
       // produced by TrimPlanner (via the active Trim command session) and
       // projected through the exact same generic line/arc/polyline path
@@ -443,43 +424,9 @@
       // topology or intersection math lives here; `record` shapes are plain
       // Line/Arc/Polyline geometry with no persistent id.
       const trimPreview = getTrimPreview()
-      for (const record of trimPreview?.records || []) {
-        if (record.type === "line") {
-          const a = camera.worldToScreen(record.start.x, record.start.y),
-            b = camera.worldToScreen(record.end.x, record.end.y)
-          addSegment(nextPreview, a.x, a.y, b.x, b.y)
-        } else if (record.type === "polyline") {
-          const count = record.closed
-            ? record.vertices.length
-            : record.vertices.length - 1
-          for (let index = 0; index < count; index++) {
-            const a = record.vertices[index],
-              b = record.vertices[(index + 1) % record.vertices.length],
-              pa = camera.worldToScreen(a.x, a.y),
-              pb = camera.worldToScreen(b.x, b.y)
-            addSegment(nextPreview, pa.x, pa.y, pb.x, pb.y)
-          }
-        } else if (record.type === "arc") previewArcs.push(projectArc(record))
-      }
+      for (const record of trimPreview?.records || []) appendStyledPreview(record)
       const extendPreview = getExtendPreview()
-      for (const record of extendPreview?.records || []) {
-        if (record.type === "line") {
-          const a = camera.worldToScreen(record.start.x, record.start.y),
-            b = camera.worldToScreen(record.end.x, record.end.y)
-          addSegment(nextPreview, a.x, a.y, b.x, b.y)
-        } else if (record.type === "polyline") {
-          const count = record.closed
-            ? record.vertices.length
-            : record.vertices.length - 1
-          for (let index = 0; index < count; index++) {
-            const a = record.vertices[index],
-              b = record.vertices[(index + 1) % record.vertices.length],
-              pa = camera.worldToScreen(a.x, a.y),
-              pb = camera.worldToScreen(b.x, b.y)
-            addSegment(nextPreview, pa.x, pa.y, pb.x, pb.y)
-          }
-        } else if (record.type === "arc") previewArcs.push(projectArc(record))
-      }
+      for (const record of extendPreview?.records || []) appendStyledPreview(record)
 
       for (const record of [
         ...(movePreview?.mode !== "copy" ? movePreview?.sourceRecords || [] : []),
@@ -1098,6 +1045,8 @@
         if(candidate){const size=tracking.candidateKind==="intersection"?4:3;addSegment(objectTrackingMarkers,candidate.x-size,candidate.y,candidate.x+size,candidate.y);addSegment(objectTrackingMarkers,candidate.x,candidate.y-size,candidate.x,candidate.y+size)}
         objectTrackingOverlay=Object.freeze({acquiredPoint:projectedAcquired.at(-1),acquiredPoints:Object.freeze(projectedAcquired),candidatePoint:candidate?Object.freeze({x:candidate.x,y:candidate.y}):null,candidateKind:tracking.candidateKind,guideKind:tracking.guide,guides:Object.freeze((tracking.activeGuides||[]).map(value=>Object.freeze({...value,origin:Object.freeze(camera.worldToScreen(value.origin.x,value.origin.y))}))),guideSegments:new Float32Array(objectTrackingGuide),markerSegments:new Float32Array(objectTrackingMarkers)})
       }
+      const propertyPreviewDrawGroups=[]
+      for(const bucket of previewPropertyBuckets.values()){const style=bucket.style,styledLine=lineGroup(style.color,bucket.segments,style);propertyPreviewDrawGroups.push(Object.freeze({style,recordIds:Object.freeze(bucket.recordIds.slice().sort()),lineGroup:styledLine,circleGroup:Object.freeze({...styledLine,circles:Object.freeze(bucket.circles)}),arcGroup:Object.freeze({...styledLine,arcs:Object.freeze(bucket.arcs)}),ellipseGroup:Object.freeze({...styledLine,ellipses:Object.freeze(bucket.ellipses)})}))}
       const lineGroups = [
         lineGroup(viewportSettings.gridColor, viewportSettings.gridVisible === false ? [] : minorGrid),
         lineGroup(
@@ -1302,15 +1251,17 @@
         circleGroups,
         arcGroups,
         ellipseGroups,
+        propertyDrawGroups:Object.freeze(propertyDrawGroups),
+        propertyPreviewDrawGroups:Object.freeze(propertyPreviewDrawGroups),
         drawGroups: Object.freeze(
-          lineGroups.map((lineGroup, index) =>
+          [...lineGroups.slice(0,5).map((lineGroup, index) =>
             Object.freeze({
               lineGroup,
               circleGroup: circleGroups[index],
               arcGroup: arcGroups[index],
               ellipseGroup: ellipseGroups[index],
             }),
-          ),
+          ),...propertyDrawGroups,...lineGroups.slice(5,7).map((lineGroup,offset)=>{const index=offset+5;return Object.freeze({lineGroup,circleGroup:circleGroups[index],arcGroup:arcGroups[index],ellipseGroup:ellipseGroups[index]})}),...propertyPreviewDrawGroups,...lineGroups.slice(7).map((lineGroup,offset)=>{const index=offset+7;return Object.freeze({lineGroup,circleGroup:circleGroups[index],arcGroup:arcGroups[index],ellipseGroup:ellipseGroups[index]})})],
         ),
       }
     }

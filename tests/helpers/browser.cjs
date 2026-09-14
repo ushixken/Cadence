@@ -93,7 +93,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   let bounds = { left: 20, top: 40, width: 800, height: 600 };
   viewportHost.getBoundingClientRect = () => ({ left: 10, top: 30, width: bounds.width + 10, height: bounds.height + 10 });
   const drawCalls = [];
-  const context2d = Object.fromEntries(['setTransform', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'arc', 'ellipse', 'stroke'].map(name => [name, (...args) => drawCalls.push([name, ...args])]));
+  const context2d = Object.fromEntries(['setTransform', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'arc', 'ellipse', 'stroke', 'setLineDash'].map(name => [name, (...args) => drawCalls.push([name, ...args])]));
   function configureCanvas(target) {
     target.parent = viewportHost; target.owner = document;
     target.getBoundingClientRect = () => ({ ...bounds });
@@ -136,6 +136,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/geometry/TrimPlanner.js');
   load('src/js/geometry/ExtendPlanner.js');
   load('src/js/geometry/OffsetGeometry.js');
+  load('src/js/rendering/StrokeStyle.js');
   load('src/js/rendering/CircleTessellation.js');
   load('src/js/rendering/EllipseTessellation.js');
   if (realRenderer) {

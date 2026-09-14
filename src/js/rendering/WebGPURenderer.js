@@ -70,19 +70,21 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
     const batches = []
     let vertexCount = 0
     for (const { lineGroup, circleGroup, arcGroup, ellipseGroup } of drawGroups) {
-      batches.push({ segments: lineGroup.segments, color: lineGroup.colorData })
-      vertexCount += (lineGroup.segments.length / 4) * 2
+      const prepare=segments=>window.CaderactStrokeStyle.expandSegments(window.CaderactStrokeStyle.dashSegments(segments,lineGroup.dashPattern),lineGroup.lineWidth||1)
+      const lineSegments=prepare(lineGroup.segments)
+      batches.push({ segments: lineSegments, color: lineGroup.colorData })
+      vertexCount += (lineSegments.length / 4) * 2
       for (const circle of circleGroup?.circles || []) {
-        const segments = window.CaderactCircleTessellation.createSegments(circle)
+        const segments = prepare(window.CaderactCircleTessellation.createSegments(circle))
         batches.push({ segments, color: circleGroup.colorData })
         vertexCount += (segments.length / 4) * 2
       }
       for(const arc of arcGroup?.arcs||[]){
-        const segments=window.CaderactCircleTessellation.createArcSegments(arc)
+        const segments=prepare(window.CaderactCircleTessellation.createArcSegments(arc))
         batches.push({segments,color:arcGroup.colorData});vertexCount+=(segments.length/4)*2
       }
       for(const ellipse of ellipseGroup?.ellipses||[]){
-        const segments=window.CaderactEllipseTessellation.createSegments(ellipse)
+        const segments=prepare(window.CaderactEllipseTessellation.createSegments(ellipse))
         batches.push({segments,color:ellipseGroup.colorData});vertexCount+=(segments.length/4)*2
       }
     }

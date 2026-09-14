@@ -20,6 +20,8 @@ class Canvas2DRenderer extends window.CaderactRenderer {
 
     const drawGroups = scene.drawGroups || scene.lineGroups.map(lineGroup => ({ lineGroup, circleGroup: null }))
     for (const { lineGroup, circleGroup, arcGroup, ellipseGroup } of drawGroups) {
+      context.setLineDash?.(Array.from(lineGroup.dashPattern || []))
+      context.lineDashOffset = 0
       if (lineGroup.segments.length > 0) {
         context.beginPath()
         context.strokeStyle = lineGroup.color
@@ -58,6 +60,9 @@ class Canvas2DRenderer extends window.CaderactRenderer {
         context.stroke()
       }
     }
+    context.setLineDash?.([])
+    context.lineDashOffset = 0
+    context.lineWidth = 1
   }
 }
 

@@ -135,6 +135,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getViewportSize: () => ({ width: viewportWidth, height: viewportHeight }),
   getDocumentUnit: () => modelReader.units().length,
   getRecords: visibleRecords,
+  getLayer: layerId => modelReader.layer(layerId),
   getDraftLines: () => getActiveCommandSession()?.getDraftLines?.() || [],
   getPreviewLines: () => getActiveCommandSession()?.getPreviewLines?.() || [],
   getCirclePreview: () => getActiveCommandSession()?.getCirclePreview?.() || null,
@@ -596,7 +597,8 @@ function createTrimCommandSession({ setPrompt = () => {} } = {}) {
   function getTrimPreview() {
     if (phase !== "targets" || !pendingPlan || pendingPlan.status !== "planned") return null
     const pieces = [pendingPlan.replacement, ...pendingPlan.creates]
-    const records = Object.freeze(pieces.map(toPreviewRecord).filter(Boolean))
+    const source=visibleRecords().find(record=>record.id===pendingPlan.targetRecordId)||null
+    const records = Object.freeze(pieces.map(toPreviewRecord).filter(Boolean).map(record=>Object.freeze({...record,layerId:source?.layerId,...window.CaderactObjectProperties.recordProperties(source)})))
     if (!records.length) return null
     return Object.freeze({ records, sourceRecordId: pendingPlan.targetRecordId, phase: "targets" })
   }
@@ -722,7 +724,7 @@ function createExtendCommandSession({ setPrompt = () => {} } = {}) {
     const record = toPreviewRecord(pendingPlan.replacement)
     const source = sourceRecord()
     if (!record || !source) return null
-    return Object.freeze({ records: Object.freeze([record]), sourceRecords: Object.freeze([source]), sourceRecordId: pendingPlan.targetRecordId, phase: "targets" })
+    return Object.freeze({ records: Object.freeze([Object.freeze({...record,layerId:source.layerId,...window.CaderactObjectProperties.recordProperties(source)})]), sourceRecords: Object.freeze([source]), sourceRecordId: pendingPlan.targetRecordId, phase: "targets" })
   }
 
   function finish() {
@@ -822,7 +824,7 @@ function createOffsetCommandSession({ setPrompt = () => {}, preselectionIds = []
     return Object.freeze({ status: "option-updated", command: "Offset", optionId, value: distance })
   }
   function options() { return Object.freeze([Object.freeze({ id: "distance", label: "Distance", value: String(distance), enabled: true })]) }
-  function getOffsetPreview() { return preview && source ? Object.freeze({ mode: "offset", preserveSourceVisible: true, records: Object.freeze([Object.freeze({ id: null, ...preview })]), sourceRecords: Object.freeze([]), recordIds: Object.freeze([]) }) : null }
+  function getOffsetPreview() { return preview && source ? Object.freeze({ mode: "offset", preserveSourceVisible: true, records: Object.freeze([Object.freeze({ id: null, ...preview, layerId:source.layerId, ...window.CaderactObjectProperties.recordProperties(source) })]), sourceRecords: Object.freeze([]), recordIds: Object.freeze([]) }) : null }
   requestRender()
   return Object.freeze({ name: "Offset", finish, cancel, handleInput, handlePointerDown, handlePointerMove, handlePointerLeave, handleOption,
     hasPointerPreview: () => phase === "side", usesResolvedPoint: false, getOffsetPreview, get options() { return options() }, get phase() { return phase }, get distance() { return distance }, get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation } })
