@@ -8,8 +8,9 @@
     if (typeof override === "string" && override !== "") return override
     const angular = measurement.kind === "angular"
     const precision = angular ? style.angularPrecision : style.linearPrecision
+    const radialPrefix=measurement.radialMode==="radius"?"R":measurement.radialMode==="diameter"?"Ø":""
     const body = angular ? `${fixed(measurement.value * 180 / Math.PI, precision)}°`
-      : `${fixed(measurement.value, precision)}${style.showUnit ? ` ${units.length}` : ""}`
+      : `${radialPrefix}${fixed(measurement.value, precision)}${style.showUnit ? ` ${units.length}` : ""}`
     return `${style.prefix}${body}${style.suffix}`
   }
   window.CaderactDimensionFormatter = Object.freeze({ format })

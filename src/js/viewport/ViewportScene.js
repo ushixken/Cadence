@@ -328,7 +328,7 @@
             if (selectedIds.has(record.id))
               addSegment(selection, a.x, a.y, b.x, b.y)
           }
-        } else if(record?.type==="dimension-linear"||record?.type==="dimension-angular"){
+        } else if(record?.type==="dimension-linear"||record?.type==="dimension-angular"||record?.type==="dimension-radial"){
           const presentation=window.CaderactDimensionGeometry.derive(record,getDimensionStyle(),{length:getDocumentUnit()})
           if(presentation.supported){for(const [start,end] of presentation.lines){const a=camera.worldToScreen(start.x,start.y),b=camera.worldToScreen(end.x,end.y);addSegment(bucket.segments,a.x,a.y,b.x,b.y)}for(const arc of presentation.arcs||[])bucket.arcs.push(projectArc({...arc,id:record.id}));for(const triangle of presentation.triangles)dimensionTriangles.push(Object.freeze({points:Object.freeze(triangle.map(value=>Object.freeze(camera.worldToScreen(value.x,value.y)))),color:bucket.style.color,colorData:colorToRgba(bucket.style.color)}));const anchor=camera.worldToScreen(presentation.text.point.x,presentation.text.point.y);dimensionAnnotations.push(Object.freeze({recordId:record.id,text:presentation.text.value,x:anchor.x,y:anchor.y,rotation:-presentation.text.rotation,fontSize:presentation.text.height*camera.state.zoom,color:bucket.style.color}))}
         } else if (record?.type === "circle") {

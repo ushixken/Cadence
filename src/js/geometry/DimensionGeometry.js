@@ -12,7 +12,7 @@
     }
     if (record.type === "dimension-radial") {
       const radius=Math.hypot(record.dimensionPoint.x-record.centerPoint.x,record.dimensionPoint.y-record.centerPoint.y)
-      return Object.freeze({kind:"linear",value:record.mode==="diameter"?radius*2:radius})
+      return Object.freeze({kind:"linear",value:record.mode==="diameter"?radius*2:radius,radialMode:record.mode})
     }
     return null
   }
@@ -42,9 +42,19 @@
     const lines=Object.freeze([ray(startAngle),ray(endAngle)]),triangles=Object.freeze([arrow(start,startTangent,style.arrowSize),arrow(end,endTangent,style.arrowSize)]),grips=Object.freeze(["firstRayPoint","vertex","secondRayPoint","dimensionArcPoint"].map(kind=>Object.freeze({kind,point:point(record[kind]),featureId:record[kind].featureId||null})))
     return Object.freeze({supported:true,measurement,lines,arcs:Object.freeze([arc]),triangles,text:Object.freeze({point:textPoint,rotation:readableRotation(midAngle+Math.PI/2),value:window.CaderactDimensionFormatter.format(measurement,style,units,record.textOverride),height:style.textHeight}),hitPrimitives:Object.freeze({lines,arcs:Object.freeze([arc])}),bounds:Object.freeze({minX:v.x-radius-style.extensionBeyond,minY:v.y-radius-style.extensionBeyond,maxX:v.x+radius+style.extensionBeyond,maxY:v.y+radius+style.extensionBeyond}),grips})
   }
+  function radial(record,style,units){
+    const measurement=measure(record),center=record.centerPoint,tip=record.dimensionPoint,leader=record.leaderPoint,dx=tip.x-center.x,dy=tip.y-center.y,radius=Math.hypot(dx,dy)
+    if(!(radius>0&&Number.isFinite(radius)))return Object.freeze({supported:false,measurement,reason:"degenerate-radial-geometry"})
+    const ux=dx/radius,uy=dy/radius,opposite=point({x:center.x-ux*radius,y:center.y-uy*radius}),leaderLength=Math.hypot(leader.x-tip.x,leader.y-tip.y),leaderDirection=leaderLength>0?{x:(leader.x-tip.x)/leaderLength,y:(leader.y-tip.y)/leaderLength}:{x:ux,y:uy},textPoint=point({x:(tip.x+leader.x)/2-leaderDirection.y*style.textGap,y:(tip.y+leader.y)/2+leaderDirection.x*style.textGap})
+    const lines=record.mode==="diameter"?Object.freeze([Object.freeze([opposite,point(tip)]),Object.freeze([point(tip),point(leader)])]):Object.freeze([Object.freeze([point(center),point(tip)]),Object.freeze([point(tip),point(leader)])])
+    const triangles=record.mode==="diameter"?Object.freeze([arrow(opposite,center,style.arrowSize),arrow(point(tip),center,style.arrowSize)]):Object.freeze([arrow(point(tip),center,style.arrowSize)])
+    const grips=Object.freeze(["centerPoint","dimensionPoint","leaderPoint"].map(kind=>Object.freeze({kind,point:point(record[kind]),featureId:record[kind].featureId||null})))
+    return Object.freeze({supported:true,measurement,lines,arcs:Object.freeze([]),triangles,text:Object.freeze({point:textPoint,rotation:readableRotation(Math.atan2(leaderDirection.y,leaderDirection.x)),value:window.CaderactDimensionFormatter.format(measurement,style,units,record.textOverride),height:style.textHeight}),hitPrimitives:Object.freeze({lines,arcs:Object.freeze([])}),bounds:Object.freeze({minX:Math.min(center.x,tip.x,leader.x,opposite.x),minY:Math.min(center.y,tip.y,leader.y,opposite.y),maxX:Math.max(center.x,tip.x,leader.x,opposite.x),maxY:Math.max(center.y,tip.y,leader.y,opposite.y)}),grips})
+  }
   function derive(record, style, units) {
     if(record.type==="dimension-linear")return linear(record,style,units)
     if(record.type==="dimension-angular")return angular(record,style,units)
+    if(record.type==="dimension-radial")return radial(record,style,units)
     return Object.freeze({supported:false,measurement:measure(record),reason:"presentation-deferred"})
   }
   window.CaderactDimensionGeometry=Object.freeze({measure,derive})

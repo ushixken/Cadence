@@ -84,6 +84,7 @@ interface CaderactCommandFeedbackController {
 interface CaderactViewportCommandSurface {
   createAlignedDimensionCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createAngularDimensionCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
+  createRadialDimensionCommandSession(name: "DimRadius" | "DimDiameter", mode: "radius" | "diameter", context: CaderactCommandActivationContext): CaderactCommandSession;
   createArcCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createAngleMeasurementCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createObjectMeasurementCommandSession(kind: "Area" | "Length" | "Perimeter" | "Radius" | "Diameter", context: CaderactCommandActivationContext): CaderactCommandSession;

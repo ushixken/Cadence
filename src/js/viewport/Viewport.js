@@ -913,6 +913,43 @@ function createAngularDimensionCommandSession({setPrompt=()=>{}}={}){
   requestRender();return Object.freeze({name:"Angular",draft,handlePointerDown:point=>present(draft.acceptPoint(point),point),handlePointerMove:point=>{draft.updatePointer(point);requestRender()},handlePointerLeave:()=>{draft.clearPointer();clearSnap();requestRender()},handleInput,finish:cancel,cancel,getDimensionPreview:draft.preview,getDraftPoints:draft.acceptedPoints,getSnapCandidates:()=>draft.acceptedPoints().map((point,index)=>Object.freeze({kind:"draft-point",point,stableKey:`angular-dimension:${index}`,reference:Object.freeze({kind:"draft-point",index})})),getOrthoReference:()=>draft.referencePoint,getDynamicFields:(point,format,formatAngle)=>{if(draft.phase!=="placement")return[];const points=draft.acceptedPoints(),measurement=window.CaderactMeasurement.measureIncludedAngle(points[0],points[1],points[2]);return measurement.valid?[{id:"included-angle",kind:"angle",label:"Angle",value:formatAngle(measurement.angleDegrees),editable:false,active:false},{id:"arc-radius",kind:"distance",label:"Radius",value:format(Math.hypot(point.x-points[1].x,point.y-points[1].y)),editable:false,active:false}]:[]},hasPointerPreview:()=>true,get phase(){return draft.phase},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
+function createRadialDimensionCommandSession(name,mode,{setPrompt=()=>{},preselectionIds=[]}={}){
+  let source=null,candidate=null,phase="select"
+  const instruction=()=>phase==="select"?"Select Circle or Arc":"Specify dimension location"
+  let promptPresentation=createCommandPrompt(name,instruction())
+  function updatePrompt(){promptPresentation=createCommandPrompt(name,instruction());setPrompt(promptPresentation.text,promptPresentation)}
+  function supported(record){return record&&(record.type==="circle"||record.type==="arc")&&Number.isFinite(window.CaderactMeasurement.measureRecord(record)?.radius)}
+  function capture(record,pickPoint=null){
+    const descriptor=window.CaderactCurveDescriptor.describe(record)
+    let dimensionPoint
+    if(pickPoint){const nearest=window.CaderactCurveParameter.nearestParameter(descriptor,pickPoint);dimensionPoint=nearest.valid?nearest.point:null}
+    if(!dimensionPoint)dimensionPoint=record.type==="arc"?record.start:{x:record.center.x+window.CaderactMeasurement.measureRecord(record).radius,y:record.center.y}
+    source=Object.freeze({sourceType:record.type,centerPoint:Object.freeze({x:record.center.x,y:record.center.y}),dimensionPoint:Object.freeze({x:dimensionPoint.x,y:dimensionPoint.y})})
+    phase="placement";candidate=null;updatePrompt();requestRender();return Object.freeze({status:"input-accepted",command:name,kind:"source",recordId:record.id})
+  }
+  function recordAt(raw){return hitVisible(raw)}
+  function acceptPlacement(point){
+    candidate=Object.freeze({x:point.x,y:point.y});const geometry=getDimensionPreview(),record=recordGateway.createRadialDimension(geometry),outcome=recordGateway.createAll([record])
+    if(outcome.status!=="committed"){requestRender();return Object.freeze({status:"invalid-input",reason:"commit-failed",command:name,message:"Unable to commit; source snapshot preserved",outcome})}
+    clearSnap();source=null;candidate=null;phase="select";requestRender();return Object.freeze({status:"command-completed",command:name,outcome,record})
+  }
+  function handlePointerDown(point,context={}){
+    if(phase==="placement")return acceptPlacement(point)
+    const raw=context.rawPoint||point,record=recordAt(raw)
+    if(!record)return Object.freeze({status:"input-accepted",command:name,kind:"target-miss"})
+    if(!supported(record))return Object.freeze({status:"invalid-input",reason:"unsupported-object",command:name,message:"Select a Circle or Arc"})
+    return capture(record,raw)
+  }
+  function handlePointerMove(point){if(phase==="placement"){candidate=Object.freeze({x:point.x,y:point.y});requestRender()}}
+  function handlePointerLeave(){candidate=null;clearSnap();requestRender()}
+  function handleInput(input){if(phase!=="placement")return Object.freeze({status:"invalid-input",reason:"object-required",command:name,message:"Select a Circle or Arc"});const parsed=resolveTypedPrecisionPoint(input,source.dimensionPoint);clearSnap();if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:name,message:"Enter a point as x,y"});return acceptPlacement(Object.freeze({x:parsed.x,y:parsed.y}))}
+  function cancel(){clearSnap();source=null;candidate=null;phase="select";requestRender();return Object.freeze({status:"command-cancelled",command:name})}
+  function getDimensionPreview(){return source&&candidate?Object.freeze({type:"dimension-radial",mode,centerPoint:source.centerPoint,dimensionPoint:source.dimensionPoint,leaderPoint:candidate,textOverride:null}):null}
+  const preselected=preselectionIds.length===1?visibleRecords().find(record=>record.id===preselectionIds[0])||null:null
+  if(supported(preselected)){capture(preselected)}else requestRender()
+  return Object.freeze({name,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,finish:cancel,cancel,getDimensionPreview,getOrthoReference:()=>phase==="placement"?source.dimensionPoint:null,hasPointerPreview:()=>phase==="placement",get usesResolvedPoint(){return phase==="placement"},get phase(){return phase},get sourceSnapshot(){return source},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
+}
+
 function createCircleCommandSession({ setPrompt = () => {} } = {}) {
   const draft = window.CaderactCircleDraftSession.createSession({
     createCircle: recordGateway.createCircle,
@@ -1485,7 +1522,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
+window.caderactViewport = { createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createRadialDimensionCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()
