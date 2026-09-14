@@ -13,3 +13,8 @@ The resolved direct semantic point remains ahead of P8 tracking; tracking remain
 Caderact hides the native pointer and draws its own CAD crosshair at the raw physical pointer position. Snap, Track, and Grid markers visualize the exact authoritative point that a click will accept, while preview geometry and Dynamic Input use that same authoritative model point. The crosshair may therefore remain several pixels away from a marker during acquisition. The physical OS pointer is never warped; leaving the viewport hides the drawn crosshair according to its existing lifecycle.
 
 The change adds no geometry work or candidates per pointer move, so runtime complexity is unchanged. Visible locked records remain snap sources, hidden records do not, and Nearest remains ineligible as a tracking acquisition origin under the existing P4/P8 policy.
+## Direct Osnap authority over tracking
+
+The viewport arbitrates the best semantic Object Snap before asking Object Snap Tracking for a projected, intersected, or Parallel candidate. Any acquired direct semantic winner—including `Nearest` after its internal fallback arbitration—owns the final point. Tracking is evaluated only when that direct result is absent.
+
+`OnParallel` means that the final tracking candidate lies on the active Parallel construction guide. It is a relationship tag, not an Object Snap mode. A direct End, Vertex, Int, Mid, Cen, Quad, Perp, Tan, or Near result suppresses losing Track/Parallel relationships and the tracking-candidate marker. Exact same-point semantic compounds remain Osnap kinds; tracking relationships are never folded into their labels.
