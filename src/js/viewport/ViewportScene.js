@@ -15,6 +15,7 @@
     getCirclePreview = () => null,
     getArcPreview = () => null,
     getEllipsePreview = () => null,
+    getDimensionPreview=()=>null,
     getMovePreview = () => null,
     getOffsetPreview = () => null,
     getTrimPreview = () => null,
@@ -355,6 +356,8 @@
       }
       const defaultStyleKey=`${viewportSettings.geometryColor}|continuous|0.25`,propertyDrawGroups=[]
       for(const [key,bucket] of propertyBuckets){const style=bucket.style;if(key===defaultStyleKey){geometry.push(...bucket.segments);committedCircles.push(...bucket.circles);committedArcs.push(...bucket.arcs);committedEllipses.push(...bucket.ellipses);continue}const styledLine=lineGroup(style.color,bucket.segments,style);propertyDrawGroups.push(Object.freeze({style,recordIds:Object.freeze(bucket.recordIds.slice().sort()),lineGroup:styledLine,circleGroup:Object.freeze({...styledLine,circles:Object.freeze(bucket.circles)}),arcGroup:Object.freeze({...styledLine,arcs:Object.freeze(bucket.arcs)}),ellipseGroup:Object.freeze({...styledLine,ellipses:Object.freeze(bucket.ellipses)})}))}
+      const dimensionPreview=getDimensionPreview()
+      if(dimensionPreview){const presentation=window.CaderactDimensionGeometry.derive(dimensionPreview,getDimensionStyle(),{length:getDocumentUnit()}),color=viewportSettings.previewColor;if(presentation.supported){for(const [start,end] of presentation.lines){const a=camera.worldToScreen(start.x,start.y),b=camera.worldToScreen(end.x,end.y);addSegment(nextPreview,a.x,a.y,b.x,b.y)}for(const triangle of presentation.triangles)dimensionTriangles.push(Object.freeze({preview:true,points:Object.freeze(triangle.map(value=>Object.freeze(camera.worldToScreen(value.x,value.y)))),color,colorData:colorToRgba(color)}));const anchor=camera.worldToScreen(presentation.text.point.x,presentation.text.point.y);dimensionAnnotations.push(Object.freeze({preview:true,text:presentation.text.value,x:anchor.x,y:anchor.y,rotation:-presentation.text.rotation,fontSize:presentation.text.height*camera.state.zoom,color}))}}
 
       // Accepted draft geometry and the next-segment rubber band deliberately
       // use independent buffers. Pointer movement can only rebuild nextPreview.
