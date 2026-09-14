@@ -139,6 +139,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/geometry/TrimPlanner.js');
   load('src/js/geometry/ExtendPlanner.js');
   load('src/js/geometry/OffsetGeometry.js');
+  load('src/js/geometry/Measurement.js');
   load('src/js/rendering/StrokeStyle.js');
   load('src/js/rendering/CircleTessellation.js');
   load('src/js/rendering/EllipseTessellation.js');

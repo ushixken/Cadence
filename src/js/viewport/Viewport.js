@@ -97,7 +97,7 @@ function refreshDynamicInput() {
   const reference=dynamicReference(session)
   if(session.name==="Scale"&&session.phase==="target"&&session.basePoint&&session.referencePoint){const baseLength=Math.hypot(session.referencePoint.x-session.basePoint.x,session.referencePoint.y-session.basePoint.y),targetLength=Math.hypot(candidate.x-session.basePoint.x,candidate.y-session.basePoint.y);if(baseLength>0)fields.push({id:"factor",kind:"scalar",label:"Factor",value:format(targetLength/baseLength),editable:true,active:false})}
   else if(session.name==="Rotate"&&session.phase==="target"){const angle=session.getMovePreview?.()?.angle;if(Number.isFinite(angle))fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(angle*180/Math.PI),editable:true,active:false})}
-  else if(reference){const dx=candidate.x-reference.x,dy=candidate.y-reference.y;fields.push({id:session.name==="Circle"?"radius":"distance",kind:"distance",label:session.name==="Circle"?"Radius":"Distance",value:format(Math.hypot(dx,dy)),editable:true,active:false});if(session.name!=="Circle")fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(Math.atan2(dy,dx)*180/Math.PI),editable:false,active:false})}
+  else if(reference){const dx=candidate.x-reference.x,dy=candidate.y-reference.y;fields.push({id:session.name==="Circle"?"radius":"distance",kind:"distance",label:session.name==="Circle"?"Radius":"Distance",value:format(Math.hypot(dx,dy)),editable:session.name!=="Distance",active:false});if(session.name!=="Circle"){let degrees=Math.atan2(dy,dx)*180/Math.PI;if(session.name==="Distance"&&degrees<0)degrees+=360;fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(degrees),editable:false,active:false})}}
   else {fields.push({id:"x",kind:"coordinate",label:"X",value:format(candidate.x),editable:false,active:false},{id:"y",kind:"coordinate",label:"Y",value:format(candidate.y),editable:false,active:false})}
   const relationshipLabels={ortho:"OnOrtho",polar:"OnPolar",perpendicular:"OnPerp",tangent:"OnTan",tracking:"OnTrack",parallel:"OnParallel"},tags=(activeSnapResult?.relationships||[]).map(kind=>relationshipLabels[kind]).filter(Boolean),snapLabel=window.CaderactViewportScene.snapLabel(activeSnapResult)
   if((activeSnapResult?.kinds?.length||activeSnapResult?.kind==="grid")&&snapLabel)tags.push(snapLabel)
@@ -145,6 +145,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getOffsetPreview: () => getActiveCommandSession()?.getOffsetPreview?.() || null,
   getTrimPreview: () => getActiveCommandSession()?.getTrimPreview?.() || null,
   getExtendPreview: () => getActiveCommandSession()?.getExtendPreview?.() || null,
+  getMeasurementPreview: () => getActiveCommandSession()?.getMeasurementPreview?.() || null,
   getDraftPoints: () => getActiveCommandSession()?.getDraftPoints?.() || [],
   getSnapResult: () => activeSnapResult,
   getSelectedIds: selection.selectedIds,
@@ -185,6 +186,25 @@ function createCommandPrompt(commandName, instruction) {
 
 const FINISHING_OBJECT_SNAP_KINDS=new Set(["nearest","endpoint","midpoint","intersection","vertex","perpendicular","tangent"])
 function isFinishingObjectSnap(snap){return Boolean(snap?.snapped&&(snap.trackingGeometry||snap.kind!=="tracking")&&snap.kind!=="grid"&&snap.kind!=="draft-point"&&((snap.kinds||[snap.kind]).some(kind=>FINISHING_OBJECT_SNAP_KINDS.has(kind))||snap.trackingGeometry))}
+function createDistanceCommandSession({setPrompt=()=>{}}={}){
+  let phase="first",startPoint=null,candidatePoint=null,lastMeasurement=null
+  let promptPresentation=createCommandPrompt("Distance","Specify first point")
+  function updatePrompt(instruction){promptPresentation=createCommandPrompt("Distance",instruction);setPrompt(promptPresentation.text,promptPresentation)}
+  function accept(point){
+    const accepted=Object.freeze({x:point.x,y:point.y})
+    if(phase==="first"){startPoint=accepted;candidatePoint=null;phase="second";updatePrompt("Specify second point");requestRender();return Object.freeze({status:"input-accepted",command:"Distance",kind:"first-point",point:accepted})}
+    lastMeasurement=window.CaderactMeasurement.pointToPoint(startPoint,accepted);const unit=modelReader.units().length,formattedMeasurement=window.CaderactMeasurement.format(lastMeasurement,unit);candidatePoint=null;clearSnap();requestRender();return Object.freeze({status:"command-completed",command:"Distance",measurement:lastMeasurement,formattedMeasurement})
+  }
+  function handlePointerDown(point){return accept(point)}
+  function handlePointerMove(point){candidatePoint=Object.freeze({x:point.x,y:point.y});requestRender()}
+  function handlePointerLeave(){candidatePoint=null;requestRender()}
+  function handleInput(input){const parsed=resolveTypedPrecisionPoint(input,startPoint);clearSnap();if(parsed.status!=="point-resolved")return Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Distance",message:"Enter a point as x,y"});return accept({x:parsed.x,y:parsed.y})}
+  function finish(){clearSnap();candidatePoint=null;requestRender();return Object.freeze({status:"command-completed",command:"Distance",measurement:lastMeasurement})}
+  function cancel(){clearSnap();candidatePoint=null;requestRender();return Object.freeze({status:"command-cancelled",command:"Distance"})}
+  function getMeasurementPreview(){return phase==="second"&&startPoint&&candidatePoint?window.CaderactMeasurement.pointToPoint(startPoint,candidatePoint):null}
+  requestRender()
+  return Object.freeze({name:"Distance",finish,cancel,handlePointerDown,handlePointerMove,handlePointerLeave,handleInput,getMeasurementPreview,getOrthoReference:()=>phase==="second"?startPoint:null,hasPointerPreview:()=>true,get phase(){return phase},get startPoint(){return startPoint},get candidatePoint(){return candidatePoint},get measurement(){return lastMeasurement},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
+}
 function createLineCommandSession({ setPrompt = () => {} } = {}) {
   const draft = window.CaderactLineDraftSession.createSession({
     createSegment: recordGateway.createLine,
@@ -1401,7 +1421,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
+window.caderactViewport = { createDistanceCommandSession, createLineCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 
 function resizeCanvas() {
   interactionVisuals.leave()

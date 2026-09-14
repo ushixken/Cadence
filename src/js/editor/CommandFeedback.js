@@ -43,7 +43,7 @@
       if (!outcome) return null
       const command = outcome.command || "Command"
       if (outcome.status === "command-started") return { history: command }
-      if (outcome.status === "command-completed") return { history: `${command} completed` }
+      if (outcome.status === "command-completed") return { history: outcome.formattedMeasurement?.summary || `${command} completed` }
       if (outcome.status === "command-cancelled") return { history: `${command} cancelled` }
       if (outcome.status === "unknown-command") return { temporary: `Unknown command: ${outcome.input}`, kind: "error", history: `Unknown command: ${outcome.input}` }
       if (outcome.status === "undo-completed") return { history: "Undo" }

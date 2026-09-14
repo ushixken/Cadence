@@ -22,6 +22,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Circle", aliases: ["C"], repeatable: true, activate: context => window.caderactViewport.createCircleCommandSession(context) },
   { name: "Copy", aliases: ["CP"], repeatable: true, activate: context => window.caderactViewport.createCopyCommandSession(context) },
   { name: "Delete", aliases: ["DEL", "E", "ERASE"], repeatable: true, activate: context => window.caderactViewport.createDeleteCommandSession(context) },
+  { name: "Distance", aliases: ["DI", "DIST"], repeatable: true, activate: context => window.caderactViewport.createDistanceCommandSession(context) },
   { name: "Ellipse", aliases: ["EL"], repeatable: true, activate: context => window.caderactViewport.createEllipseCommandSession(context) },
   { name: "Extend", aliases: ["EX"], repeatable: true, activate: context => window.caderactViewport.createExtendCommandSession(context) },
   { name: "Line", aliases: ["L"], repeatable: true, activate: context => window.caderactViewport.createLineCommandSession(context) },

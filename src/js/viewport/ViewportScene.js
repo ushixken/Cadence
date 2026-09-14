@@ -18,6 +18,7 @@
     getOffsetPreview = () => null,
     getTrimPreview = () => null,
     getExtendPreview = () => null,
+    getMeasurementPreview = () => null,
     getDraftPoints = () => [],
     getSnapResult = () => null,
     getSelectedIds = () => [],
@@ -118,7 +119,7 @@
         geometry = [],
         acceptedDraft = [],
         nextPreview = [],
-        snapMarker = [], polarGuideSegments = [], objectTrackingGuide = [], objectTrackingMarkers = [],
+        snapMarker = [], polarGuideSegments = [], objectTrackingGuide = [], objectTrackingMarkers = [], measurementSegments = [], measurementMarkers = [],
         selection = []
       const selectionWindow = [],
         selectionCrossing = []
@@ -373,6 +374,9 @@
         const b = camera.worldToScreen(activePreview.end.x, activePreview.end.y)
         addSegment(nextPreview, a.x, a.y, b.x, b.y)
       }
+      const measurementPreview=getMeasurementPreview()
+      let measurementOverlay=null
+      if(measurementPreview){const a=camera.worldToScreen(measurementPreview.start.x,measurementPreview.start.y),b=camera.worldToScreen(measurementPreview.end.x,measurementPreview.end.y),size=3;addSegment(measurementSegments,a.x,a.y,b.x,b.y);for(const p of [a,b]){addSegment(measurementMarkers,p.x-size,p.y,p.x+size,p.y);addSegment(measurementMarkers,p.x,p.y-size,p.x,p.y+size)}nextPreview.push(...measurementSegments,...measurementMarkers);measurementOverlay=Object.freeze({startPoint:Object.freeze(a),endPoint:Object.freeze(b),segments:new Float32Array(measurementSegments),markerSegments:new Float32Array(measurementMarkers),distance:measurementPreview.distance,angleRadians:measurementPreview.angleRadians})}
 
       const circlePreview = getCirclePreview()
       if (
@@ -1211,6 +1215,7 @@
         }),
         polarTrackingOverlay: Object.freeze({ segments: new Float32Array(polarGuideSegments) }),
         objectTrackingOverlay,
+        measurementOverlay,
         selectionOverlay: Object.freeze({
           recordIds: Object.freeze(Array.from(selectedIds).sort()),
           segments: new Float32Array(selection),
