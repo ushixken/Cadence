@@ -130,6 +130,17 @@ function getViewportPoint(event) {
   return { x: event.clientX - bounds.left, y: event.clientY - bounds.top }
 }
 
+function moveInteractionCursorToModelPoint(point) {
+  if (!Number.isFinite(point?.x) || !Number.isFinite(point?.y)) return
+  const projected = worldToScreen(point.x, point.y)
+  const canvasBounds = canvas.getBoundingClientRect()
+  const hostBounds = viewportHost.getBoundingClientRect()
+  interactionVisuals.move({
+    x: projected.x + canvasBounds.left - hostBounds.left,
+    y: projected.y + canvasBounds.top - hostBounds.top,
+  })
+}
+
 const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   viewportSettings,
   camera: viewportCamera,
@@ -1237,7 +1248,7 @@ function setGridSnapEnabled(enabled) {
   for (const listener of snapModeListeners) listener(snapModes)
   userPreferences.set({ gridSnapEnabled: next })
   clearSnap()
-  requestRender()
+  updateSnapAtPointer()
   return snapModes
 }
 
@@ -1253,7 +1264,7 @@ function setObjectSnapTrackingEnabled(enabled) {
   if (!next) objectSnapTracking.clear()
   userPreferences.set({ objectSnapTrackingEnabled: next })
   for (const listener of objectSnapTrackingListeners) listener(next)
-  requestRender()
+  updateSnapAtPointer()
   return next
 }
 function subscribeObjectSnapTracking(listener) { objectSnapTrackingListeners.add(listener); listener(objectSnapTrackingEnabled); return () => objectSnapTrackingListeners.delete(listener) }
@@ -1491,6 +1502,7 @@ function updateSnapAtPointer() {
   if (grips.isActive) {
     const snap = resolvePointerSnap(worldPoint, { excludedFeatureIds: [grips.active.grip.featureId] })
     interactionVisuals.setSnapAcquired(snap.snapped)
+    moveInteractionCursorToModelPoint(snap.point)
     grips.update(snap.point)
     requestRender()
     return
@@ -1498,6 +1510,7 @@ function updateSnapAtPointer() {
   if (session?.handlePointerMove && hasCommandPointerPreview(session) && !navigation.isActive()) {
     const snap = resolveCommandPointer(worldPoint, session, { transientCandidates: getCommandSnapCandidates(session), excludedRecordIds:session.getExcludedSnapRecordIds?.()||[] })
     interactionVisuals.setSnapAcquired(snap.snapped)
+    moveInteractionCursorToModelPoint(snap.point)
     session.handlePointerMove(snap.point)
     refreshDynamicInput()
     requestRender()
@@ -1550,6 +1563,7 @@ function onCommandPointerMove(event) {
       excludedFeatureIds: [grips.active.grip.featureId],
     })
     interactionVisuals.setSnapAcquired(snap.snapped)
+    moveInteractionCursorToModelPoint(snap.point)
     grips.update(snap.point)
     return
   }
@@ -1560,7 +1574,7 @@ function onCommandPointerMove(event) {
     excludedRecordIds: session.getExcludedSnapRecordIds?.() || [],
   })
   interactionVisuals.setSnapAcquired(snap.snapped)
-  if(snap.snapped){const projected=worldToScreen(snap.point.x,snap.point.y),canvasBounds=canvas.getBoundingClientRect(),hostBounds=viewportHost.getBoundingClientRect();interactionVisuals.move({x:projected.x+canvasBounds.left-hostBounds.left,y:projected.y+canvasBounds.top-hostBounds.top})}
+  moveInteractionCursorToModelPoint(snap.point)
   session.handlePointerMove(snap.point, { rawPoint: screenToWorld(point.x, point.y) })
   refreshDynamicInput()
 }
