@@ -5,6 +5,7 @@
     maxGroupPairs: 500000,
     maxStringLength: 16384,
     maxEntities: 100000,
+    maxTableEntries: 10000,
     maxDiagnostics: 100,
   })
 

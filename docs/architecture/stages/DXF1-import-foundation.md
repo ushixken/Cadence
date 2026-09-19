@@ -21,7 +21,7 @@ DXF text
 
 ## Neutral representation
 
-`ParsedDxf` contains source metadata (`acadVersion` and numeric `insertionUnits`), supported neutral entities, immutable structured diagnostics, and the effective parser limits. DXF handles are retained only on neutral entities and diagnostics for source correlation. They never become Caderact IDs.
+`ParsedDxf` contains source metadata (`acadVersion`, numeric `insertionUnits`, and, as of DXF3, `currentLayer`), supported neutral entities, immutable structured diagnostics, and the effective parser limits. DXF3 also adds neutral layer/linetype table collections. DXF handles are retained only for source correlation. They never become Caderact IDs.
 
 ## Limits and diagnostics
 
@@ -51,4 +51,4 @@ The replacement store has empty history but is deliberately dirty/unsaved. Its s
 
 DXF1's original supported scope is ASCII group pairs, `HEADER`, minimally skipped `TABLES`, `ENTITIES`, empty drawings, and planar/default-extrusion `LINE`. DXF2 extends the same boundary with the core geometry documented in `DXF2-core-geometry-import.md`.
 
-Unsupported but structurally valid entities and sections are skipped with warnings. Binary DXF is rejected. DXF3+ owns text, dimensions, full layers/properties, blocks, hatch, spline, MTEXT, arbitrary OCS/3D conversion, export, and merge into an existing drawing.
+Unsupported but structurally valid entities and sections are skipped with warnings. Binary DXF is rejected. DXF3 supplies native layers/properties; text, dimensions, blocks, hatch, spline, MTEXT, arbitrary OCS/3D conversion, export, and merge into an existing drawing remain deferred.

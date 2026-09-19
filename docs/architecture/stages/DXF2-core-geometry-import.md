@@ -10,7 +10,7 @@ DXF2 extends the bounded DXF1 parser and isolated replacement-document mapper wi
 - `ARC`: finite planar center, positive radius, and nondegenerate DXF start/end angles.
 - `ELLIPSE`: finite planar center, nonzero major-axis vector, ratio in `(0, 1]`, and a complete parameter turn.
 
-All mapped objects use the isolated store's normal record gateway, giving records and Polyline/Arc features fresh native identities. DXF2 retains the DXF1 Layer 0 and ByLayer policy.
+All mapped objects use the isolated store's normal record gateway, giving records and Polyline/Arc features fresh native identities. DXF3 subsequently adds the layer and property mapping described in `DXF3-layers-object-properties.md`.
 
 ## Polyline policy
 
@@ -48,4 +48,4 @@ Malformed supported geometry—missing required values, non-finite numbers, inva
 
 ## DXF3 boundary
 
-DXF3 owns complete `LAYER` table and entity property mapping, including names, visibility/locking, colors, ByLayer/ByBlock behavior, linetypes, and lineweights. Text, dimensions, blocks, hatch, splines, arbitrary OCS/3D conversion, export, and merge import remain later work.
+DXF3 now owns `LAYER` table and supported entity property mapping, including names, visibility/locking, colors, ByLayer/ByBlock fallback behavior, linetypes, and lineweights. Text, dimensions, blocks, hatch, splines, arbitrary OCS/3D conversion, export, and merge import remain later work.

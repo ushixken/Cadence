@@ -163,6 +163,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/document/CaderactPersistence.js');
   load('src/js/io/dxf/DxfLimits.js');
   load('src/js/io/dxf/DxfDiagnostics.js');
+  load('src/js/io/dxf/DxfProperties.js');
   load('src/js/io/dxf/DxfParser.js');
   load('src/js/io/dxf/DxfImport.js');
   load('src/js/editor/DocumentSession.js');
