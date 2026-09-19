@@ -177,7 +177,7 @@
   }
   function parseDimension(entity,collector){
     if(!defaultExtrusion(extrusion(entity,collector))){warn(collector,entity,"DXF_DIMENSION_NON_PLANAR","Skipped a non-default-extrusion DIMENSION.");return null}
-    const flags=optionalInteger(entity,70,collector,"type flags"),kind=flags&7
+    const flags=integer(one(entity,70,collector,"type flags","DXF_MALFORMED_DIMENSION"),collector,"DIMENSION type flags",entity),kind=flags&7
     const stylePairs=all(entity,3),textPairs=all(entity,1)
     if(stylePairs.length>1||textPairs.length>1)fail(collector,"DXF_MALFORMED_DIMENSION","DIMENSION has duplicate style or text override values.",details(entity))
     const dimensionStyleName=stylePairs[0]?.value?.trim()||"STANDARD"
@@ -299,7 +299,9 @@
           const numeric=(code,label,fallback,min,max=Infinity,whole=false)=>{const values=all(entity,code);if(values.length>1)tableFail("DXF_MALFORMED_DIMSTYLE",`DIMSTYLE has duplicate ${label} values.`,entryStart,table);if(!values.length)return fallback;const value=whole?integer(values[0],collector,`DIMSTYLE ${label}`,entity):finiteNumber(values[0],collector,`DIMSTYLE ${label}`,entity);if(value<min||value>max)tableFail("DXF_INVALID_DIMSTYLE",`DIMSTYLE ${label} is outside the supported range.`,values[0],table);return value}
           const defaults=window.CaderactDocument.DEFAULT_DIMENSION_STYLE
           if(all(entity,3).some(pair=>pair.value.trim()))collector.add({severity:"warning",code:"DXF_DIMSTYLE_FORMAT_IGNORED",message:`Ignored prefix/suffix formatting in DIMSTYLE ${namePairs[0].value}.`,section:"TABLES",entityType:"DIMSTYLE",sourceIndex:entryStart.sourceIndex})
-          dimensionStyles.push(Object.freeze({name:namePairs[0].value,textHeight:numeric(140,"text height",defaults.textHeight,Number.MIN_VALUE),textGap:Math.abs(numeric(147,"text gap",defaults.textGap,-Infinity)),arrowSize:numeric(41,"arrow size",defaults.arrowSize,Number.MIN_VALUE),extensionGap:numeric(42,"extension offset",defaults.extensionGap,0),extensionBeyond:numeric(44,"extension extension",defaults.extensionBeyond,0),linearPrecision:numeric(271,"linear precision",defaults.linearPrecision,0,15,true),angularPrecision:numeric(179,"angular precision",defaults.angularPrecision,0,15,true),sourceIndex:entryStart.sourceIndex}))
+          if([71,170,171,172,173,174,175,176,177,178].some(code=>all(entity,code).some(pair=>pair.value.trim()&&!/^0(?:\.0*)?$/.test(pair.value.trim()))))collector.add({severity:"warning",code:"DXF_DIMSTYLE_SEMANTICS_UNSUPPORTED",message:`Ignored tolerance, alternate-unit, or other unsupported semantics in DIMSTYLE ${namePairs[0].value}.`,section:"TABLES",entityType:"DIMSTYLE",sourceIndex:entryStart.sourceIndex})
+          const textGap=numeric(147,"text gap",defaults.textGap,-Infinity);if(textGap<0)collector.add({severity:"warning",code:"DXF_DIMSTYLE_TEXT_BOX_IGNORED",message:`Imported the absolute text gap for DIMSTYLE ${namePairs[0].value}; its text-box flag is unsupported.`,section:"TABLES",entityType:"DIMSTYLE",sourceIndex:entryStart.sourceIndex})
+          dimensionStyles.push(Object.freeze({name:namePairs[0].value,textHeight:numeric(140,"text height",defaults.textHeight,Number.MIN_VALUE),textGap:Math.abs(textGap),arrowSize:numeric(41,"arrow size",defaults.arrowSize,Number.MIN_VALUE),extensionGap:numeric(42,"extension offset",defaults.extensionGap,0),extensionBeyond:numeric(44,"extension extension",defaults.extensionBeyond,0),linearPrecision:numeric(271,"linear precision",defaults.linearPrecision,0,15,true),angularPrecision:numeric(179,"angular precision",defaults.angularPrecision,0,15,true),sourceIndex:entryStart.sourceIndex}))
         }
       }
       if(index>=pairs.length)tableFail("DXF_UNTERMINATED_TABLE",`${table} table is missing ENDTAB.`,start,table)
