@@ -50,6 +50,17 @@
       const farthest=Math.max(...[[rect.left,rect.top],[rect.right,rect.top],[rect.right,rect.bottom],[rect.left,rect.bottom]].map(([x,y])=>Math.hypot(x-center.x,y-center.y)))
       return nearest<=radius+EPSILON&&farthest>=radius-EPSILON
     }
+    if(record?.type?.startsWith("dimension-")){
+      const presentation=window.CaderactDimensionGeometry.derive(record,window.caderactDocumentSession?.reader.dimensionStyle()||window.CaderactDocument.DEFAULT_DIMENSION_STYLE,window.caderactDocumentSession?.reader.units()||{length:"mm"})
+      if(!presentation.supported)return false
+      const values=[]
+      for(const [a,b] of presentation.lines){const start=worldToScreen(a.x,a.y),end=worldToScreen(b.x,b.y);values.push(start.x,start.y,end.x,end.y)}
+      for(const arc of presentation.arcs||[]){const center=worldToScreen(arc.center.x,arc.center.y),start=worldToScreen(arc.start.x,arc.start.y),projected={center,radius:Math.hypot(start.x-center.x,start.y-center.y),startAngle:Math.atan2(start.y-center.y,start.x-center.x),sweep:-arc.sweep};values.push(...window.CaderactCircleTessellation.createArcSegments(projected))}
+      for(const triangle of presentation.triangles)for(let index=0;index<3;index++){const a=worldToScreen(triangle[index].x,triangle[index].y),b=worldToScreen(triangle[(index+1)%3].x,triangle[(index+1)%3].y);values.push(a.x,a.y,b.x,b.y)}
+      const anchor=worldToScreen(presentation.text.point.x,presentation.text.point.y),unit=worldToScreen(presentation.text.point.x+1,presentation.text.point.y),scale=Math.hypot(unit.x-anchor.x,unit.y-anchor.y),halfWidth=presentation.text.value.length*presentation.text.height*scale*.3,halfHeight=presentation.text.height*scale*.55,cosine=Math.cos(-presentation.text.rotation),sine=Math.sin(-presentation.text.rotation),corners=[[-halfWidth,-halfHeight],[halfWidth,-halfHeight],[halfWidth,halfHeight],[-halfWidth,halfHeight]].map(([x,y])=>({x:anchor.x+x*cosine-y*sine,y:anchor.y+x*sine+y*cosine}));for(let index=0;index<4;index++){const a=corners[index],b=corners[(index+1)%4];values.push(a.x,a.y,b.x,b.y)}
+      const dimensionSegments=new Float32Array(values),contained=segmentsContained(dimensionSegments,rect)
+      return mode==="window"?contained:contained||segmentsCross(dimensionSegments,rect)
+    }
     let segments
     if(record?.type==="arc")segments=window.CaderactCircleTessellation.createArcSegments(projectedArc(record,worldToScreen))
     else if(record?.type==="ellipse")segments=window.CaderactEllipseTessellation.createSegments(projectedEllipse(record,worldToScreen),CURVE_ERROR_PX)

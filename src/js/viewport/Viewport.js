@@ -87,6 +87,8 @@ function getActiveCommandSession() {
 }
 function visibleRecords(){return modelReader.visibleRecords()}
 function editableRecords(){return modelReader.editableRecords()}
+const trimExtendCurveTypes=new Set(["line","circle","arc","ellipse","polyline"])
+function isTrimExtendCurve(record){return trimExtendCurveTypes.has(record?.type)}
 
 function dynamicReference(session) {
   return session?.getOrthoReference?.() || session?.draft?.currentPoint || session?.draft?.center || session?.draft?.firstCorner || null
@@ -526,7 +528,7 @@ function createTrimCommandSession({ setPrompt = () => {} } = {}) {
   // committed records are honored -- stale/missing preselected IDs are
   // dropped, and if nothing valid remains Trim falls back to the normal
   // "cutting-edges" phase exactly as if nothing had been preselected.
-  const initialSelectedIds = selection.selectedIds().filter(id => modelReader.isRecordVisible(id))
+  const preselectedIds=new Set(selection.selectedIds()),initialSelectedIds = editableRecords().filter(record=>preselectedIds.has(record.id)&&isTrimExtendCurve(record)).map(record=>record.id)
   let phase = initialSelectedIds.length ? "targets" : "cutting-edges"
   let confirmedCuttingEdgeIds = phase === "targets" ? Object.freeze(initialSelectedIds) : Object.freeze([])
   let hoveredTargetId = null, pendingPlan = null, pointerLocation = null
@@ -536,12 +538,12 @@ function createTrimCommandSession({ setPrompt = () => {} } = {}) {
   function resolveCuttingEdges() {
     const byId = new Map(visibleRecords().map(record => [record.id, record]))
     const resolved = []
-    for (const id of confirmedCuttingEdgeIds) { const record = byId.get(id); if (record) resolved.push(record) }
+    for (const id of confirmedCuttingEdgeIds) { const record = byId.get(id); if (isTrimExtendCurve(record)) resolved.push(record) }
     return resolved
   }
 
   function confirmCuttingEdges() {
-    const ids = selection.selectedIds()
+    const selectedIds=new Set(selection.selectedIds()),ids = editableRecords().filter(record=>selectedIds.has(record.id)&&isTrimExtendCurve(record)).map(record=>record.id)
     if (!ids.length) return Object.freeze({ status: "invalid-input", reason: "empty-selection", command: "Trim", message: "Select at least one cutting edge" })
     confirmedCuttingEdgeIds = ids
     phase = "targets"
@@ -557,9 +559,9 @@ function createTrimCommandSession({ setPrompt = () => {} } = {}) {
   // have a model-space point still fall back to a projection of that point.
   function hitTestTargetAtRawPointer(fallbackModelPoint) {
     const screenPoint = lastKnownPointerScreen || worldToScreen(fallbackModelPoint.x, fallbackModelPoint.y)
-    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records: editableRecords(), worldToScreen })
+    const candidates=editableRecords().filter(isTrimExtendCurve),hit = window.CaderactSelection.hitTestRecords({ screenPoint, records:candidates, worldToScreen })
     if (!hit.hit) return null
-    return editableRecords().find(record => record.id === hit.recordId) || null
+    return candidates.find(record => record.id === hit.recordId) || null
   }
 
   // Single source of truth for both preview and commit: always re-resolves
@@ -671,7 +673,7 @@ function createTrimCommandSession({ setPrompt = () => {} } = {}) {
 }
 
 function createExtendCommandSession({ setPrompt = () => {} } = {}) {
-  const initialSelectedIds = selection.selectedIds().filter(id => modelReader.isRecordVisible(id))
+  const preselectedIds=new Set(selection.selectedIds()),initialSelectedIds = editableRecords().filter(record=>preselectedIds.has(record.id)&&isTrimExtendCurve(record)).map(record=>record.id)
   let phase = initialSelectedIds.length ? "targets" : "boundaries"
   let confirmedBoundaryIds = phase === "targets" ? Object.freeze(initialSelectedIds) : Object.freeze([])
   let hoveredTargetId = null, pendingPlan = null, pointerLocation = null
@@ -681,12 +683,12 @@ function createExtendCommandSession({ setPrompt = () => {} } = {}) {
   function resolveBoundaries() {
     const byId = new Map(visibleRecords().map(record => [record.id, record]))
     const resolved = []
-    for (const id of confirmedBoundaryIds) { const record = byId.get(id); if (record) resolved.push(record) }
+    for (const id of confirmedBoundaryIds) { const record = byId.get(id); if (isTrimExtendCurve(record)) resolved.push(record) }
     return resolved
   }
 
   function confirmBoundaries() {
-    const ids = selection.selectedIds()
+    const selectedIds=new Set(selection.selectedIds()),ids = editableRecords().filter(record=>selectedIds.has(record.id)&&isTrimExtendCurve(record)).map(record=>record.id)
     if (!ids.length) return Object.freeze({ status: "invalid-input", reason: "empty-selection", command: "Extend", message: "Select at least one boundary object" })
     confirmedBoundaryIds = Object.freeze(ids)
     phase = "targets"
@@ -697,9 +699,9 @@ function createExtendCommandSession({ setPrompt = () => {} } = {}) {
 
   function hitTestTargetAtRawPointer(fallbackModelPoint) {
     const screenPoint = lastKnownPointerScreen || worldToScreen(fallbackModelPoint.x, fallbackModelPoint.y)
-    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records: editableRecords(), worldToScreen })
+    const candidates=editableRecords().filter(isTrimExtendCurve),hit = window.CaderactSelection.hitTestRecords({ screenPoint, records:candidates, worldToScreen })
     if (!hit.hit) return null
-    return editableRecords().find(record => record.id === hit.recordId) || null
+    return candidates.find(record => record.id === hit.recordId) || null
   }
 
   function planForTarget(targetRecord, modelPoint) {
@@ -1498,7 +1500,7 @@ function setCommandActive(active) {
 function getInteractionVisualState() { return interactionVisuals.snapshot() }
 function selectAllCommittedGeometry() {
   if (selectionBox.isPending || grips.isActive || getActiveCommandSession()) return Object.freeze({ status: "selection-busy" })
-  const selectableTypes = new Set(["line", "circle", "arc", "ellipse", "polyline"])
+  const selectableTypes = new Set(["line", "circle", "arc", "ellipse", "polyline", "dimension-linear", "dimension-angular", "dimension-radial"])
   return selection.applyRecordIds(editableRecords().filter(record => selectableTypes.has(record.type)).map(record => record.id))
 }
 function isLayerAssignmentBusy(){return Boolean(getActiveCommandSession()||grips.isActive||selectionBox.isPending)}

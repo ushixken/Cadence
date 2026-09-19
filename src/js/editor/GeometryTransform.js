@@ -1,6 +1,8 @@
 // M1: pure record translation preserving persistent object and topology identity.
 (() => {
   const point = (value, dx, dy) => ({ ...value, x: value.x + dx, y: value.y + dy })
+  const dimensionPointKeys=record=>record.type==="dimension-linear"?["firstPoint","secondPoint","dimensionLinePoint"]:record.type==="dimension-angular"?["firstRayPoint","vertex","secondRayPoint","dimensionArcPoint"]:record.type==="dimension-radial"?["centerPoint","dimensionPoint","leaderPoint"]:null
+  function transformDimension(record,transform){const keys=dimensionPointKeys(record);if(!keys)return null;const result={...record};for(const key of keys)result[key]=transform(record[key]);return Object.freeze(result)}
   function translateRecord(record, dx, dy) {
     if (!record || !Number.isFinite(dx) || !Number.isFinite(dy)) throw new Error("Invalid translation")
     if (record.type === "line") return Object.freeze({ ...record,
@@ -11,6 +13,7 @@
     if (record.type === "ellipse") return Object.freeze({ ...record, center: Object.freeze(point(record.center, dx, dy)) })
     if (record.type === "polyline") return Object.freeze({ ...record,
       vertices: Object.freeze(record.vertices.map(vertex => Object.freeze(point(vertex, dx, dy)))) })
+    if(record.type.startsWith("dimension-"))return transformDimension(record,value=>Object.freeze(point(value,dx,dy)))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
   function normalizeAngle(angle) {
@@ -35,6 +38,7 @@
     if(record.type==="arc")return Object.freeze({...record,center:rotatePoint(record.center,center,normalized),start:rotatePoint(record.start,center,normalized),end:rotatePoint(record.end,center,normalized)})
     if(record.type==="ellipse")return Object.freeze({...record,center:rotatePoint(record.center,center,normalized),majorAxis:rotateVector(record.majorAxis,normalized)})
     if(record.type==="polyline")return Object.freeze({...record,vertices:Object.freeze(record.vertices.map(vertex=>rotatePoint(vertex,center,normalized)) )})
+    if(record.type.startsWith("dimension-"))return transformDimension(record,value=>rotatePoint(value,center,normalized))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
   function scalePoint(value, base, factor) {
@@ -56,6 +60,7 @@
     if(record.type==="arc"){const radius=record.radius*factor;if(!Number.isFinite(radius)||radius<=0)throw new Error("Invalid scale result");return Object.freeze({...record,center:scalePoint(record.center,base,factor),start:scalePoint(record.start,base,factor),end:scalePoint(record.end,base,factor),radius})}
     if(record.type==="ellipse"){const minorRadius=record.minorRadius*factor;if(!Number.isFinite(minorRadius)||minorRadius<=0)throw new Error("Invalid scale result");return Object.freeze({...record,center:scalePoint(record.center,base,factor),majorAxis:scaleVector(record.majorAxis,factor),minorRadius})}
     if(record.type==="polyline")return Object.freeze({...record,vertices:Object.freeze(record.vertices.map(vertex=>scalePoint(vertex,base,factor)))})
+    if(record.type.startsWith("dimension-"))return transformDimension(record,value=>scalePoint(value,base,factor))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
   function mirrorAxis(axisA, axisB) {
@@ -86,6 +91,7 @@
     if(record.type==="arc")return Object.freeze({...record,center:mirrorPoint(record.center,axisA,axisB),start:mirrorPoint(record.start,axisA,axisB),end:mirrorPoint(record.end,axisA,axisB),sweep:-record.sweep})
     if(record.type==="ellipse")return Object.freeze({...record,center:mirrorPoint(record.center,axisA,axisB),majorAxis:mirrorVector(record.majorAxis,axisA,axisB)})
     if(record.type==="polyline")return Object.freeze({...record,vertices:Object.freeze(record.vertices.map(vertex=>mirrorPoint(vertex,axisA,axisB)))})
+    if(record.type.startsWith("dimension-"))return transformDimension(record,value=>mirrorPoint(value,axisA,axisB))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
   window.CaderactGeometryTransform = Object.freeze({ translateRecord, rotatePoint, rotateRecord, normalizeAngle, scalePoint, scaleRecord, mirrorPoint, mirrorRecord })

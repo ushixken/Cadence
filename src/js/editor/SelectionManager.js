@@ -69,6 +69,16 @@
         let distancePx=Infinity
         for(let index=0;index<segments.length;index+=4)distancePx=Math.min(distancePx,segmentDistance(screenPoint,...segments.slice(index,index+4)))
         if(distancePx<=tolerancePx)hits.push({recordId:record.id,distancePx})
+      } else if(record?.type?.startsWith("dimension-")){
+        const presentation=window.CaderactDimensionGeometry.derive(record,window.caderactDocumentSession?.reader.dimensionStyle()||window.CaderactDocument.DEFAULT_DIMENSION_STYLE,window.caderactDocumentSession?.reader.units()||{length:"mm"})
+        if(!presentation.supported)continue
+        let distancePx=Infinity
+        for(const [a,b] of presentation.lines){const start=worldToScreen(a.x,a.y),end=worldToScreen(b.x,b.y);distancePx=Math.min(distancePx,segmentDistance(screenPoint,start.x,start.y,end.x,end.y))}
+        for(const arc of presentation.arcs||[]){const center=worldToScreen(arc.center.x,arc.center.y),start=worldToScreen(arc.start.x,arc.start.y),projected={center,radius:Math.hypot(start.x-center.x,start.y-center.y),startAngle:Math.atan2(start.y-center.y,start.x-center.x),sweep:-arc.sweep},segments=window.CaderactCircleTessellation.createArcSegments(projected);for(let index=0;index<segments.length;index+=4)distancePx=Math.min(distancePx,segmentDistance(screenPoint,...segments.slice(index,index+4)))}
+        for(const triangle of presentation.triangles)for(let index=0;index<3;index++){const a=worldToScreen(triangle[index].x,triangle[index].y),b=worldToScreen(triangle[(index+1)%3].x,triangle[(index+1)%3].y);distancePx=Math.min(distancePx,segmentDistance(screenPoint,a.x,a.y,b.x,b.y))}
+        const anchor=worldToScreen(presentation.text.point.x,presentation.text.point.y),unit=worldToScreen(presentation.text.point.x+1,presentation.text.point.y),scale=Math.hypot(unit.x-anchor.x,unit.y-anchor.y),rotation=-presentation.text.rotation,cosine=Math.cos(rotation),sine=Math.sin(rotation),rx=(screenPoint.x-anchor.x)*cosine+(screenPoint.y-anchor.y)*sine,ry=-(screenPoint.x-anchor.x)*sine+(screenPoint.y-anchor.y)*cosine,halfWidth=presentation.text.value.length*presentation.text.height*scale*.3,halfHeight=presentation.text.height*scale*.55,textDistance=Math.hypot(Math.max(0,Math.abs(rx)-halfWidth),Math.max(0,Math.abs(ry)-halfHeight))
+        distancePx=Math.min(distancePx,textDistance)
+        if(distancePx<=tolerancePx)hits.push({recordId:record.id,distancePx})
       }
     }
     hits.sort((a,b)=>a.distancePx-b.distancePx||a.recordId.localeCompare(b.recordId))

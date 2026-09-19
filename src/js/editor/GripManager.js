@@ -29,9 +29,11 @@
   }
 
   function discoverGeometryGrips(records, selectedIds) {
-    return Object.freeze([...discoverLineGrips(records, selectedIds), ...discoverPolylineGrips(records, selectedIds)]
+    return Object.freeze([...discoverLineGrips(records, selectedIds), ...discoverPolylineGrips(records, selectedIds), ...discoverDimensionGrips(records,selectedIds)]
       .sort((a, b) => a.recordId.localeCompare(b.recordId) || a.featureId.localeCompare(b.featureId)))
   }
+
+  function discoverDimensionGrips(records,selectedIds){const selected=new Set(selectedIds),grips=[];for(const record of records){if(!record?.type?.startsWith("dimension-")||!selected.has(record.id))continue;const presentation=window.CaderactDimensionGeometry.derive(record,window.CaderactDocument.DEFAULT_DIMENSION_STYLE,{length:"mm"});if(!presentation.supported)continue;for(const descriptor of presentation.grips)grips.push(Object.freeze({recordId:record.id,featureId:descriptor.featureId,kind:descriptor.kind,point:freezePoint(descriptor.point)}))}return Object.freeze(grips)}
 
   const lineAdapter = Object.freeze({
     discover: discoverLineGrips,
@@ -67,13 +69,18 @@
     resolves(record, grip) { return Boolean(polylineVertex(record, grip)) },
     currentPoint: polylineVertex,
   })
+  function dimensionPoint(record,grip){return record?.type?.startsWith("dimension-")&&record[grip.kind]?.featureId===grip.featureId?record[grip.kind]:null}
+  function dimensionReplacement(record,grip,point){return{...record,[grip.kind]:{...record[grip.kind],x:point.x,y:point.y}}}
+  function validDimension(record){if(record.type==="dimension-linear")return Math.hypot(record.secondPoint.x-record.firstPoint.x,record.secondPoint.y-record.firstPoint.y)>0;if(record.type==="dimension-angular"){const rays=window.CaderactAngularDimensionDraftSession.validateRays(record.firstRayPoint,record.vertex,record.secondRayPoint),radius=Math.hypot(record.dimensionArcPoint.x-record.vertex.x,record.dimensionArcPoint.y-record.vertex.y);return rays.valid&&radius>0}if(record.type==="dimension-radial")return Math.hypot(record.dimensionPoint.x-record.centerPoint.x,record.dimensionPoint.y-record.centerPoint.y)>0;return false}
+  const dimensionAdapter=Object.freeze({discover:discoverDimensionGrips,preview:(record,grip,point)=>Object.freeze(dimensionReplacement(record,grip,point)),replacement:dimensionReplacement,resolves:(record,grip)=>Boolean(dimensionPoint(record,grip)),currentPoint:dimensionPoint,valid:validDimension})
   const geometryAdapter = Object.freeze({
     discover: discoverGeometryGrips,
-    target(record) { return record?.type === "line" ? lineAdapter : record?.type === "polyline" ? polylineAdapter : null },
+    target(record) { return record?.type === "line" ? lineAdapter : record?.type === "polyline" ? polylineAdapter : record?.type?.startsWith("dimension-")?dimensionAdapter:null },
     preview(record, grip, point) { return this.target(record).preview(record, grip, point) },
     replacement(record, grip, point) { return this.target(record).replacement(record, grip, point) },
     resolves(record, grip) { return Boolean(this.target(record)?.resolves(record, grip)) },
     currentPoint(record, grip) { return this.target(record)?.currentPoint(record, grip) },
+    valid(record){return this.target(record)?.valid?.(record)!==false},
   })
 
   function hitTestGrips({ screenPoint, grips, worldToScreen, tolerance = 8 }) {
@@ -122,15 +129,18 @@
     function finish() {
       if (!active) return Object.freeze({ status: "no-active-grip" })
       const session = active
-      active = null
       const current = findRecord(session.grip.recordId)
       if (!adapter.resolves(current, session.grip)) {
+        active = null
         requestRender(); return Object.freeze({ status: "grip-target-missing" })
       }
       if (samePoint(adapter.currentPoint(current, session.grip), session.previewPoint)) {
+        active = null
         requestRender(); return Object.freeze({ status: "no-op" })
       }
       const replacement = adapter.replacement(current, session.grip, session.previewPoint)
+      if(adapter.valid?.(replacement)===false){requestRender();return Object.freeze({status:"invalid-grip-edit"})}
+      active = null
       const outcome = replaceRecord(current.id, replacement)
       requestRender()
       return Object.freeze({ status: "grip-edit-committed", outcome })
@@ -157,6 +167,6 @@
       get active() { return active }, get isActive() { return Boolean(active) } })
   }
 
-  window.CaderactGrips = Object.freeze({ discoverLineGrips, discoverPolylineGrips, discoverGeometryGrips,
-    hitTestGrips, createManager, lineAdapter, polylineAdapter, geometryAdapter })
+  window.CaderactGrips = Object.freeze({ discoverLineGrips, discoverPolylineGrips, discoverDimensionGrips, discoverGeometryGrips,
+    hitTestGrips, createManager, lineAdapter, polylineAdapter, dimensionAdapter, geometryAdapter })
 })()

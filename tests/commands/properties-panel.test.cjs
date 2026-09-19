@@ -13,6 +13,20 @@ test('Properties shares the sidebar, follows selection, and C2 opens and focuses
   b.window.caderactPropertiesPanel.showLayers();assert.equal(b.layersView.hidden,false);b.emit(b.canvas,'contextmenu',{clientX:420,clientY:340});const item=b.contextMenu.children.find(child=>child.textContent==='Properties');b.emit(item,'click');assert.equal(b.propertiesView.hidden,false);assert.equal(b.document.activeElement,b.propertiesTab)
 });
 
+test('single dimensions expose a formatted measurement and one safe atomic Text Override editor',async()=>{
+  const b=await browser(),record=b.read(`(()=>{const value=recordGateway.createLinearDimension({mode:'aligned',firstPoint:{x:0,y:0},secondPoint:{x:3,y:4},dimensionLinePoint:{x:2,y:3}});recordGateway.createAll([value]);window.caderactSelection.selectOnly(value.id);return value})()`);b.window.caderactPropertiesPanel.open()
+  assert.equal(row(b,'Selection','Type').children[1].textContent,'Aligned Dimension');assert.match(row(b,'Geometry','Measurement').children[1].textContent,/5\.000/)
+  const before=state(b),input=row(b,'Dimension','Text Override').children[1];assert.equal(input.value,'');assert.equal(input.maxLength,256);input.value='VERIFY';b.emit(input,'change');const changed=b.read('modelReader.records()[0]');assert.equal(changed.textOverride,'VERIFY');assert.equal(changed.id,record.id);assert.equal(changed.firstPoint.featureId,record.firstPoint.featureId);assert.equal(state(b).history.entryCount,before.history.entryCount+1)
+  b.run('window.caderactHistory.undo()');assert.equal(b.read('modelReader.records()[0].textOverride'),null);b.run('window.caderactHistory.redo()');assert.equal(b.read('modelReader.records()[0].textOverride'),'VERIFY')
+  const empty=row(b,'Dimension','Text Override').children[1];empty.value='';b.emit(empty,'change');assert.equal(b.read('modelReader.records()[0].textOverride'),null)
+})
+
+test('dimension text override validation rejects overlong and control-character persistence',async()=>{
+  const b=await browser(),record=b.read(`recordGateway.createLinearDimension({mode:'horizontal',firstPoint:{x:0,y:0},secondPoint:{x:1,y:0},dimensionLinePoint:{x:0,y:1}})`);b.window.__r=record
+  assert.ok(b.read("window.CaderactDocument.validateDocument({...modelReader.snapshot(),geometry:{objects:{[window.__r.id]:{...window.__r,textOverride:'x'.repeat(257)}}}})").some(message=>message.includes('textOverride')))
+  assert.ok(b.read("window.CaderactDocument.validateDocument({...modelReader.snapshot(),geometry:{objects:{[window.__r.id]:{...window.__r,textOverride:'bad\\u0001'}}}})").some(message=>message.includes('textOverride')))
+})
+
 test('multi-selection uses the authoritative MIXED aggregation and edits one atomic transaction',async()=>{
   const b=await browser(),records=seed(b),ids=records.slice(0,2).map(record=>record.id);b.run(`recordGateway.setProperties([${JSON.stringify(ids[0])}],{linetype:'dashed'});window.caderactSelection.applyRecordIds(${JSON.stringify(ids)})`);b.window.caderactPropertiesPanel.open();assert.equal(row(b,'Selection','Type').children[1].textContent,'Multiple (2)');let linetype=row(b,'Appearance','Linetype').children[1].children[0];assert.equal(linetype.value,'mixed');const before=state(b);linetype.value='dotted';b.emit(linetype,'change');assert.equal(b.read(`modelReader.records().filter(record=>${JSON.stringify(ids)}.includes(record.id)).every(record=>record.linetype==='dotted')`),true);const after=state(b);assert.equal(after.revision,before.revision+1);assert.equal(after.history.entryCount,before.history.entryCount+1);b.run('documentController.undo()');assert.equal(row(b,'Appearance','Linetype').children[1].children[0].value,'mixed');b.run('documentController.redo()');assert.equal(row(b,'Appearance','Linetype').children[1].children[0].value,'dotted')
 });
