@@ -169,6 +169,56 @@
     if(stylePairs.length&&stylePairs[0].value.trim().toUpperCase()!=="STANDARD")warn(collector,entity,"DXF_TEXT_STYLE_IGNORED",`Imported TEXT using Caderact's native annotation style instead of ${stylePairs[0].value.trim()||"an unnamed style"}.`)
     return Object.freeze({...neutralBase(entity,collector),content,insertionPoint:Object.freeze(insertionPoint),height,rotationDegrees,horizontalAlignment:["left","center","right"][horizontal]})
   }
+  function dimensionPoint(entity,xCode,yCode,zCode,collector,label){
+    const x=finiteNumber(one(entity,xCode,collector,`${label} X`,"DXF_MALFORMED_DIMENSION"),collector,`DIMENSION ${label} X`,entity)
+    const y=finiteNumber(one(entity,yCode,collector,`${label} Y`,"DXF_MALFORMED_DIMENSION"),collector,`DIMENSION ${label} Y`,entity)
+    if(optionalNumber(entity,zCode,collector,`${label} Z`)!==0){warn(collector,entity,"DXF_DIMENSION_NON_PLANAR","Skipped a DIMENSION with nonzero Z coordinates.");return null}
+    return Object.freeze({x,y})
+  }
+  function parseDimension(entity,collector){
+    if(!defaultExtrusion(extrusion(entity,collector))){warn(collector,entity,"DXF_DIMENSION_NON_PLANAR","Skipped a non-default-extrusion DIMENSION.");return null}
+    const flags=optionalInteger(entity,70,collector,"type flags"),kind=flags&7
+    const stylePairs=all(entity,3),textPairs=all(entity,1)
+    if(stylePairs.length>1||textPairs.length>1)fail(collector,"DXF_MALFORMED_DIMENSION","DIMENSION has duplicate style or text override values.",details(entity))
+    const dimensionStyleName=stylePairs[0]?.value?.trim()||"STANDARD"
+    let textOverride=null
+    if(textPairs.length&&textPairs[0].value!=="<>"){
+      const raw=textPairs[0].value
+      if(raw.includes("<>")||/[{}]|\\[PX]/i.test(raw)){warn(collector,entity,"DXF_DIMENSION_TEXT_UNSUPPORTED","Skipped a DIMENSION with compound or formatted text override.");return null}
+      textOverride=window.CaderactDxfText.decode(raw)
+      if(textOverride.length>256||/[\u0000-\u001f\u007f]/.test(textOverride))fail(collector,"DXF_INVALID_DIMENSION_TEXT","DIMENSION text override is invalid.",details(entity))
+    }
+    const base={...neutralBase(entity,collector),dimensionStyleName,textOverride}
+    if(kind===0||kind===1){
+      const firstPoint=dimensionPoint(entity,13,23,33,collector,"first definition point"),secondPoint=dimensionPoint(entity,14,24,34,collector,"second definition point"),dimensionLinePoint=dimensionPoint(entity,10,20,30,collector,"dimension line point")
+      if(!firstPoint||!secondPoint||!dimensionLinePoint)return null
+      if(kind===1)return Object.freeze({...base,dimensionKind:"aligned",firstPoint,secondPoint,dimensionLinePoint})
+      const angle=((optionalNumber(entity,50,collector,"rotation angle")%180)+180)%180
+      const mode=Math.abs(angle)<1e-9||Math.abs(angle-180)<1e-9?"horizontal":Math.abs(angle-90)<1e-9?"vertical":null
+      if(!mode){warn(collector,entity,"DXF_ROTATED_DIMENSION_UNSUPPORTED","Skipped a rotated linear DIMENSION that is not horizontal or vertical.");return null}
+      return Object.freeze({...base,dimensionKind:"linear",mode,firstPoint,secondPoint,dimensionLinePoint})
+    }
+    if(kind===5){
+      const firstRayPoint=dimensionPoint(entity,13,23,33,collector,"first ray point"),vertex=dimensionPoint(entity,15,25,35,collector,"vertex"),secondRayPoint=dimensionPoint(entity,14,24,34,collector,"second ray point"),dimensionArcPoint=dimensionPoint(entity,10,20,30,collector,"dimension arc point")
+      if(!firstRayPoint||!vertex||!secondRayPoint||!dimensionArcPoint)return null
+      return Object.freeze({...base,dimensionKind:"angular",firstRayPoint,vertex,secondRayPoint,dimensionArcPoint})
+    }
+    if(kind===3){
+      const opposite=dimensionPoint(entity,10,20,30,collector,"opposite diameter point"),dimensionPointValue=dimensionPoint(entity,15,25,35,collector,"diameter point")
+      if(!opposite||!dimensionPointValue)return null
+      const leaderPoint=all(entity,11).length?dimensionPoint(entity,11,21,31,collector,"text point"):dimensionPointValue
+      if(!leaderPoint)return null
+      return Object.freeze({...base,dimensionKind:"diameter",centerPoint:Object.freeze({x:(opposite.x+dimensionPointValue.x)/2,y:(opposite.y+dimensionPointValue.y)/2}),dimensionPoint:dimensionPointValue,leaderPoint})
+    }
+    if(kind===4){
+      const centerPoint=dimensionPoint(entity,10,20,30,collector,"center point"),dimensionPointValue=dimensionPoint(entity,15,25,35,collector,"radius point")
+      if(!centerPoint||!dimensionPointValue)return null
+      const leaderPoint=all(entity,11).length?dimensionPoint(entity,11,21,31,collector,"text point"):dimensionPointValue
+      if(!leaderPoint)return null
+      return Object.freeze({...base,dimensionKind:"radius",centerPoint,dimensionPoint:dimensionPointValue,leaderPoint})
+    }
+    warn(collector,entity,"DXF_DIMENSION_TYPE_UNSUPPORTED",`Skipped unsupported DIMENSION type ${kind}.`);return null
+  }
   function rawEntities(pairs, limits, collector) {
     const entities = []; let index = 0
     while (index < pairs.length) {
@@ -197,6 +247,7 @@
       else if (entity.type === "ARC") parsed = parseArc(entity, collector)
       else if (entity.type === "ELLIPSE") parsed = parseEllipse(entity, collector)
       else if (entity.type === "TEXT") parsed = parseText(entity, collector)
+      else if (entity.type === "DIMENSION") parsed = parseDimension(entity, collector)
       else if (entity.type === "MTEXT") warn(collector,entity,"DXF_MTEXT_UNSUPPORTED","Skipped MTEXT; multiline and rich text are not supported.")
       else warn(collector, entity, "DXF_UNSUPPORTED_ENTITY", `Skipped unsupported ${entity.type || "unnamed"} entity.`)
       if (parsed) entities.push(parsed)
@@ -204,7 +255,7 @@
     return entities
   }
   function parseTables(pairs,limits,collector){
-    const layers=[],linetypes=[];let index=0,entryCount=0
+    const layers=[],linetypes=[],dimensionStyles=[];let index=0,entryCount=0
     const tableFail=(code,message,pair,table)=>fail(collector,code,message,{section:"TABLES",entityType:table,sourceIndex:pair?.sourceIndex})
     while(index<pairs.length){
       const start=pairs[index]
@@ -221,6 +272,7 @@
         entryCount+=1;if(entryCount>limits.maxTableEntries)tableFail("DXF_TABLE_ENTRY_LIMIT","DXF table-entry limit exceeded.",entryStart,table)
         if(table==="LAYER"&&type!=="LAYER")tableFail("DXF_MALFORMED_LAYER_TABLE","LAYER table contains a non-LAYER entry.",entryStart,table)
         if(table==="LTYPE"&&type!=="LTYPE")tableFail("DXF_MALFORMED_LTYPE_TABLE","LTYPE table contains a non-LTYPE entry.",entryStart,table)
+        if(table==="DIMSTYLE"&&type!=="DIMSTYLE")tableFail("DXF_MALFORMED_DIMSTYLE_TABLE","DIMSTYLE table contains a non-DIMSTYLE entry.",entryStart,table)
         if(table==="LAYER"){
           const entity={type:"LAYER",pairs:body,handle:body.find(pair=>pair.code===5)?.value?.trim()||null,sourceIndex:entryStart.sourceIndex}
           const namePairs=all(entity,2),flagPairs=all(entity,70),aciPairs=all(entity,62),linetypePairs=all(entity,6),weightPairs=all(entity,370),truePairs=all(entity,420)
@@ -241,16 +293,24 @@
           const pattern=[];for(const pair of all(entity,49))pattern.push(finiteNumber(pair,collector,"LTYPE pattern element",entity))
           const complex=all(entity,74).some(pair=>integer(pair,collector,"LTYPE complex flag",entity)!==0)
           linetypes.push(Object.freeze({name:namePairs[0].value.trim(),pattern:Object.freeze(pattern),complex,sourceIndex:entryStart.sourceIndex}))
+        }else if(table==="DIMSTYLE"){
+          const entity={type:"DIMSTYLE",pairs:body,sourceIndex:entryStart.sourceIndex},namePairs=all(entity,2)
+          if(namePairs.length!==1||!namePairs[0].value.trim()||namePairs[0].value!==namePairs[0].value.trim()||namePairs[0].value.length>64||/[\u0000-\u001f\u007f]/.test(namePairs[0].value))tableFail("DXF_INVALID_DIMSTYLE_NAME","DIMSTYLE has an invalid name.",entryStart,table)
+          const numeric=(code,label,fallback,min,max=Infinity,whole=false)=>{const values=all(entity,code);if(values.length>1)tableFail("DXF_MALFORMED_DIMSTYLE",`DIMSTYLE has duplicate ${label} values.`,entryStart,table);if(!values.length)return fallback;const value=whole?integer(values[0],collector,`DIMSTYLE ${label}`,entity):finiteNumber(values[0],collector,`DIMSTYLE ${label}`,entity);if(value<min||value>max)tableFail("DXF_INVALID_DIMSTYLE",`DIMSTYLE ${label} is outside the supported range.`,values[0],table);return value}
+          const defaults=window.CaderactDocument.DEFAULT_DIMENSION_STYLE
+          if(all(entity,3).some(pair=>pair.value.trim()))collector.add({severity:"warning",code:"DXF_DIMSTYLE_FORMAT_IGNORED",message:`Ignored prefix/suffix formatting in DIMSTYLE ${namePairs[0].value}.`,section:"TABLES",entityType:"DIMSTYLE",sourceIndex:entryStart.sourceIndex})
+          dimensionStyles.push(Object.freeze({name:namePairs[0].value,textHeight:numeric(140,"text height",defaults.textHeight,Number.MIN_VALUE),textGap:Math.abs(numeric(147,"text gap",defaults.textGap,-Infinity)),arrowSize:numeric(41,"arrow size",defaults.arrowSize,Number.MIN_VALUE),extensionGap:numeric(42,"extension offset",defaults.extensionGap,0),extensionBeyond:numeric(44,"extension extension",defaults.extensionBeyond,0),linearPrecision:numeric(271,"linear precision",defaults.linearPrecision,0,15,true),angularPrecision:numeric(179,"angular precision",defaults.angularPrecision,0,15,true),sourceIndex:entryStart.sourceIndex}))
         }
       }
       if(index>=pairs.length)tableFail("DXF_UNTERMINATED_TABLE",`${table} table is missing ENDTAB.`,start,table)
       index+=1
     }
     const names=new Set();for(const layer of layers){const key=layer.name.toLowerCase();if(names.has(key))tableFail("DXF_DUPLICATE_LAYER",`Duplicate layer name ${layer.name}.`,{sourceIndex:layer.sourceIndex},"LAYER");names.add(key)}
-    return Object.freeze({layers:Object.freeze(layers),linetypes:Object.freeze(linetypes)})
+    const styleNames=new Set();for(const style of dimensionStyles){const key=style.name.toLowerCase();if(styleNames.has(key))tableFail("DXF_DUPLICATE_DIMSTYLE",`Duplicate dimension style name ${style.name}.`,{sourceIndex:style.sourceIndex},"DIMSTYLE");styleNames.add(key)}
+    return Object.freeze({layers:Object.freeze(layers),linetypes:Object.freeze(linetypes),dimensionStyles:Object.freeze(dimensionStyles)})
   }
   function parseHeader(pairs, collector) {
-    let acadVersion = null, insertionUnits = null, currentLayer = null
+    let acadVersion = null, insertionUnits = null, currentLayer = null, currentDimensionStyle=null
     for (let index = 0; index < pairs.length; index += 1) {
       const pair = pairs[index]; if (pair.code !== 9) continue
       const name = pair.value.trim().toUpperCase(); let end = index + 1
@@ -258,11 +318,12 @@
       const values = pairs.slice(index + 1, end)
       if (name === "$ACADVER") acadVersion = values.find(value => value.code === 1)?.value?.trim() || null
       if(name==="$CLAYER")currentLayer=values.find(value=>value.code===8)?.value?.trim()||null
+      if(name==="$DIMSTYLE")currentDimensionStyle=values.find(value=>value.code===2)?.value?.trim()||null
       if (name === "$INSUNITS") { const unitPair = values.find(value => value.code === 70); if (!unitPair) fail(collector, "DXF_INVALID_INSUNITS", "$INSUNITS is missing its integer value.", { section: "HEADER", sourceIndex: pair.sourceIndex }); insertionUnits = integer(unitPair, collector, "$INSUNITS") }
       index = end - 1
     }
     if (!acadVersion) collector.add({ severity: "warning", code: "DXF_ACADVER_MISSING", message: "$ACADVER is missing; DXF1 will parse only its version-neutral subset.", section: "HEADER" })
-    return Object.freeze({ acadVersion, insertionUnits, currentLayer })
+    return Object.freeze({ acadVersion, insertionUnits, currentLayer, currentDimensionStyle })
   }
   function parse(text, options = {}) {
     const limits = window.CaderactDxfLimits.resolve(options.limits), collector = window.CaderactDxfDiagnostics.createCollector(limits.maxDiagnostics), pairs = tokenize(text, limits, collector), sections = new Map()
@@ -286,9 +347,9 @@
     if (!sections.has("ENTITIES")) fail(collector, "DXF_ENTITIES_MISSING", "DXF input is missing the ENTITIES section.")
     const source = sections.has("HEADER") ? parseHeader(sections.get("HEADER"), collector) : Object.freeze({ acadVersion: null, insertionUnits: null, currentLayer:null })
     if (!sections.has("HEADER")) collector.add({ severity: "warning", code: "DXF_HEADER_MISSING", message: "DXF input has no HEADER section." })
-    const tables=sections.has("TABLES")?parseTables(sections.get("TABLES"),limits,collector):Object.freeze({layers:Object.freeze([]),linetypes:Object.freeze([])})
+    const tables=sections.has("TABLES")?parseTables(sections.get("TABLES"),limits,collector):Object.freeze({layers:Object.freeze([]),linetypes:Object.freeze([]),dimensionStyles:Object.freeze([])})
     const entities = parseEntities(sections.get("ENTITIES"), limits, collector)
-    return Object.freeze({ kind: "ParsedDxf", source, layers:tables.layers,linetypes:tables.linetypes,
+    return Object.freeze({ kind: "ParsedDxf", source, layers:tables.layers,linetypes:tables.linetypes,dimensionStyles:tables.dimensionStyles,
       entities: Object.freeze(entities), diagnostics: collector.snapshot(), limits })
   }
   window.CaderactDxfParser = Object.freeze({ parse, DxfParseError })

@@ -15,6 +15,20 @@
     const draft=window.CaderactDocument.createStore(),unitOutcome=draft.unitGateway.setLengthUnit(unit)
     if(!["committed","no-op"].includes(unitOutcome.status))fail("DXF_UNIT_MAPPING_FAILED","Unable to apply DXF drawing units.")
 
+    const standard=draft.reader.dimensionStyles()[0],styleIds=new Map([["standard",standard.id]])
+    for(const style of parsed.dimensionStyles){
+      let id
+      if(style.name.toLowerCase()==="standard")id=standard.id
+      else{const created=draft.dimensionStyleGateway.create(style.name);if(created.status!=="committed")fail("DXF_DIMSTYLE_MAPPING_FAILED",`Unable to create dimension style ${style.name}.`,"TABLES");id=created.style.id}
+      const outcome=draft.dimensionStyleGateway.update(id,{textHeight:style.textHeight,textGap:style.textGap,arrowSize:style.arrowSize,extensionGap:style.extensionGap,extensionBeyond:style.extensionBeyond,linearPrecision:style.linearPrecision,angularPrecision:style.angularPrecision})
+      if(!["committed","no-op"].includes(outcome.status))fail("DXF_DIMSTYLE_MAPPING_FAILED",`Unable to map dimension style ${style.name}.`,"TABLES")
+      styleIds.set(style.name.toLowerCase(),id)
+    }
+    const requestedStyle=parsed.source.currentDimensionStyle?.toLowerCase(),requestedStyleId=requestedStyle&&styleIds.get(requestedStyle)
+    if(requestedStyle&&!requestedStyleId)warn("DXF_CURRENT_DIMSTYLE_UNKNOWN",`Mapped unknown current dimension style ${parsed.source.currentDimensionStyle} to Standard.`,{section:"HEADER"})
+    const currentDimensionStyleId=requestedStyleId||standard.id
+    draft.dimensionStyleGateway.setCurrent(currentDimensionStyleId)
+
     const sourceLayers=parsed.layers.length?[...parsed.layers]:[DEFAULT_LAYER]
     if(!parsed.layers.length)warn("DXF_LAYER_TABLE_MISSING","Synthesized Layer 0 because the DXF has no LAYER table.",{section:"TABLES"})
     if(!sourceLayers.some(layer=>layer.name.toLowerCase()==="0")){sourceLayers.unshift(DEFAULT_LAYER);warn("DXF_LAYER_ZERO_SYNTHESIZED","Synthesized required Layer 0.",{section:"TABLES"})}
@@ -35,6 +49,13 @@
       if(entity.type==="ARC"){const startAngle=window.CaderactArcGeometry.normalizeAngle(entity.startAngleDegrees*Math.PI/180),sweep=window.CaderactArcGeometry.positiveDelta(startAngle,entity.endAngleDegrees*Math.PI/180);return draft.recordGateway.createArc({center:entity.center,radius:entity.radius,sweep,start:{x:entity.center.x+Math.cos(startAngle)*entity.radius,y:entity.center.y+Math.sin(startAngle)*entity.radius},end:{x:entity.center.x+Math.cos(startAngle+sweep)*entity.radius,y:entity.center.y+Math.sin(startAngle+sweep)*entity.radius}})}
       if(entity.type==="ELLIPSE")return draft.recordGateway.createEllipse({center:entity.center,majorAxis:entity.majorAxis,minorRadius:Math.hypot(entity.majorAxis.x,entity.majorAxis.y)*entity.ratio})
       if(entity.type==="TEXT")return draft.recordGateway.createText({insertionPoint:entity.insertionPoint,text:entity.content,height:entity.height,rotation:entity.rotationDegrees*Math.PI/180,horizontalAlignment:entity.horizontalAlignment})
+      if(entity.type==="DIMENSION"){
+        let dimensionStyleId=styleIds.get(entity.dimensionStyleName.toLowerCase())
+        if(!dimensionStyleId){warn("DXF_DIMSTYLE_REFERENCE_UNKNOWN",`Mapped unknown dimension style ${entity.dimensionStyleName} to Standard.`,{section:"ENTITIES",entityType:"DIMENSION",sourceIndex:entity.sourceIndex});dimensionStyleId=standard.id}
+        if(entity.dimensionKind==="linear"||entity.dimensionKind==="aligned")return draft.recordGateway.createLinearDimension({mode:entity.dimensionKind==="aligned"?"aligned":entity.mode,firstPoint:entity.firstPoint,secondPoint:entity.secondPoint,dimensionLinePoint:entity.dimensionLinePoint,textOverride:entity.textOverride,dimensionStyleId})
+        if(entity.dimensionKind==="angular")return draft.recordGateway.createAngularDimension({firstRayPoint:entity.firstRayPoint,vertex:entity.vertex,secondRayPoint:entity.secondRayPoint,dimensionArcPoint:entity.dimensionArcPoint,textOverride:entity.textOverride,dimensionStyleId})
+        return draft.recordGateway.createRadialDimension({mode:entity.dimensionKind,centerPoint:entity.centerPoint,dimensionPoint:entity.dimensionPoint,leaderPoint:entity.leaderPoint,textOverride:entity.textOverride,dimensionStyleId})
+      }
       throw new DxfImportError(`Unsupported neutral DXF entity ${entity.type}.`,diagnostics.snapshot())
     }
     function mapEntity(entity){const details={section:"ENTITIES",entityType:entity.type,sourceIndex:entity.sourceIndex},key=entity.layer?.toLowerCase();let layerId=key&&layerIds.get(key);if(!layerId){warn(entity.layer?"DXF_ENTITY_LAYER_UNKNOWN":"DXF_ENTITY_LAYER_MISSING",entity.layer?`Mapped unknown layer ${entity.layer} to Layer 0.`:"Mapped entity without a layer to Layer 0.",details);layerId=defaultId}let color=null;if(entity.properties.color.mode==="truecolor")color=window.CaderactDxfProperties.trueColorToHex(entity.properties.color.value);else if(entity.properties.color.mode==="aci")color=window.CaderactDxfProperties.aciToHex(entity.properties.color.value);else if(entity.properties.color.mode==="byblock")warn("DXF_BYBLOCK_FALLBACK","Mapped BYBLOCK color to ByLayer because block inheritance is unavailable.",details);return Object.freeze({...geometryRecord(entity),layerId,color,linetype:mapLinetype(entity.properties.linetype,false,details),lineweight:mapLineweight(entity.properties.lineweight,false,details)})}
@@ -44,7 +65,7 @@
     const usable=layer=>layer.visible&&!layer.locked
     if(!currentLayerId||!usable(layerTable[currentLayerId])){if(currentLayerId)warn("DXF_CURRENT_LAYER_UNAVAILABLE","DXF current layer is hidden or locked; selected a usable current layer.",{section:"HEADER"});currentLayerId=nativeLayers.find(usable)?.id}
     if(!currentLayerId){layerTable[defaultId]=Object.freeze({...layerTable[defaultId],visible:true,locked:false});currentLayerId=defaultId;warn("DXF_CURRENT_LAYER_RECOVERED","Made Layer 0 visible and unlocked so the imported document has a usable current layer.",{section:"HEADER"})}
-    const base=draft.reader.snapshot(),candidate={...base,units:{length:unit},layers:layerTable,defaultLayerId:defaultId,currentLayerId,geometry:{objects:recordTable}}
+    const base=draft.reader.snapshot(),candidate={...base,units:{length:unit},layers:layerTable,defaultLayerId:defaultId,currentLayerId,currentDimensionStyleId,geometry:{objects:recordTable}}
     let store;try{store=window.CaderactDocument.createStore({document:candidate,initiallySaved:false})}catch(error){throw new DxfImportError(`Unable to publish imported DXF: ${error.message}`,diagnostics.snapshot())}
     return Object.freeze({store,parsed,diagnostics:diagnostics.snapshot(),importedCount:records.length,unit})
   }

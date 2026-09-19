@@ -31,7 +31,7 @@ test('DXF1 parses HEADER metadata and imports planar LINE records through a neut
   const source = dxf({ units: 1, acad: 'AC1015', entities: [line(), line({ handle:'A2', x1:-5, y1:6, x2:7.5, y2:-8 })] });
   const parsed = parse(b, source);
   assert.equal(parsed.kind, 'ParsedDxf');
-  assert.deepEqual(parsed.source, { acadVersion:'AC1015', insertionUnits:1, currentLayer:null });
+  assert.deepEqual(parsed.source, { acadVersion:'AC1015', insertionUnits:1, currentLayer:null, currentDimensionStyle:null });
   assert.equal(parsed.entities.length, 2);
   const result = imported(b, source);
   assert.equal(result.count, 2); assert.equal(result.unit, 'in');

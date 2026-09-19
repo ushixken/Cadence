@@ -38,7 +38,7 @@ Object `null` properties write as BYLAYER (`62=256`, `6=BYLAYER`, `370=-1`). Exp
 
 ## Unsupported records and file action
 
-DXF5 fails the entire export if any native record type is unsupported. Dimensions therefore produce `DXF_EXPORT_UNSUPPORTED_RECORD`; they are not silently omitted or exploded. Invalid documents and unrepresentable values likewise fail before a file is written.
+DXF5 originally failed the entire export if any native record type was unsupported. DXF6 extends the supported set with native dimensions; remaining unsupported records are still never silently omitted or exploded. Invalid documents and unrepresentable values likewise fail before a file is written.
 
 File → Export DXF writes a sibling `.dxf` download through the existing file adapter. It does not change the native filename, acknowledge a save, clear dirty state, modify history/revision, or replace the document.
 
@@ -46,4 +46,4 @@ File → Export DXF writes a sibling `.dxf` download through the existing file a
 
 DXF5 guarantees semantic round trip for the documented subset: geometry, Text anchors/alignment/rotation, layer assignment/state, supported properties, and units. It does not guarantee byte-for-byte or source-structural preservation of arbitrary input DXF.
 
-DXF6 owns DIMENSION/DIMSTYLE. BLOCK/INSERT, real BYBLOCK, HATCH, SPLINE, MTEXT, arbitrary Text Styles/fonts/linetypes, partial ellipses, 3D/OCS, binary DXF, and merge import/export remain deferred.
+DXF6 owns DIMENSION/DIMSTYLE. General BLOCK/INSERT, real BYBLOCK, HATCH, SPLINE, MTEXT, arbitrary Text Styles/fonts/linetypes, partial ellipses, 3D/OCS, binary DXF, and merge import/export remain deferred.

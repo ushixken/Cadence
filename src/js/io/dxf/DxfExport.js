@@ -16,27 +16,40 @@
     const collector=window.CaderactDxfDiagnostics.createCollector(window.CaderactDxfLimits.DEFAULTS.maxDiagnostics)
     const layers=Object.values(document.layers).sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:"base"})||a.name.localeCompare(b.name))
     const layerNames=new Map(layers.map(layer=>[layer.id,layer.name])),current=layerNames.get(document.currentLayerId)
-    const supported=new Set(["line","polyline","circle","arc","ellipse","text"])
+    const styles=document.dimensionStyleOrder.map(id=>document.dimensionStyles[id]).sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:"base"})||a.name.localeCompare(b.name)),styleNames=new Map(styles.map(style=>[style.id,style.name]))
+    const supported=new Set(["line","polyline","circle","arc","ellipse","text","dimension-linear","dimension-angular","dimension-radial"])
     const unsupported=Object.values(document.geometry.objects).filter(record=>!supported.has(record.type))
     if(unsupported.length){for(const record of unsupported)collector.add({severity:"error",code:"DXF_EXPORT_UNSUPPORTED_RECORD",message:`DXF5 cannot export native ${record.type} records.`,entityType:record.type});throw new DxfExportError("DXF export contains unsupported native records.",collector.snapshot())}
-    const semanticKey=record=>JSON.stringify({...record,id:undefined,layerId:layerNames.get(record.layerId)},(key,value)=>key==="featureId"?undefined:value)
+    const semanticKey=record=>JSON.stringify({...record,id:undefined,layerId:layerNames.get(record.layerId),dimensionStyleId:record.dimensionStyleId?styleNames.get(record.dimensionStyleId):undefined},(key,value)=>key==="featureId"?undefined:value)
     const records=Object.values(document.geometry.objects).sort((a,b)=>{const ak=`${a.type}\0${semanticKey(a)}`,bk=`${b.type}\0${semanticKey(b)}`;return ak.localeCompare(bk)})
     const pairs=[],add=(code,value)=>{pairs.push(String(code),String(value))}
     const common=record=>{const layer=layerNames.get(record.layerId);if(!layer)throw new DxfExportError(`Record ${record.type} has an invalid layer reference.`,collector.snapshot());add(8,layer);if(record.color===null)add(62,256);else{add(62,7);add(420,integer(trueColor(record.color)))}add(6,record.linetype===null?"BYLAYER":LTYPE[record.linetype]);add(370,record.lineweight===null?-1:Math.round(record.lineweight*100))}
-    add(0,"SECTION");add(2,"HEADER");add(9,"$ACADVER");add(1,VERSION);add(9,"$INSUNITS");add(70,unitCode);add(9,"$CLAYER");add(8,current);add(0,"ENDSEC")
+    add(0,"SECTION");add(2,"HEADER");add(9,"$ACADVER");add(1,VERSION);add(9,"$INSUNITS");add(70,unitCode);add(9,"$CLAYER");add(8,current);add(9,"$DIMSTYLE");add(2,styleNames.get(document.currentDimensionStyleId));add(0,"ENDSEC")
     add(0,"SECTION");add(2,"TABLES");add(0,"TABLE");add(2,"LTYPE");add(70,Object.keys(LTYPE_PATTERNS).length)
     for(const [name,pattern] of Object.entries(LTYPE_PATTERNS)){add(0,"LTYPE");add(2,name);add(70,0);add(3,name);add(72,65);add(73,pattern.values.length);add(40,number(pattern.length));for(const value of pattern.values)add(49,number(value))}add(0,"ENDTAB")
     add(0,"TABLE");add(2,"LAYER");add(70,layers.length)
-    for(const layer of layers){add(0,"LAYER");add(2,layer.name);add(70,layer.locked?4:0);add(62,layer.visible?7:-7);add(420,integer(trueColor(layer.color)));add(6,LTYPE[layer.linetype]);add(370,Math.round(layer.lineweight*100))}add(0,"ENDTAB");add(0,"ENDSEC")
+    for(const layer of layers){add(0,"LAYER");add(2,layer.name);add(70,layer.locked?4:0);add(62,layer.visible?7:-7);add(420,integer(trueColor(layer.color)));add(6,LTYPE[layer.linetype]);add(370,Math.round(layer.lineweight*100))}add(0,"ENDTAB")
+    add(0,"TABLE");add(2,"DIMSTYLE");add(70,styles.length)
+    for(const style of styles){if(style.prefix!==""||style.suffix!==""||style.showUnit!==true||style.arrowStyle!=="closed-filled")throw new DxfExportError(`Dimension style ${style.name} uses formatting not representable by DXF6.`,[{severity:"error",code:"DXF_EXPORT_DIMSTYLE_FORMAT_UNSUPPORTED",message:`Cannot export custom prefix, suffix, unit visibility, or arrow style for ${style.name}.`,entityType:"DIMSTYLE"}]);add(0,"DIMSTYLE");add(2,style.name);add(70,0);add(41,number(style.arrowSize));add(42,number(style.extensionGap));add(44,number(style.extensionBeyond));add(140,number(style.textHeight));add(147,number(style.textGap));add(271,integer(style.linearPrecision));add(179,integer(style.angularPrecision))}add(0,"ENDTAB");add(0,"ENDSEC")
+    const dimensions=records.filter(record=>record.type.startsWith("dimension-")),blockNames=new Map(dimensions.map((record,index)=>[record.id,`*D${index+1}`]))
+    add(0,"SECTION");add(2,"BLOCKS")
+    for(const record of dimensions){const name=blockNames.get(record.id);add(0,"BLOCK");add(8,layerNames.get(record.layerId));add(2,name);add(70,1);add(10,0);add(20,0);add(30,0);add(3,name);add(1,"");add(0,"ENDBLK");add(8,layerNames.get(record.layerId))}add(0,"ENDSEC")
     add(0,"SECTION");add(2,"ENTITIES")
     for(const record of records){
-      add(0,record.type==="line"?"LINE":record.type==="polyline"?"LWPOLYLINE":record.type.toUpperCase());common(record)
+      add(0,record.type==="line"?"LINE":record.type==="polyline"?"LWPOLYLINE":record.type.startsWith("dimension-")?"DIMENSION":record.type.toUpperCase());common(record)
       if(record.type==="line"){add(10,number(record.start.x));add(20,number(record.start.y));add(30,0);add(11,number(record.end.x));add(21,number(record.end.y));add(31,0)}
       else if(record.type==="polyline"){add(90,record.vertices.length);add(70,record.closed?1:0);for(const vertex of record.vertices){add(10,number(vertex.x));add(20,number(vertex.y))}}
       else if(record.type==="circle"){add(10,number(record.center.x));add(20,number(record.center.y));add(30,0);add(40,number(record.radius))}
       else if(record.type==="arc"){let start=Math.atan2(record.start.y-record.center.y,record.start.x-record.center.x),end=start+record.sweep;if(record.sweep<0){start=Math.atan2(record.end.y-record.center.y,record.end.x-record.center.x);end=start-record.sweep;collector.add({severity:"warning",code:"DXF_ARC_DIRECTION_CANONICALIZED",message:"Exported a clockwise native Arc as the equivalent counterclockwise DXF ARC locus.",entityType:"ARC"})}add(10,number(record.center.x));add(20,number(record.center.y));add(30,0);add(40,number(record.radius));add(50,number(start*180/Math.PI));add(51,number(end*180/Math.PI))}
       else if(record.type==="ellipse"){const major=Math.hypot(record.majorAxis.x,record.majorAxis.y),ratio=record.minorRadius/major;if(ratio>1)throw new DxfExportError("DXF ELLIPSE requires the stored major axis to be at least the minor radius.",[{severity:"error",code:"DXF_EXPORT_ELLIPSE_RATIO_UNSUPPORTED",message:"Cannot export an Ellipse whose native minor radius exceeds its stored major-axis length.",entityType:"ELLIPSE"}]);add(10,number(record.center.x));add(20,number(record.center.y));add(30,0);add(11,number(record.majorAxis.x));add(21,number(record.majorAxis.y));add(31,0);add(40,number(ratio));add(41,0);add(42,number(Math.PI*2))}
       else if(record.type==="text"){const degrees=record.rotation*180/Math.PI,justification={left:0,center:1,right:2}[record.horizontalAlignment];add(10,number(record.insertionPoint.x));add(20,number(record.insertionPoint.y));add(30,0);add(40,number(record.height));add(1,encodeText(record.text));add(50,number(degrees));add(72,justification);add(73,0);if(justification!==0){add(11,number(record.insertionPoint.x));add(21,number(record.insertionPoint.y));add(31,0)}}
+      else if(record.type.startsWith("dimension-")){
+        const point=(base,value)=>{add(base,number(value.x));add(base+10,number(value.y));add(base+20,0)}
+        add(2,blockNames.get(record.id));add(3,styleNames.get(record.dimensionStyleId));if(record.textOverride!==null)add(1,encodeText(record.textOverride))
+        if(record.type==="dimension-linear"){add(70,record.mode==="aligned"?33:32);point(10,record.dimensionLinePoint);point(13,record.firstPoint);point(14,record.secondPoint);if(record.mode!=="aligned")add(50,record.mode==="vertical"?90:0)}
+        else if(record.type==="dimension-angular"){add(70,37);point(10,record.dimensionArcPoint);point(13,record.firstRayPoint);point(14,record.secondRayPoint);point(15,record.vertex)}
+        else {add(70,record.mode==="diameter"?35:36);const definition=record.mode==="diameter"?{x:2*record.centerPoint.x-record.dimensionPoint.x,y:2*record.centerPoint.y-record.dimensionPoint.y}:record.centerPoint;point(10,definition);point(11,record.leaderPoint);point(15,record.dimensionPoint);add(40,number(Math.hypot(record.leaderPoint.x-record.dimensionPoint.x,record.leaderPoint.y-record.dimensionPoint.y)))}
+      }
     }
     add(0,"ENDSEC");add(0,"EOF")
     return Object.freeze({text:`${pairs.join("\n")}\n`,diagnostics:collector.snapshot(),exportedCount:records.length,version:VERSION,unit:document.units.length})
