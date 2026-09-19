@@ -1,4 +1,4 @@
-// DXF1: neutral-DXF to isolated canonical Caderact document mapping.
+// DXF1/DXF2: neutral-DXF to isolated canonical Caderact document mapping.
 (() => {
   const INSUNITS = Object.freeze({ 1: "in", 2: "ft", 4: "mm", 5: "cm", 6: "m" })
 
@@ -21,7 +21,23 @@
     if (!['committed', 'no-op'].includes(layerOutcome.status)) reject(parsed, "DXF_LAYER_MAPPING_FAILED", "Unable to create DXF Layer 0.")
     const unitOutcome = draft.unitGateway.setLengthUnit(unit)
     if (!['committed', 'no-op'].includes(unitOutcome.status)) reject(parsed, "DXF_UNIT_MAPPING_FAILED", "Unable to apply DXF drawing units.")
-    const records = parsed.entities.map(entity => draft.recordGateway.createLine(entity.start, entity.end))
+    const records = parsed.entities.map(entity => {
+      if (entity.type === "LINE") return draft.recordGateway.createLine(entity.start, entity.end)
+      if (entity.type === "LWPOLYLINE" || entity.type === "POLYLINE") return draft.recordGateway.createPolyline(entity.vertices, entity.closed)
+      if (entity.type === "CIRCLE") return draft.recordGateway.createCircle(entity.center, entity.radius)
+      if (entity.type === "ARC") {
+        const startAngle = window.CaderactArcGeometry.normalizeAngle(entity.startAngleDegrees * Math.PI / 180)
+        const sweep = window.CaderactArcGeometry.positiveDelta(startAngle, entity.endAngleDegrees * Math.PI / 180)
+        return draft.recordGateway.createArc({ center: entity.center, radius: entity.radius, sweep,
+          start: { x: entity.center.x + Math.cos(startAngle) * entity.radius,
+            y: entity.center.y + Math.sin(startAngle) * entity.radius },
+          end: { x: entity.center.x + Math.cos(startAngle + sweep) * entity.radius,
+            y: entity.center.y + Math.sin(startAngle + sweep) * entity.radius } })
+      }
+      if (entity.type === "ELLIPSE") return draft.recordGateway.createEllipse({ center: entity.center,
+        majorAxis: entity.majorAxis, minorRadius: Math.hypot(entity.majorAxis.x, entity.majorAxis.y) * entity.ratio })
+      throw new DxfImportError(`Unsupported neutral DXF entity ${entity.type}.`, parsed.diagnostics)
+    })
     if (records.length) {
       const outcome = draft.recordGateway.createAll(records)
       if (outcome.status !== "committed") throw new DxfImportError(outcome.message || "Unable to create imported LINE records.", parsed.diagnostics)

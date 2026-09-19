@@ -49,6 +49,6 @@ The replacement store has empty history but is deliberately dirty/unsaved. Its s
 
 ## Supported and deferred scope
 
-Supported: ASCII group pairs, `HEADER`, minimally skipped `TABLES`, `ENTITIES`, empty drawings, and planar/default-extrusion `LINE`.
+DXF1's original supported scope is ASCII group pairs, `HEADER`, minimally skipped `TABLES`, `ENTITIES`, empty drawings, and planar/default-extrusion `LINE`. DXF2 extends the same boundary with the core geometry documented in `DXF2-core-geometry-import.md`.
 
-Unsupported but structurally valid entities and sections are skipped with warnings. Binary DXF is rejected. DXF2+ owns polylines, circles, arcs, ellipses, text, dimensions, full layers/properties, blocks, hatch, spline, MTEXT, OCS/3D conversion, export, and merge into an existing drawing.
+Unsupported but structurally valid entities and sections are skipped with warnings. Binary DXF is rejected. DXF3+ owns text, dimensions, full layers/properties, blocks, hatch, spline, MTEXT, arbitrary OCS/3D conversion, export, and merge into an existing drawing.

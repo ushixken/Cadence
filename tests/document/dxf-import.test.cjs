@@ -64,12 +64,12 @@ test('import allocates fresh native record and feature identities with valid Lay
 
 test('unsupported content is structurally skipped with capped and aggregated diagnostics', async () => {
   const b=await browser();
-  const source=dxf({entities:[['0','CIRCLE','5','C1','10','0','20','0','40','2'],['0','CIRCLE','5','C2','10','1','20','1','40','3'],line()],extraSections:[['0','SECTION','2','OBJECTS','0','DICTIONARY','5','D1','0','ENDSEC']]});
+  const source=dxf({entities:[['0','SPLINE','5','C1'],['0','SPLINE','5','C2'],line()],extraSections:[['0','SECTION','2','OBJECTS','0','DICTIONARY','5','D1','0','ENDSEC']]});
   const parsed=parse(b,source);
   const entityWarning=parsed.diagnostics.find(value=>value.code==='DXF_UNSUPPORTED_ENTITY');
   assert.equal(entityWarning.count,2); assert.ok(parsed.diagnostics.some(value=>value.code==='DXF_UNSUPPORTED_SECTION'));
   assert.equal(parsed.entities.length,1);
-  const capped=parse(b,dxf({entities:[['0','CIRCLE'],['0','ARC'],['0','SPLINE']]}),{limits:{maxDiagnostics:1}});
+  const capped=parse(b,dxf({entities:[['0','HATCH'],['0','MTEXT'],['0','SPLINE']]}),{limits:{maxDiagnostics:1}});
   assert.ok(capped.diagnostics.some(value=>value.code==='DXF_DIAGNOSTIC_LIMIT'));
 });
 
@@ -96,7 +96,7 @@ test('parser resource limits reject before publication and empty/no-supported EN
     assert.throws(()=>b.run('window.CaderactDxfParser.parse(window.__dxf,{limits:window.__limits})'),pattern);
   }
   const empty=await browser();assert.equal(imported(empty,dxf()).count,0);
-  const unsupported=await browser();assert.equal(imported(unsupported,dxf({entities:[['0','CIRCLE','10','0','20','0','40','2']]})).count,0);
+  const unsupported=await browser();assert.equal(imported(unsupported,dxf({entities:[['0','SPLINE','10','0','20','0']]})).count,0);
 });
 
 test('Open DXF replaces once through the normal lifecycle, stays dirty, and failed import is atomic', async () => {
