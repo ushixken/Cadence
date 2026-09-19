@@ -36,4 +36,4 @@ TEXT passes through the exact DXF3 layer and object-property mapper. ByLayer, AC
 
 Malformed supported TEXT fails construction of the isolated store and leaves the active document unchanged. Valid but unsupported semantics skip only that entity with a structured diagnostic, allowing supported geometry and Text to import together.
 
-Deferred work includes MTEXT, Text Styles/fonts, arbitrary encoding conversion, multiline/rich text, Fit/Aligned approximation, arbitrary OCS conversion, Dimensions/DIMSTYLE, Blocks, Hatch, export, and merge import.
+DXF5 adds deterministic export and semantic round-trip coverage in `DXF5-export-semantic-round-trip.md`. MTEXT, Text Styles/fonts, arbitrary encoding conversion, multiline/rich text, Fit/Aligned approximation, arbitrary OCS conversion, Dimensions/DIMSTYLE, Blocks, Hatch, and merge import remain deferred.
