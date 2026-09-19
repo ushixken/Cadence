@@ -398,6 +398,6 @@ test('publishing a Trim plan changes neither fileVersion/formatVersion nor persi
       featureIdentityIntent: { start: preserve(line.start.featureId), end: allocate() } },
     creates: [],
   }));
-  assert.equal(b.read('modelReader.snapshot().formatVersion'), 2);
+  assert.equal(b.read('modelReader.snapshot().formatVersion'), 3);
   assert.equal(b.run(`window.CaderactDocument.validateDocument(modelReader.snapshot()).length`), 0);
 });

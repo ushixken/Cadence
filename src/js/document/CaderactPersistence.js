@@ -1,6 +1,6 @@
 // A8: deterministic, versioned serialization for durable document content.
 (() => {
-  const FILE_VERSION = 2
+  const FILE_VERSION = 3
   const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value)
 
   function invalid(message) { throw new Error(`Invalid Caderact file: ${message}`) }
@@ -37,9 +37,9 @@
       majorAxis: { x: record.majorAxis?.x, y: record.majorAxis?.y }, minorRadius: record.minorRadius,
     }
     const feature=value=>({x:value?.x,y:value?.y,featureId:value?.featureId})
-    if(record.type==="dimension-linear")return {id:record.id,type:record.type,layerId:record.layerId,...properties(record),mode:record.mode,firstPoint:feature(record.firstPoint),secondPoint:feature(record.secondPoint),dimensionLinePoint:feature(record.dimensionLinePoint),textOverride:record.textOverride}
-    if(record.type==="dimension-angular")return {id:record.id,type:record.type,layerId:record.layerId,...properties(record),firstRayPoint:feature(record.firstRayPoint),vertex:feature(record.vertex),secondRayPoint:feature(record.secondRayPoint),dimensionArcPoint:feature(record.dimensionArcPoint),textOverride:record.textOverride}
-    if(record.type==="dimension-radial")return {id:record.id,type:record.type,layerId:record.layerId,...properties(record),mode:record.mode,centerPoint:feature(record.centerPoint),dimensionPoint:feature(record.dimensionPoint),leaderPoint:feature(record.leaderPoint),textOverride:record.textOverride}
+    if(record.type==="dimension-linear")return {id:record.id,type:record.type,layerId:record.layerId,...properties(record),mode:record.mode,firstPoint:feature(record.firstPoint),secondPoint:feature(record.secondPoint),dimensionLinePoint:feature(record.dimensionLinePoint),textOverride:record.textOverride,dimensionStyleId:record.dimensionStyleId}
+    if(record.type==="dimension-angular")return {id:record.id,type:record.type,layerId:record.layerId,...properties(record),firstRayPoint:feature(record.firstRayPoint),vertex:feature(record.vertex),secondRayPoint:feature(record.secondRayPoint),dimensionArcPoint:feature(record.dimensionArcPoint),textOverride:record.textOverride,dimensionStyleId:record.dimensionStyleId}
+    if(record.type==="dimension-radial")return {id:record.id,type:record.type,layerId:record.layerId,...properties(record),mode:record.mode,centerPoint:feature(record.centerPoint),dimensionPoint:feature(record.dimensionPoint),leaderPoint:feature(record.leaderPoint),textOverride:record.textOverride,dimensionStyleId:record.dimensionStyleId}
     return { id: record.id, type: record.type }
   }
   function payloadFor(document) {
@@ -52,7 +52,7 @@
         name: document.name,
         formatVersion: document.formatVersion,
         units: { length: document.units.length },
-        dimensionStyle:{...document.dimensionStyle},
+        dimensionStyles:document.dimensionStyleOrder.map(id=>({...document.dimensionStyles[id]})),currentDimensionStyleId:document.currentDimensionStyleId,
         defaultLayerId: document.defaultLayerId,
         currentLayerId: document.currentLayerId,
         layers: sortById(Object.values(document.layers)).map(canonicalLayer),
@@ -67,17 +67,18 @@
     let payload
     try { payload = JSON.parse(serialized) } catch { invalid("malformed JSON") }
     if (!isRecord(payload)) invalid("root must be an object")
-    if (payload.fileVersion !== 1 && payload.fileVersion !== FILE_VERSION) invalid(`unsupported fileVersion ${String(payload.fileVersion)}`)
-    const legacy=payload.fileVersion===1
-    const fields = legacy?window.CaderactDocument.V1_FIELDS:window.CaderactDocument.V2_FIELDS
+    if (![1,2,FILE_VERSION].includes(payload.fileVersion)) invalid(`unsupported fileVersion ${String(payload.fileVersion)}`)
+    const legacy=payload.fileVersion===1,version2=payload.fileVersion===2
+    const fields = legacy?window.CaderactDocument.V1_FIELDS:version2?window.CaderactDocument.V2_FIELDS:window.CaderactDocument.V3_FIELDS
     rejectUnknown(payload, fields.fileEnvelope, "root")
     const source = payload.document
     if (!isRecord(source)) invalid("missing document")
     rejectUnknown(source, fields.persistedDocument, "document")
     if (!isRecord(source.units)) invalid("units must be an object")
     rejectUnknown(source.units, fields.units, "units")
-    if(!legacy){if(!isRecord(source.dimensionStyle))invalid("dimensionStyle must be an object");rejectUnknown(source.dimensionStyle,fields.dimensionStyle,"dimensionStyle")}
-    if(source.formatVersion!==(legacy?1:2))invalid(`document formatVersion does not match fileVersion ${payload.fileVersion}`)
+    if(version2){if(!isRecord(source.dimensionStyle))invalid("dimensionStyle must be an object");rejectUnknown(source.dimensionStyle,fields.dimensionStyle,"dimensionStyle")}
+    if(!legacy&&!version2){if(!Array.isArray(source.dimensionStyles)||!source.dimensionStyles.length)invalid("dimensionStyles must be a non-empty array");for(const style of source.dimensionStyles){if(!isRecord(style))invalid("dimension style entry must be an object");rejectUnknown(style,fields.dimensionStyle,"dimension style entry")}}
+    if(source.formatVersion!==payload.fileVersion)invalid(`document formatVersion does not match fileVersion ${payload.fileVersion}`)
     if (!Array.isArray(source.layers)) invalid("layers must be an array")
     if (!Array.isArray(source.records)) invalid("records must be an array")
 
@@ -128,12 +129,15 @@
 
     const layers = tableFrom(source.layers, "layer", canonicalLayer)
     const objects = tableFrom(source.records, "record", canonicalRecord)
+    let styleId,dimensionStyles,dimensionStyleOrder,currentDimensionStyleId
+    if(legacy||version2){styleId=`ds_${source.id}_standard`;dimensionStyles={[styleId]:{id:styleId,name:"Standard",...(version2?source.dimensionStyle:window.CaderactDocument.DEFAULT_DIMENSION_STYLE)}};dimensionStyleOrder=[styleId];currentDimensionStyleId=styleId;for(const record of Object.values(objects))if(record.type.startsWith("dimension-"))record.dimensionStyleId=styleId}
+    else {dimensionStyles=tableFrom(source.dimensionStyles,"dimension style",style=>({...style}));dimensionStyleOrder=source.dimensionStyles.map(style=>style.id);currentDimensionStyleId=source.currentDimensionStyleId}
     const candidate = {
       id: source.id,
       name: source.name,
-      formatVersion: 2,
+      formatVersion: 3,
       units: { length: source.units?.length },
-      dimensionStyle:legacy?{...window.CaderactDocument.DEFAULT_DIMENSION_STYLE}:{...source.dimensionStyle},
+      dimensionStyles,dimensionStyleOrder,currentDimensionStyleId,
       geometry: { objects },
       layers,
       defaultLayerId: source.defaultLayerId,

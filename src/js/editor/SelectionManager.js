@@ -70,7 +70,7 @@
         for(let index=0;index<segments.length;index+=4)distancePx=Math.min(distancePx,segmentDistance(screenPoint,...segments.slice(index,index+4)))
         if(distancePx<=tolerancePx)hits.push({recordId:record.id,distancePx})
       } else if(record?.type?.startsWith("dimension-")){
-        const presentation=window.CaderactDimensionGeometry.derive(record,window.caderactDocumentSession?.reader.dimensionStyle()||window.CaderactDocument.DEFAULT_DIMENSION_STYLE,window.caderactDocumentSession?.reader.units()||{length:"mm"})
+        const presentation=window.CaderactDimensionGeometry.derive(record,window.caderactDocumentSession?.reader.resolveDimensionStyle(record)||window.CaderactDocument.DEFAULT_DIMENSION_STYLE,window.caderactDocumentSession?.reader.units()||{length:"mm"})
         if(!presentation.supported)continue
         let distancePx=Infinity
         for(const [a,b] of presentation.lines){const start=worldToScreen(a.x,a.y),end=worldToScreen(b.x,b.y);distancePx=Math.min(distancePx,segmentDistance(screenPoint,start.x,start.y,end.x,end.y))}

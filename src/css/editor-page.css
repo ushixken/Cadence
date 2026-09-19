@@ -61,6 +61,12 @@
 .properties-empty { padding:18px 12px; color:var(--mutedText); line-height:1.45; }
 .property-section { padding:8px 0 5px; border-bottom:1px solid rgba(38,55,74,.65); }
 .property-section h3 { margin:0 9px 5px; color:#7f91a4; font-size:.61rem; font-weight:600; letter-spacing:.09em; text-transform:uppercase; }
+.dimension-style-backdrop{position:fixed;inset:0;z-index:80;display:grid;place-items:center;background:rgba(5,10,16,.56)}
+.dimension-style-backdrop[hidden]{display:none}
+.dimension-style-manager{width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 48px);overflow:auto;background:#111b27;border:1px solid #314256;border-radius:7px;box-shadow:0 16px 42px rgba(0,0,0,.42);color:#dce5ee}
+.dimension-style-manager>header,.dimension-style-manager>footer{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #26374a}.dimension-style-manager>header h2{margin:0 auto 0 0;font-size:.92rem}.dimension-style-manager>footer{justify-content:flex-end;border-top:1px solid #26374a;border-bottom:0}
+.dimension-style-manager-body{display:grid;grid-template-columns:180px 1fr;min-height:290px}.dimension-style-list{padding:8px;border-right:1px solid #26374a}.dimension-style-list button{display:block;width:100%;padding:7px 8px;text-align:left;background:transparent;border:0;color:inherit}.dimension-style-list button.selected{background:#20344a;color:#fff}.dimension-style-editor{padding:9px}.dimension-style-manager button,.dimension-style-manager input{min-height:28px;background:#172536;border:1px solid #34485e;border-radius:3px;color:inherit}.dimension-style-manager button{padding:4px 9px}.dimension-style-manager input{width:100%;padding:3px 6px}
+@media(max-width:520px){.dimension-style-manager-body{grid-template-columns:1fr}.dimension-style-list{border-right:0;border-bottom:1px solid #26374a}}
 .property-row { display:grid; grid-template-columns:minmax(70px,.9fr) minmax(0,1.15fr); min-height:28px; padding:2px 9px; gap:8px; align-items:center; }
 .property-row label, .property-label { color:#aebbc8; }
 .property-value { overflow:hidden; color:var(--mainText); text-align:right; text-overflow:ellipsis; white-space:nowrap; }

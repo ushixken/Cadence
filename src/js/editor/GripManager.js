@@ -33,7 +33,7 @@
       .sort((a, b) => a.recordId.localeCompare(b.recordId) || a.featureId.localeCompare(b.featureId)))
   }
 
-  function discoverDimensionGrips(records,selectedIds){const selected=new Set(selectedIds),grips=[];for(const record of records){if(!record?.type?.startsWith("dimension-")||!selected.has(record.id))continue;const presentation=window.CaderactDimensionGeometry.derive(record,window.CaderactDocument.DEFAULT_DIMENSION_STYLE,{length:"mm"});if(!presentation.supported)continue;for(const descriptor of presentation.grips)grips.push(Object.freeze({recordId:record.id,featureId:descriptor.featureId,kind:descriptor.kind,point:freezePoint(descriptor.point)}))}return Object.freeze(grips)}
+  function discoverDimensionGrips(records,selectedIds){const selected=new Set(selectedIds),grips=[];for(const record of records){if(!record?.type?.startsWith("dimension-")||!selected.has(record.id))continue;const style=window.caderactDocumentSession?.reader.resolveDimensionStyle(record)||window.CaderactDocument.DEFAULT_DIMENSION_STYLE,presentation=window.CaderactDimensionGeometry.derive(record,style,{length:"mm"});if(!presentation.supported)continue;for(const descriptor of presentation.grips)grips.push(Object.freeze({recordId:record.id,featureId:descriptor.featureId,kind:descriptor.kind,point:freezePoint(descriptor.point)}))}return Object.freeze(grips)}
 
   const lineAdapter = Object.freeze({
     discover: discoverLineGrips,

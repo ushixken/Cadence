@@ -32,6 +32,7 @@
       get recordGateway() { return store.recordGateway },
       get layerGateway() { return store.layerGateway },
       get unitGateway() { return store.unitGateway },
+      get dimensionStyleGateway() { return store.dimensionStyleGateway },
     })
   }
 

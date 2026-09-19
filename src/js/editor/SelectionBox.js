@@ -51,7 +51,7 @@
       return nearest<=radius+EPSILON&&farthest>=radius-EPSILON
     }
     if(record?.type?.startsWith("dimension-")){
-      const presentation=window.CaderactDimensionGeometry.derive(record,window.caderactDocumentSession?.reader.dimensionStyle()||window.CaderactDocument.DEFAULT_DIMENSION_STYLE,window.caderactDocumentSession?.reader.units()||{length:"mm"})
+      const presentation=window.CaderactDimensionGeometry.derive(record,window.caderactDocumentSession?.reader.resolveDimensionStyle(record)||window.CaderactDocument.DEFAULT_DIMENSION_STYLE,window.caderactDocumentSession?.reader.units()||{length:"mm"})
       if(!presentation.supported)return false
       const values=[]
       for(const [a,b] of presentation.lines){const start=worldToScreen(a.x,a.y),end=worldToScreen(b.x,b.y);values.push(start.x,start.y,end.x,end.y)}

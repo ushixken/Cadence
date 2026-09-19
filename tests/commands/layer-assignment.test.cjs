@@ -27,5 +27,5 @@ test('explicit panel Assign action owns UI feedback and command gating',async()=
 });
 
 test('assigned layer IDs persist exactly through v1 Save/Open representation',async()=>{
-  const b=await browser();seed(b);b.run('recordGateway.assignLayer(window.__records.map(x=>x.id),window.__target.id)');const serialized=b.run('window.CaderactPersistence.serializeDocument(modelReader.snapshot())');b.run(`window.__loaded=window.CaderactPersistence.loadStore(${JSON.stringify(serialized)})`);assert.deepEqual(b.read('window.__loaded.reader.records().map(x=>[x.id,x.layerId])'),b.read('modelReader.records().map(x=>[x.id,x.layerId])'));assert.equal(JSON.parse(serialized).fileVersion,2);
+  const b=await browser();seed(b);b.run('recordGateway.assignLayer(window.__records.map(x=>x.id),window.__target.id)');const serialized=b.run('window.CaderactPersistence.serializeDocument(modelReader.snapshot())');b.run(`window.__loaded=window.CaderactPersistence.loadStore(${JSON.stringify(serialized)})`);assert.deepEqual(b.read('window.__loaded.reader.records().map(x=>[x.id,x.layerId])'),b.read('modelReader.records().map(x=>[x.id,x.layerId])'));assert.equal(JSON.parse(serialized).fileVersion,3);
 });

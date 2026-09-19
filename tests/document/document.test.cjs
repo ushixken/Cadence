@@ -11,7 +11,7 @@ async function fixture() {
 }
 test('document, default layer and current layer have stable resolving IDs', async () => {
   const b = await browser(); const before = b.window.caderactDocument.snapshot();
-  assert.equal(before.formatVersion, 2); assert.ok(before.id);
+  assert.equal(before.formatVersion, 3); assert.ok(before.id);
   assert.deepEqual(Object.keys(before.layers), [before.currentLayerId]);
   const layer = before.layers[before.currentLayerId];
   assert.equal(layer.name, 'Default'); assert.equal(layer.visible, true); assert.equal(layer.locked, false);

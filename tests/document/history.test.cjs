@@ -138,7 +138,7 @@ test('a stale transaction after Undo preserves its existing Redo branch', async 
   const { b, layerId } = await fixture();
   const custom = b.run(`(() => {
     const layers = { ${JSON.stringify(layerId)}: { id:${JSON.stringify(layerId)}, name:'Default', visible:true, locked:false } };
-    let state = { id:'history_stale_doc', name:'Test', formatVersion:2, units:{length:'mm'}, dimensionStyle:{...window.CaderactDocument.DEFAULT_DIMENSION_STYLE}, geometry:{ objects:{} }, layers, defaultLayerId:${JSON.stringify(layerId)}, currentLayerId:${JSON.stringify(layerId)} };
+    let state = window.CaderactDocument.migrateDocument({ id:'history_stale_doc', name:'Test', formatVersion:2, units:{length:'mm'}, dimensionStyle:{...window.CaderactDocument.DEFAULT_DIMENSION_STYLE}, geometry:{ objects:{} }, layers, defaultLayerId:${JSON.stringify(layerId)}, currentLayerId:${JSON.stringify(layerId)} });
     const hooks = {};
     const controller = window.DocumentController.createController({
       getDocument: () => state, assembleDocument: (base, objects) => ({ ...base, geometry:{ objects } }),
@@ -209,7 +209,7 @@ test('history integrity failure never partially publishes or advances cursor, st
   // a corrupted authoritative table that normal production readers cannot make.
   const custom = b.run(`(() => {
     const layers = { ${JSON.stringify(layerId)}: { id:${JSON.stringify(layerId)}, name:'Default', visible:true, locked:false } };
-    let state = { id:'history_integrity_doc', name:'Test', formatVersion:2, units:{length:'mm'}, dimensionStyle:{...window.CaderactDocument.DEFAULT_DIMENSION_STYLE}, geometry:{ objects:{} }, layers, defaultLayerId:${JSON.stringify(layerId)}, currentLayerId:${JSON.stringify(layerId)} };
+    let state = window.CaderactDocument.migrateDocument({ id:'history_integrity_doc', name:'Test', formatVersion:2, units:{length:'mm'}, dimensionStyle:{...window.CaderactDocument.DEFAULT_DIMENSION_STYLE}, geometry:{ objects:{} }, layers, defaultLayerId:${JSON.stringify(layerId)}, currentLayerId:${JSON.stringify(layerId)} });
     const controller = window.DocumentController.createController({
       getDocument: () => state,
       assembleDocument: (base, objects) => ({ ...base, geometry:{ objects } }),

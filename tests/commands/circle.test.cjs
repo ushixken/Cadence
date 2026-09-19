@@ -88,7 +88,7 @@ test('renderer recovery reconstructs Circle preview without persistent mutation'
 test('Circle persistence round-trips exact v1 geometry and rejects malformed closed shapes',async()=>{
   const b=await browser();b.launch('Circle');typed(b,'1.25,-2.5');typed(b,'4.25,1.5');const original=b.read('modelReader.records()[0]');
   b.run('window.__circleFile=window.CaderactPersistence.serializeDocument(modelReader.snapshot());window.__circleStore=window.CaderactPersistence.loadStore(window.__circleFile)');
-  assert.deepEqual(b.read('window.__circleStore.reader.records()[0]'),original);assert.equal(b.read('JSON.parse(window.__circleFile).fileVersion'),2);
+  assert.deepEqual(b.read('window.__circleStore.reader.records()[0]'),original);assert.equal(b.read('JSON.parse(window.__circleFile).fileVersion'),3);
   const payload=JSON.parse(b.run('window.__circleFile'));
   for(const mutate of [
     value=>{value.document.records[0].radius=0},value=>{value.document.records[0].radius=null},
