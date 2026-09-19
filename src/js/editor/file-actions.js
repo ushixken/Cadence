@@ -20,6 +20,16 @@
           input.click()
         })
       },
+      async pickDxfFile() {
+        return new Promise(resolve => {
+          const input = document.createElement("input")
+          input.type = "file"
+          input.accept = ".dxf,application/dxf,application/x-dxf"
+          input.addEventListener("change", () => resolve(input.files?.[0] || null), { once: true })
+          input.addEventListener("cancel", () => resolve(null), { once: true })
+          input.click()
+        })
+      },
       async writeFile({ serialized, filename }) {
         const blob = new Blob([serialized], { type: "application/json" })
         const url = URL.createObjectURL(blob)
@@ -31,7 +41,8 @@
     }
   }
 
-  function createActions({ session, commandRouter, viewport, persistence = window.CaderactPersistence, adapters = browserAdapters() }) {
+  function createActions({ session, commandRouter, viewport, persistence = window.CaderactPersistence,
+    dxfImporter = window.CaderactDxfImport, adapters = browserAdapters() }) {
     let filename = DEFAULT_FILENAME
     let lastResult = result("file-idle")
     const publish = outcome => { lastResult = outcome; window.caderactFeedback?.presentResult(outcome); return outcome }
@@ -75,6 +86,31 @@
       viewport.resetForDocumentReplacement()
       return publish(result("open-completed", { filename, documentId: store.reader.snapshot().id }))
     }
+    async function openDxf() {
+      const blocked = activeBlocked("dxf-open"); if (blocked) return blocked
+      const guard = await confirmReplacement("dxf-open"); if (guard) return guard
+      let file
+      try { file = await (adapters.pickDxfFile || adapters.pickOpenFile)() }
+      catch (error) { return publish(result("dxf-open-failed", { reason: "picker-failed", message: error.message })) }
+      if (!file) return publish(result("dxf-open-cancelled", { reason: "picker-cancelled" }))
+      let imported
+      try {
+        const text = typeof file.text === "function" ? await file.text() : file.serialized
+        imported = dxfImporter.createStore(text)
+      } catch (error) {
+        return publish(result("dxf-open-failed", { reason: "invalid-dxf", message: error.message, diagnostics: error.diagnostics || [] }))
+      }
+      const sourceName = typeof file.name === "string" ? file.name.replace(/\.dxf$/i, "") : "Untitled"
+      filename = normalizeFilename(sourceName)
+      session.replaceStore(imported.store, { reason: "dxf-open" })
+      viewport.resetForDocumentReplacement()
+      const outcome = publish(result("dxf-open-completed", { filename, documentId: imported.store.reader.snapshot().id,
+        importedCount: imported.importedCount, diagnostics: imported.diagnostics, unit: imported.unit }))
+      const warningCount = imported.diagnostics.filter(value => value.severity === "warning")
+        .reduce((count, value) => count + (value.count || 1), 0)
+      if (warningCount) window.caderactFeedback?.showTemporary(`DXF opened with ${warningCount} warning${warningCount === 1 ? "" : "s"}.`, "status")
+      return outcome
+    }
     async function newProject() {
       const blocked = activeBlocked("new"); if (blocked) return blocked
       const guard = await confirmReplacement("new"); if (guard) return guard
@@ -86,7 +122,7 @@
       viewport.resetForDocumentReplacement()
       return publish(result("new-completed", { filename, documentId: store.reader.snapshot().id }))
     }
-    return Object.freeze({ save, open, newProject, get filename() { return filename }, get lastResult() { return lastResult } })
+    return Object.freeze({ save, open, openDxf, newProject, get filename() { return filename }, get lastResult() { return lastResult } })
   }
 
   window.CaderactFileActions = Object.freeze({ createActions, DEFAULT_FILENAME, normalizeFilename })
@@ -94,6 +130,7 @@
   const newButton = document.querySelector("#file-new")
   const openButton = document.querySelector("#file-open")
   const saveButton = document.querySelector("#file-save")
+  const importDxfButton = document.querySelector("#file-import-dxf")
   const fileMenu = document.querySelector(".file-menu")
   const fileMenuTrigger = document.querySelector(".file-menu-trigger")
   const fileMenuDropdown = document.querySelector("#file-menu-actions")
@@ -117,6 +154,7 @@
   newButton.addEventListener("click", () => { closeFileMenu(); actions.newProject() })
   openButton.addEventListener("click", () => { closeFileMenu(); actions.open() })
   saveButton.addEventListener("click", () => { closeFileMenu(); actions.save() })
+  importDxfButton?.addEventListener("click", () => { closeFileMenu(); actions.openDxf() })
   document.addEventListener("click", event => { if (!fileMenu.contains(event.target)) closeFileMenu() })
   document.addEventListener("keydown", event => {
     if (event.key === "Escape" && !fileMenuDropdown.hidden) {

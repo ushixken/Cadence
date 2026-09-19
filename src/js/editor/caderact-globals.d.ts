@@ -79,6 +79,7 @@ interface CaderactCommandRouter {
 interface CaderactCommandFeedbackController {
   setActivePrompt(message: string, options?: readonly CaderactCommandOption[], presentation?: CaderactPromptPresentation | null): void;
   presentResult(outcome: CaderactCommandOutcome): CaderactCommandOutcome;
+  showTemporary(message: string, kind?: string): void;
 }
 
 interface CaderactViewportCommandSurface {
