@@ -50,6 +50,9 @@
       const farthest=Math.max(...[[rect.left,rect.top],[rect.right,rect.top],[rect.right,rect.bottom],[rect.left,rect.bottom]].map(([x,y])=>Math.hypot(x-center.x,y-center.y)))
       return nearest<=radius+EPSILON&&farthest>=radius-EPSILON
     }
+    if(record?.type==="text"){
+      const corners=window.CaderactAnnotationGeometry.projectedCorners(record,worldToScreen);if(!corners.length)return false;const contained=corners.every(point=>pointInRect(point,rect));if(mode==="window"||contained)return contained;for(let index=0;index<4;index++)if(segmentIntersectsRect(corners[index],corners[(index+1)%4],rect))return true;return false
+    }
     if(record?.type?.startsWith("dimension-")){
       const presentation=window.CaderactDimensionGeometry.derive(record,window.caderactDocumentSession?.reader.resolveDimensionStyle(record)||window.CaderactDocument.DEFAULT_DIMENSION_STYLE,window.caderactDocumentSession?.reader.units()||{length:"mm"})
       if(!presentation.supported)return false

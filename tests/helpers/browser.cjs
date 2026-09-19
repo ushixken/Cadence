@@ -148,6 +148,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/geometry/Measurement.js');
   load('src/js/geometry/DimensionFormatter.js');
   load('src/js/geometry/DimensionGeometry.js');
+  load('src/js/geometry/AnnotationGeometry.js');
   load('src/js/rendering/StrokeStyle.js');
   load('src/js/rendering/CircleTessellation.js');
   load('src/js/rendering/EllipseTessellation.js');

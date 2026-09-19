@@ -69,6 +69,8 @@
         let distancePx=Infinity
         for(let index=0;index<segments.length;index+=4)distancePx=Math.min(distancePx,segmentDistance(screenPoint,...segments.slice(index,index+4)))
         if(distancePx<=tolerancePx)hits.push({recordId:record.id,distancePx})
+      } else if(record?.type==="text"){
+        const corners=window.CaderactAnnotationGeometry.projectedCorners(record,worldToScreen);if(corners.length){let distancePx=Infinity;for(let index=0;index<4;index++){const a=corners[index],b=corners[(index+1)%4];distancePx=Math.min(distancePx,segmentDistance(screenPoint,a.x,a.y,b.x,b.y))}let sign=null,inside=true;for(let index=0;index<4;index++){const a=corners[index],b=corners[(index+1)%4],cross=(b.x-a.x)*(screenPoint.y-a.y)-(b.y-a.y)*(screenPoint.x-a.x);if(Math.abs(cross)<1e-9)continue;const next=Math.sign(cross);if(sign===null)sign=next;else if(sign!==next){inside=false;break}}if(inside)distancePx=0;if(distancePx<=tolerancePx)hits.push({recordId:record.id,distancePx})}
       } else if(record?.type?.startsWith("dimension-")){
         const presentation=window.CaderactDimensionGeometry.derive(record,window.caderactDocumentSession?.reader.resolveDimensionStyle(record)||window.CaderactDocument.DEFAULT_DIMENSION_STYLE,window.caderactDocumentSession?.reader.units()||{length:"mm"})
         if(!presentation.supported)continue

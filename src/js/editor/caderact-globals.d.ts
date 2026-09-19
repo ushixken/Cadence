@@ -108,6 +108,7 @@ interface CaderactViewportCommandSurface {
   createRotateCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createScaleCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createTrimCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
+  createTextCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   cancelDynamicInputEdit?(): void;
   cancelGripEdit(): void;
   selectAllCommittedGeometry(): CaderactCommandOutcome;

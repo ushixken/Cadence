@@ -13,6 +13,7 @@
     if (record.type === "ellipse") return Object.freeze({ ...record, center: Object.freeze(point(record.center, dx, dy)) })
     if (record.type === "polyline") return Object.freeze({ ...record,
       vertices: Object.freeze(record.vertices.map(vertex => Object.freeze(point(vertex, dx, dy)))) })
+    if(record.type==="text")return Object.freeze({...record,insertionPoint:Object.freeze(point(record.insertionPoint,dx,dy))})
     if(record.type.startsWith("dimension-"))return transformDimension(record,value=>Object.freeze(point(value,dx,dy)))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
@@ -38,6 +39,7 @@
     if(record.type==="arc")return Object.freeze({...record,center:rotatePoint(record.center,center,normalized),start:rotatePoint(record.start,center,normalized),end:rotatePoint(record.end,center,normalized)})
     if(record.type==="ellipse")return Object.freeze({...record,center:rotatePoint(record.center,center,normalized),majorAxis:rotateVector(record.majorAxis,normalized)})
     if(record.type==="polyline")return Object.freeze({...record,vertices:Object.freeze(record.vertices.map(vertex=>rotatePoint(vertex,center,normalized)) )})
+    if(record.type==="text")return Object.freeze({...record,insertionPoint:rotatePoint(record.insertionPoint,center,normalized),rotation:window.CaderactAnnotationGeometry.normalizeRotation(record.rotation+normalized)})
     if(record.type.startsWith("dimension-"))return transformDimension(record,value=>rotatePoint(value,center,normalized))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
@@ -60,6 +62,7 @@
     if(record.type==="arc"){const radius=record.radius*factor;if(!Number.isFinite(radius)||radius<=0)throw new Error("Invalid scale result");return Object.freeze({...record,center:scalePoint(record.center,base,factor),start:scalePoint(record.start,base,factor),end:scalePoint(record.end,base,factor),radius})}
     if(record.type==="ellipse"){const minorRadius=record.minorRadius*factor;if(!Number.isFinite(minorRadius)||minorRadius<=0)throw new Error("Invalid scale result");return Object.freeze({...record,center:scalePoint(record.center,base,factor),majorAxis:scaleVector(record.majorAxis,factor),minorRadius})}
     if(record.type==="polyline")return Object.freeze({...record,vertices:Object.freeze(record.vertices.map(vertex=>scalePoint(vertex,base,factor)))})
+    if(record.type==="text")return Object.freeze({...record,insertionPoint:scalePoint(record.insertionPoint,base,factor),height:record.height*factor})
     if(record.type.startsWith("dimension-"))return transformDimension(record,value=>scalePoint(value,base,factor))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
@@ -91,6 +94,7 @@
     if(record.type==="arc")return Object.freeze({...record,center:mirrorPoint(record.center,axisA,axisB),start:mirrorPoint(record.start,axisA,axisB),end:mirrorPoint(record.end,axisA,axisB),sweep:-record.sweep})
     if(record.type==="ellipse")return Object.freeze({...record,center:mirrorPoint(record.center,axisA,axisB),majorAxis:mirrorVector(record.majorAxis,axisA,axisB)})
     if(record.type==="polyline")return Object.freeze({...record,vertices:Object.freeze(record.vertices.map(vertex=>mirrorPoint(vertex,axisA,axisB)))})
+    if(record.type==="text"){const insertionPoint=mirrorPoint(record.insertionPoint,axisA,axisB),direction=mirrorVector({x:Math.cos(record.rotation),y:Math.sin(record.rotation)},axisA,axisB);return Object.freeze({...record,insertionPoint,rotation:window.CaderactAnnotationGeometry.normalizeRotation(Math.atan2(direction.y,direction.x))})}
     if(record.type.startsWith("dimension-"))return transformDimension(record,value=>mirrorPoint(value,axisA,axisB))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }

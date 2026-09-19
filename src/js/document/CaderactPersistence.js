@@ -40,6 +40,7 @@
     if(record.type==="dimension-linear")return {id:record.id,type:record.type,layerId:record.layerId,...properties(record),mode:record.mode,firstPoint:feature(record.firstPoint),secondPoint:feature(record.secondPoint),dimensionLinePoint:feature(record.dimensionLinePoint),textOverride:record.textOverride,dimensionStyleId:record.dimensionStyleId}
     if(record.type==="dimension-angular")return {id:record.id,type:record.type,layerId:record.layerId,...properties(record),firstRayPoint:feature(record.firstRayPoint),vertex:feature(record.vertex),secondRayPoint:feature(record.secondRayPoint),dimensionArcPoint:feature(record.dimensionArcPoint),textOverride:record.textOverride,dimensionStyleId:record.dimensionStyleId}
     if(record.type==="dimension-radial")return {id:record.id,type:record.type,layerId:record.layerId,...properties(record),mode:record.mode,centerPoint:feature(record.centerPoint),dimensionPoint:feature(record.dimensionPoint),leaderPoint:feature(record.leaderPoint),textOverride:record.textOverride,dimensionStyleId:record.dimensionStyleId}
+    if(record.type==="text")return{id:record.id,type:record.type,layerId:record.layerId,...properties(record),insertionPoint:feature(record.insertionPoint),text:record.text,height:record.height,rotation:record.rotation,horizontalAlignment:record.horizontalAlignment}
     return { id: record.id, type: record.type }
   }
   function payloadFor(document) {
@@ -118,6 +119,8 @@
             rejectUnknown(item,fields.dimensionAngular,"Angular dimension record");for(const key of ["firstRayPoint","vertex","secondRayPoint","dimensionArcPoint"]){if(!isRecord(item[key]))invalid(`Angular dimension ${key} must be an object`);rejectUnknown(item[key],fields.endpoint,`Angular dimension ${key}`)}
           } else if(!legacy&&item.type==="dimension-radial"){
             rejectUnknown(item,fields.dimensionRadial,"Radial dimension record");for(const key of ["centerPoint","dimensionPoint","leaderPoint"]){if(!isRecord(item[key]))invalid(`Radial dimension ${key} must be an object`);rejectUnknown(item[key],fields.endpoint,`Radial dimension ${key}`)}
+          } else if(!legacy&&!version2&&item.type==="text"){
+            rejectUnknown(item,fields.text,"Text record");if(!isRecord(item.insertionPoint))invalid("Text insertion point must be an object");rejectUnknown(item.insertionPoint,fields.endpoint,"Text insertion point")
           } else invalid(`unsupported record type ${String(item.type)}`)
         }
         if (typeof item.id !== "string" || item.id.trim() === "") invalid(`${label} entry is missing an ID`)
