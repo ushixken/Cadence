@@ -148,6 +148,27 @@
     if (Math.abs((endParameter - startParameter) - TAU) > ANGULAR_TOLERANCE * Math.max(1, Math.abs(startParameter), Math.abs(endParameter))) { warn(collector, entity, "DXF_ELLIPSE_PARTIAL_UNSUPPORTED", "Skipped a partial elliptical arc."); return null }
     return Object.freeze({ ...neutralBase(entity,collector), center: Object.freeze({ x, y }), majorAxis: Object.freeze({ x: majorX, y: majorY }), ratio, startParameter, endParameter })
   }
+  function parseText(entity,collector){
+    const x=finiteNumber(one(entity,10,collector,"first alignment X"),collector,"TEXT first alignment X",entity),y=finiteNumber(one(entity,20,collector,"first alignment Y"),collector,"TEXT first alignment Y",entity)
+    const z=optionalNumber(entity,30,collector,"first alignment Z"),height=finiteNumber(one(entity,40,collector,"height"),collector,"TEXT height",entity),contentPairs=all(entity,1)
+    if(contentPairs.length!==1)fail(collector,"DXF_MALFORMED_TEXT","TEXT requires exactly one content value.",details(entity))
+    const content=window.CaderactDxfText.decode(contentPairs[0].value)
+    if(!(height>0))fail(collector,"DXF_INVALID_TEXT_HEIGHT","TEXT height must be greater than zero.",details(entity))
+    if(content.length>window.CaderactAnnotationGeometry.MAX_TEXT_LENGTH||!/\S/u.test(content)||/[\u0000-\u001f\u007f]/.test(content))fail(collector,"DXF_INVALID_TEXT_CONTENT","TEXT content is blank, too long, or contains unsupported controls.",details(entity))
+    const rotationDegrees=optionalNumber(entity,50,collector,"rotation"),horizontal=optionalInteger(entity,72,collector,"horizontal justification"),vertical=optionalInteger(entity,73,collector,"vertical justification")
+    if(horizontal<0||horizontal>5||vertical<0||vertical>3)fail(collector,"DXF_INVALID_TEXT_JUSTIFICATION","TEXT justification is outside the DXF range.",details(entity))
+    const width=optionalNumber(entity,41,collector,"width factor",1),oblique=optionalNumber(entity,51,collector,"oblique angle"),generation=optionalInteger(entity,71,collector,"generation flags")
+    if(!(width>0))fail(collector,"DXF_INVALID_TEXT_WIDTH","TEXT width factor must be greater than zero.",details(entity))
+    if(vertical!==0||horizontal>2){warn(collector,entity,"DXF_TEXT_JUSTIFICATION_UNSUPPORTED","Skipped TEXT with vertical, Aligned, Middle, or Fit justification.");return null}
+    if(width!==1||oblique!==0||generation!==0){warn(collector,entity,"DXF_TEXT_FORMATTING_UNSUPPORTED","Skipped TEXT with width, oblique, or mirrored generation formatting.");return null}
+    if(z!==0||optionalNumber(entity,39,collector,"thickness")!==0||!defaultExtrusion(extrusion(entity,collector))){warn(collector,entity,"DXF_TEXT_NON_PLANAR","Skipped non-planar or non-default-extrusion TEXT.");return null}
+    let insertionPoint={x,y}
+    if(horizontal!==0){const secondX=finiteNumber(one(entity,11,collector,"second alignment X","DXF_MALFORMED_TEXT"),collector,"TEXT second alignment X",entity),secondY=finiteNumber(one(entity,21,collector,"second alignment Y","DXF_MALFORMED_TEXT"),collector,"TEXT second alignment Y",entity),secondZ=optionalNumber(entity,31,collector,"second alignment Z");if(secondZ!==0){warn(collector,entity,"DXF_TEXT_NON_PLANAR","Skipped TEXT with a nonzero second-alignment Z.");return null}insertionPoint={x:secondX,y:secondY}}
+    const stylePairs=all(entity,7)
+    if(stylePairs.length>1)fail(collector,"DXF_MALFORMED_TEXT","TEXT has duplicate style names.",details(entity))
+    if(stylePairs.length&&stylePairs[0].value.trim().toUpperCase()!=="STANDARD")warn(collector,entity,"DXF_TEXT_STYLE_IGNORED",`Imported TEXT using Caderact's native annotation style instead of ${stylePairs[0].value.trim()||"an unnamed style"}.`)
+    return Object.freeze({...neutralBase(entity,collector),content,insertionPoint:Object.freeze(insertionPoint),height,rotationDegrees,horizontalAlignment:["left","center","right"][horizontal]})
+  }
   function rawEntities(pairs, limits, collector) {
     const entities = []; let index = 0
     while (index < pairs.length) {
@@ -175,6 +196,8 @@
       else if (entity.type === "CIRCLE") parsed = parseCircle(entity, collector)
       else if (entity.type === "ARC") parsed = parseArc(entity, collector)
       else if (entity.type === "ELLIPSE") parsed = parseEllipse(entity, collector)
+      else if (entity.type === "TEXT") parsed = parseText(entity, collector)
+      else if (entity.type === "MTEXT") warn(collector,entity,"DXF_MTEXT_UNSUPPORTED","Skipped MTEXT; multiline and rich text are not supported.")
       else warn(collector, entity, "DXF_UNSUPPORTED_ENTITY", `Skipped unsupported ${entity.type || "unnamed"} entity.`)
       if (parsed) entities.push(parsed)
     }

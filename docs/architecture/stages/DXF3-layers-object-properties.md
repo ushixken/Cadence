@@ -28,6 +28,6 @@ Lineweight uses `null` for entity ByLayer. Exact native values are retained; oth
 
 Mapped records flow unchanged through the existing record/layer property resolver, `ViewportScene`, and both Canvas2D and WebGPU renderers. The import mapper assembles the entire layer table and record table, validates the canonical document, and only then returns the replacement store. Fatal table/property corruption cannot partially publish layers, assignments, or properties, and the active drawing remains unchanged.
 
-## Deferred DXF4 scope
+## DXF4 and later scope
 
-Blocks/INSERT—including the special Layer `0` inheritance rule and real BYBLOCK resolution—remain deferred. Arbitrary linetype engines, viewport-specific layer states, plot styles, Text/MTEXT, dimensions/DIMSTYLE, hatch, splines, OCS conversion, 3D flattening, export, and merge import are also out of scope.
+DXF4 adds the supported single-line TEXT subset documented in `DXF4-text-annotation-import.md`. Blocks/INSERT—including the special Layer `0` inheritance rule and real BYBLOCK resolution—remain deferred. Arbitrary linetype engines, viewport-specific layer states, plot styles, MTEXT, dimensions/DIMSTYLE, hatch, splines, OCS conversion, 3D flattening, export, and merge import are also out of scope.
