@@ -2,7 +2,7 @@
 (() => {
   const MAX_VERTICES=100000,MAX_TRIANGLES=250000,TAU=Math.PI*2
   const point=value=>Object.freeze({x:value.x,y:value.y})
-  function validate(record){const errors=[];if(record?.pattern?.kind!=="solid"||Reflect.ownKeys(record.pattern||{}).length!==1)errors.push("Hatch: invalid pattern");for(const error of window.CaderactRegionGeometry.validate(record))errors.push(error.replace(/^Region:/,"Hatch:"));return errors}
+  function validate(record){const errors=[];for(const error of window.CaderactHatchPatterns.validate(record?.pattern))errors.push(`Hatch: ${error}`);for(const error of window.CaderactRegionGeometry.validate(record))errors.push(error.replace(/^Region:/,"Hatch:"));return errors}
   function flatten(record,{tolerance}={}){
     if(validate(record).length)return Object.freeze({valid:false,reason:"invalid-boundary"})
     const bounds=window.CaderactRegionGeometry.bounds(record),span=Math.max(bounds.maxX-bounds.minX,bounds.maxY-bounds.minY,1),error=Number.isFinite(tolerance)&&tolerance>0?tolerance:span/4096,contours=[]
@@ -24,5 +24,6 @@
   const classifyPoint=(record,value)=>window.CaderactRegionGeometry.classifyPoint(record,value)
   const measure=record=>window.CaderactRegionGeometry.measure(record)
   const centroid=record=>window.CaderactRegionGeometry.centroid(record)
-  window.CaderactHatchGeometry=Object.freeze({MAX_VERTICES,MAX_TRIANGLES,validate,flatten,triangulate,classifyPoint,measure,centroid})
+  const generatePattern=record=>window.CaderactHatchPatterns.generate(record)
+  window.CaderactHatchGeometry=Object.freeze({MAX_VERTICES,MAX_TRIANGLES,validate,flatten,triangulate,generatePattern,classifyPoint,measure,centroid})
 })()
