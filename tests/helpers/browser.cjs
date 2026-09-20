@@ -188,6 +188,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/LinearDimensionDraftSession.js');
   load('src/js/editor/AngularDimensionDraftSession.js');
   load('src/js/editor/GeometryTransform.js');
+  load('src/js/editor/BlockEditWorkspace.js');
   load('src/js/editor/RectangleDraftSession.js');
   load('src/js/editor/PolylineDraftSession.js');
   load('src/js/editor/CircleDraftSession.js');

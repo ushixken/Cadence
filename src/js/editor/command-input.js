@@ -51,6 +51,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Angle", aliases: ["ANG"], repeatable: true, activate: context => window.caderactViewport.createAngleMeasurementCommandSession(context) },
   { name: "Area", aliases: [], repeatable: true, activate: context => window.caderactViewport.createObjectMeasurementCommandSession("Area", context) },
   { name: "Block", aliases: ["B"], repeatable: true, activate: context => window.caderactViewport.createBlockCommandSession(context) },
+  { name: "BlockEdit", aliases: ["BE"], repeatable: true, activate: context => window.caderactViewport.createBlockEditCommandSession(context) },
   { name: "Circle", aliases: ["C"], repeatable: true, activate: context => window.caderactViewport.createCircleCommandSession(context) },
   { name: "Linear", aliases: ["DIMLINEAR", "DLI"], repeatable: true, activate: context => window.caderactViewport.createLinearDimensionCommandSession(context) },
   { name: "Copy", aliases: ["CP"], repeatable: true, activate: context => window.caderactViewport.createCopyCommandSession(context) },

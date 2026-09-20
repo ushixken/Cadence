@@ -1,0 +1,26 @@
+// GB6: isolated, document-free working state for one Block Definition edit.
+(() => {
+  const clone=value=>value===undefined?undefined:JSON.parse(JSON.stringify(value))
+  const freeze=value=>{if(value&&typeof value==="object"&&!Object.isFrozen(value)){for(const child of Object.values(value))freeze(child);Object.freeze(value)}return value}
+  function matrix(a,b,c,d,tx,ty){const value={a,b,c,d,tx,ty};if(!window.CaderactSimilarityTransform.isValid(value))throw new Error("Invalid edit transform");return Object.freeze(value)}
+  const translation=(dx,dy)=>matrix(1,0,0,1,dx,dy)
+  function rotation(center,angle){const value=window.CaderactGeometryTransform.normalizeAngle(angle),cos=Math.cos(value),sin=Math.sin(value);return matrix(cos,sin,-sin,cos,center.x-cos*center.x+sin*center.y,center.y-sin*center.x-cos*center.y)}
+  function scaling(base,factor){if(!Number.isFinite(factor)||!(factor>0))throw new Error("Scale must be positive");return matrix(factor,0,0,factor,base.x-factor*base.x,base.y-factor*base.y)}
+  function reflection(axisA,axisB){const origin=window.CaderactGeometryTransform.mirrorPoint({x:0,y:0},axisA,axisB),x=window.CaderactGeometryTransform.mirrorPoint({x:1,y:0},axisA,axisB),y=window.CaderactGeometryTransform.mirrorPoint({x:0,y:1},axisA,axisB);return matrix(x.x-origin.x,x.y-origin.y,y.x-origin.x,y.y-origin.y,origin.x,origin.y)}
+  function transformInstance(record,transform){const point=window.CaderactSimilarityTransform.point(transform,record.insertionPoint),original=window.CaderactSimilarityTransform.fromComponents({insertionPoint:{x:0,y:0},basePoint:{x:0,y:0},rotation:record.rotation,scale:record.scale,mirrored:record.mirrored}),linear=matrix(transform.a,transform.b,transform.c,transform.d,0,0),parts=window.CaderactSimilarityTransform.components(window.CaderactSimilarityTransform.compose(linear,original));return freeze({...record,insertionPoint:{...record.insertionPoint,x:point.x,y:point.y},rotation:parts.rotation,scale:parts.scale,mirrored:parts.mirrored})}
+  function create({definition,copyRecord,replaceDefinition,getDefinitions}){
+    if(!definition||typeof copyRecord!=="function"||typeof replaceDefinition!=="function")throw new Error("Invalid Block edit workspace")
+    const original=freeze(clone(definition));let records=new Map(original.recordOrder.map(id=>[id,clone(original.records[id])])),order=[...original.recordOrder],selected=new Set(),closed=false
+    const ensure=()=>{if(closed)throw new Error("Block edit workspace is closed")}
+    const snapshot=()=>freeze({id:original.id,name:original.name,basePoint:clone(original.basePoint),records:Object.fromEntries(order.map(id=>[id,clone(records.get(id))])),recordOrder:[...order]})
+    function select(ids){ensure();const next=new Set(Array.from(ids||[]).filter(id=>records.has(id)));selected=next;return Object.freeze([...selected])}
+    function transformSelected(transform){ensure();for(const id of selected){const record=records.get(id),next=record.type==="block-instance"?transformInstance(record,transform):window.CaderactGeometryTransform.similarityRecord(record,transform);records.set(id,clone(next))}return snapshot()}
+    function copySelected(transform=translation(0,0)){ensure();const created=[];for(const id of [...selected]){const source=records.get(id),transformed=source.type==="block-instance"?transformInstance(source,transform):window.CaderactGeometryTransform.similarityRecord(source,transform),copy=copyRecord(transformed);records.set(copy.id,clone(copy));order.push(copy.id);created.push(copy.id)}selected=new Set(created);return Object.freeze(created)}
+    function removeSelected(){ensure();const removed=[...selected];for(const id of removed)records.delete(id);order=order.filter(id=>!selected.has(id));selected.clear();return Object.freeze(removed)}
+    function replaceMember(record){ensure();if(!record||!records.has(record.id))throw new Error("Unknown definition member");records.set(record.id,clone(record));return snapshot()}
+    function apply(){ensure();const working=snapshot(),outcome=replaceDefinition(original.id,{name:original.name,basePoint:original.basePoint,records:working.recordOrder.map(id=>working.records[id]),recordOrder:working.recordOrder});if(outcome.status==="committed")closed=true;return outcome}
+    function cancel(){if(!closed)closed=true;selected.clear();records.clear();order=[];return Object.freeze({status:"block-edit-cancelled",definitionId:original.id})}
+    return Object.freeze({snapshot,select,clearSelection:()=>select([]),replaceMember,move:(dx,dy)=>transformSelected(translation(dx,dy)),rotate:(center,angle)=>transformSelected(rotation(center,angle)),scale:(base,factor)=>transformSelected(scaling(base,factor)),mirror:(axisA,axisB)=>transformSelected(reflection(axisA,axisB)),copy:(dx=0,dy=0)=>copySelected(translation(dx,dy)),deleteSelected:removeSelected,apply,cancel,get original(){return original},get selectedIds(){return Object.freeze([...selected])},get isClosed(){return closed},get definitions(){return getDefinitions?.()||Object.freeze([])}})
+  }
+  window.CaderactBlockEditWorkspace=Object.freeze({create})
+})()
