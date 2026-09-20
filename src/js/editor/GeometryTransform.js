@@ -5,6 +5,14 @@
   function hatchPattern(record,transformPoint,{angleDelta=0,scale=1,mirrorVector=null}={}){if(record.type!=="hatch"||record.pattern.kind!=="named")return record.pattern;let angle=record.pattern.angle+angleDelta;if(mirrorVector){const direction=mirrorVector({x:Math.cos(record.pattern.angle),y:Math.sin(record.pattern.angle)});angle=Math.atan2(direction.y,direction.x)}const result=Object.freeze({...record.pattern,origin:transformPoint(record.pattern.origin),angle:normalizeAngle(angle),scale:record.pattern.scale*scale});if(window.CaderactHatchPatterns.validate(result).length)throw new Error("Invalid Hatch pattern transform");return result}
   function transformRegion(record,transformPoint,transformVector=value=>value,scale=1,reverse=false){const edgeTransform=edge=>{let result={...edge};for(const key of ["start","end","center"])if(edge[key])result[key]=transformPoint(edge[key]);if(edge.majorAxis)result.majorAxis=transformVector(edge.majorAxis);if(edge.radius!==undefined)result.radius=edge.radius*scale;if(edge.minorRadius!==undefined)result.minorRadius=edge.minorRadius*scale;if(reverse){if(result.start&&result.end)[result.start,result.end]=[result.end,result.start];if(result.sweep!==undefined)result.sweep=-result.sweep;if(result.clockwise!==undefined)result.clockwise=!result.clockwise}return Object.freeze(result)};return Object.freeze({...record,loops:Object.freeze(record.loops.map(loop=>Object.freeze({...loop,edges:Object.freeze((reverse?[...loop.edges].reverse():loop.edges).map(edgeTransform))})))})}
   function transformDimension(record,transform){const keys=dimensionPointKeys(record);if(!keys)return null;const result={...record};for(const key of keys)result[key]=transform(record[key]);return Object.freeze(result)}
+  function transformBlockInstance(record,transform){
+    const similarity=window.CaderactSimilarityTransform
+    if(!similarity.isValid(transform))throw new Error("Invalid Block Instance transform")
+    const own=similarity.fromComponents({insertionPoint:{x:0,y:0},rotation:record.rotation,scale:record.scale,mirrored:record.mirrored})
+    const linear=similarity.compose(Object.freeze({...transform,tx:0,ty:0}),own),parts=similarity.components(linear)
+    const insertionPoint=similarity.point(transform,record.insertionPoint)
+    return Object.freeze({...record,insertionPoint,rotation:parts.rotation,scale:parts.scale,mirrored:parts.mirrored})
+  }
   function translateRecord(record, dx, dy) {
     if (!record || !Number.isFinite(dx) || !Number.isFinite(dy)) throw new Error("Invalid translation")
     if (record.type === "line") return Object.freeze({ ...record,
@@ -18,6 +26,7 @@
     if(record.type==="text")return Object.freeze({...record,insertionPoint:Object.freeze(point(record.insertionPoint,dx,dy))})
     if(record.type==="region"||record.type==="hatch"){const transform=value=>Object.freeze(point(value,dx,dy)),result=transformRegion(record,transform);return record.type==="hatch"?Object.freeze({...result,pattern:hatchPattern(record,transform)}):result}
     if(record.type.startsWith("dimension-"))return transformDimension(record,value=>Object.freeze(point(value,dx,dy)))
+    if(record.type==="block-instance")return transformBlockInstance(record,Object.freeze({a:1,b:0,c:0,d:1,tx:dx,ty:dy}))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
   function normalizeAngle(angle) {
@@ -45,6 +54,7 @@
     if(record.type==="text")return Object.freeze({...record,insertionPoint:rotatePoint(record.insertionPoint,center,normalized),rotation:window.CaderactAnnotationGeometry.normalizeRotation(record.rotation+normalized)})
     if(record.type==="region"||record.type==="hatch"){const transform=value=>rotatePoint(value,center,normalized),result=transformRegion(record,transform,value=>rotateVector(value,normalized));return record.type==="hatch"?Object.freeze({...result,pattern:hatchPattern(record,transform,{angleDelta:normalized})}):result}
     if(record.type.startsWith("dimension-"))return transformDimension(record,value=>rotatePoint(value,center,normalized))
+    if(record.type==="block-instance"){const cosine=Math.cos(normalized),sine=Math.sin(normalized);return transformBlockInstance(record,Object.freeze({a:cosine,b:sine,c:-sine,d:cosine,tx:center.x-cosine*center.x+sine*center.y,ty:center.y-sine*center.x-cosine*center.y}))}
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
   function scalePoint(value, base, factor) {
@@ -69,6 +79,7 @@
     if(record.type==="text")return Object.freeze({...record,insertionPoint:scalePoint(record.insertionPoint,base,factor),height:record.height*factor})
     if(record.type==="region"||record.type==="hatch"){const transform=value=>scalePoint(value,base,factor),result=transformRegion(record,transform,value=>scaleVector(value,factor),factor);return record.type==="hatch"?Object.freeze({...result,pattern:hatchPattern(record,transform,{scale:factor})}):result}
     if(record.type.startsWith("dimension-"))return transformDimension(record,value=>scalePoint(value,base,factor))
+    if(record.type==="block-instance")return transformBlockInstance(record,Object.freeze({a:factor,b:0,c:0,d:factor,tx:base.x*(1-factor),ty:base.y*(1-factor)}))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
   function mirrorAxis(axisA, axisB) {
@@ -102,6 +113,7 @@
     if(record.type==="text"){const insertionPoint=mirrorPoint(record.insertionPoint,axisA,axisB),direction=mirrorVector({x:Math.cos(record.rotation),y:Math.sin(record.rotation)},axisA,axisB);return Object.freeze({...record,insertionPoint,rotation:window.CaderactAnnotationGeometry.normalizeRotation(Math.atan2(direction.y,direction.x))})}
     if(record.type==="region"||record.type==="hatch"){const transform=value=>mirrorPoint(value,axisA,axisB),vector=value=>mirrorVector(value,axisA,axisB),result=transformRegion(record,transform,vector,1,true);return record.type==="hatch"?Object.freeze({...result,pattern:hatchPattern(record,transform,{mirrorVector:vector})}):result}
     if(record.type.startsWith("dimension-"))return transformDimension(record,value=>mirrorPoint(value,axisA,axisB))
+    if(record.type==="block-instance"){const axis=mirrorAxis(axisA,axisB),ux=axis.dx/Math.sqrt(axis.lengthSquared),uy=axis.dy/Math.sqrt(axis.lengthSquared),a=2*ux*ux-1,b=2*ux*uy,c=b,d=2*uy*uy-1;return transformBlockInstance(record,Object.freeze({a,b,c,d,tx:axis.axisA.x-a*axis.axisA.x-c*axis.axisA.y,ty:axis.axisA.y-b*axis.axisA.x-d*axis.axisA.y}))}
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
   function similarityRecord(record,transform){if(!window.CaderactSimilarityTransform.isValid(transform))throw new Error("Invalid similarity transform");const parts=window.CaderactSimilarityTransform.components(transform);let result=scaleRecord(record,{x:0,y:0},parts.scale);if(parts.mirrored)result=mirrorRecord(result,{x:0,y:0},{x:0,y:1});if(parts.rotation!==0)result=rotateRecord(result,{x:0,y:0},parts.rotation);return translateRecord(result,parts.translation.x,parts.translation.y)}

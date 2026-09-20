@@ -422,6 +422,28 @@
         if(record.type==="block-instance")return freeze({...record,id:newId(),insertionPoint:{...record.insertionPoint,featureId:newId()}})
         throw new Error(`Unsupported geometry type: ${record.type}`)
       },
+      explodeBlockInstances(recordIds) {
+        const sourceIds=Array.from(new Set(recordIds||[])),sources=sourceIds.map(id=>state.geometry.objects[id]||null)
+        if(!sourceIds.length)return Object.freeze({status:"empty-selection",recordIds:Object.freeze([])})
+        if(sources.some(record=>!record||record.type!=="block-instance"))return Object.freeze({status:"invalid-selection",recordIds:Object.freeze(sourceIds)})
+        if(sources.some(record=>!recordEditable(record.id)))return Object.freeze({status:"record-layer-unavailable",recordIds:Object.freeze(sourceIds)})
+        const grouped=sources.find(record=>reader.groupForRecord(record.id))
+        if(grouped)return Object.freeze({status:"grouped-instance",recordId:grouped.id})
+        let outputs
+        try{
+          const document=reader.snapshot()
+          outputs=sources.flatMap(instance=>window.CaderactBlockTraversal.traverse(document,instance).entries.map(entry=>recordGateway.copyWithFreshIdentity(window.CaderactGeometryTransform.similarityRecord(entry.record,entry.transform))))
+          if(!outputs.length)return Object.freeze({status:"empty-definition",recordIds:Object.freeze(sourceIds)})
+        }catch(error){return Object.freeze({status:"expansion-failed",message:error.message,recordIds:Object.freeze(sourceIds)})}
+        let transaction
+        try{
+          transaction=controller.beginTransaction()
+          for(const record of outputs)transaction.create(record.id,record)
+          for(const id of sourceIds)transaction.remove(id)
+          const outcome=transaction.publish()
+          return Object.freeze({...outcome,sourceRecordIds:Object.freeze(sourceIds),records:Object.freeze(outputs)})
+        }catch(error){if(transaction?.isOpen)transaction.rollback();return Object.freeze({status:"commit-failed",message:error.message,recordIds:Object.freeze(sourceIds)})}
+      },
       updateProperties(recordId, properties) {
         return updateRecordProperties(recordId, properties)
       },

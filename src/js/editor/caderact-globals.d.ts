@@ -96,6 +96,7 @@ interface CaderactViewportCommandSurface {
   createLinearDimensionCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createCopyCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createDeleteCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
+  createExplodeCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createDistanceCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createDistanceObjectCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createDistanceSumCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;

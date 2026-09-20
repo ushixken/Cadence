@@ -62,6 +62,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "DimDiameter", aliases: ["DDI"], repeatable: true, activate: context => window.caderactViewport.createRadialDimensionCommandSession("DimDiameter", "diameter", context) },
   { name: "DimRadius", aliases: ["DRA"], repeatable: true, activate: context => window.caderactViewport.createRadialDimensionCommandSession("DimRadius", "radius", context) },
   { name: "Ellipse", aliases: ["EL"], repeatable: true, activate: context => window.caderactViewport.createEllipseCommandSession(context) },
+  { name: "Explode", aliases: ["X"], repeatable: true, activate: context => window.caderactViewport.createExplodeCommandSession(context) },
   { name: "Extend", aliases: ["EX"], repeatable: true, activate: context => window.caderactViewport.createExtendCommandSession(context) },
   { name: "Hatch", aliases: ["H"], repeatable: true, activate: context => window.caderactViewport.createHatchCommandSession(context) },
   { name: "Insert", aliases: ["I"], repeatable: true, activate: context => window.caderactViewport.createInsertCommandSession(context) },
