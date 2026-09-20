@@ -92,9 +92,12 @@
     return hits.length ? result("hit",{hit:true,recordId:hits[0].recordId,distancePx:hits[0].distancePx}) : result("miss",{hit:false})
   }
 
-  function createSelection() {
+  function createSelection({resolveTarget=id=>Object.freeze({kind:"record",id,recordIds:Object.freeze([id])})}={}) {
     const selected = new Set(), listeners = new Set()
     const snapshot = () => Object.freeze(Array.from(selected).sort())
+    const targetFor=id=>resolveTarget(id)||null
+    const idsFor=id=>targetFor(id)?.recordIds||Object.freeze([])
+    const targetSnapshot=()=>{const targets=new Map();for(const id of selected){const target=targetFor(id);if(target)targets.set(`${target.kind}:${target.id}`,target)}return Object.freeze(Array.from(targets.values()).sort((a,b)=>a.kind.localeCompare(b.kind)||a.id.localeCompare(b.id)))}
     function publish(status) {
       const ids=snapshot()
       for(const listener of listeners) try{listener(ids)}catch(error){console.warn("Caderact selection observer failed",error)}
@@ -103,11 +106,14 @@
     function selectOnly(recordId) {
       if(typeof recordId!=="string"||!recordId)return result("invalid-selection")
       if(selected.size===1&&selected.has(recordId))return result("selection-unchanged",{selectedIds:snapshot()})
-      selected.clear();selected.add(recordId);return publish("selected")
+      const ids=idsFor(recordId);if(!ids.length)return result("selection-unavailable")
+      if(selected.size===ids.length&&ids.every(id=>selected.has(id)))return result("selection-unchanged",{selectedIds:snapshot()})
+      selected.clear();for(const id of ids)selected.add(id);return publish("selected")
     }
     function toggle(recordId) {
       if(typeof recordId!=="string"||!recordId)return result("invalid-selection")
-      if(selected.has(recordId))selected.delete(recordId);else selected.add(recordId)
+      const ids=idsFor(recordId);if(!ids.length)return result("selection-unavailable")
+      const remove=ids.every(id=>selected.has(id));for(const id of ids)remove?selected.delete(id):selected.add(id)
       return publish("selection-toggled")
     }
     function clear() {
@@ -116,17 +122,17 @@
     }
     function pruneAgainstDocument(records) {
       const valid=new Set(Array.from(records,record=>record.id));let changed=false
-      for(const id of selected)if(!valid.has(id)){selected.delete(id);changed=true}
+      for(const id of [...selected])if(!valid.has(id)||!targetFor(id)){selected.delete(id);changed=true}
       return changed?publish("selection-pruned"):result("selection-unchanged",{selectedIds:snapshot()})
     }
     function applyRecordIds(recordIds,{toggle=false}={}){
-      const ids=Array.from(new Set(recordIds)).filter(id=>typeof id==="string"&&id),sorted=Object.freeze(ids.slice().sort())
+      const ids=Array.from(new Set(Array.from(recordIds||[]).flatMap(id=>idsFor(id)))).filter(id=>typeof id==="string"&&id),sorted=Object.freeze(ids.slice().sort())
       if(toggle){if(ids.length===0)return result("selection-unchanged",{selectedIds:snapshot()});for(const id of ids)selected.has(id)?selected.delete(id):selected.add(id)}
       else{const current=snapshot();if(current.length===sorted.length&&current.every((id,index)=>id===sorted[index]))return result("selection-unchanged",{selectedIds:current});selected.clear();for(const id of ids)selected.add(id)}
       return publish(toggle?"selection-toggled":"selection-replaced")
     }
     function subscribe(listener){if(typeof listener!=="function")throw new Error("Selection listener must be a function");listeners.add(listener);return()=>listeners.delete(listener)}
-    return Object.freeze({selectOnly,toggle,clear,applyRecordIds,has:id=>selected.has(id),selectedIds:snapshot,orderedIds:()=>Object.freeze(Array.from(selected)),pruneAgainstDocument,subscribe})
+    return Object.freeze({selectOnly,toggle,clear,applyRecordIds,has:id=>selected.has(id),selectedIds:snapshot,selectedTargets:targetSnapshot,orderedIds:()=>Object.freeze(Array.from(selected)),pruneAgainstDocument,subscribe})
   }
   window.CaderactSelection=Object.freeze({createSelection,hitTestLines,hitTestRecords,DEFAULT_HIT_TOLERANCE_PX})
 })()
