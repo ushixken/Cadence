@@ -292,6 +292,11 @@
       catch(error){if(transaction.isOpen)transaction.rollback();return Object.freeze({status:"commit-failed",message:error.message})}
     }
     const recordGateway = Object.freeze({
+      createRegionFromLoops(inputs){
+        const nesting=window.CaderactBoundaryGeometry.classifyNesting(inputs);if(!nesting.valid)throw new Error(nesting.reason||"Invalid Region boundary")
+        const loops=nesting.entries.map(entry=>({featureId:newId(),depth:entry.depth,parentIndex:entry.parentIndex,edges:entry.loop.edges.map(edge=>{const copy={kind:edge.kind,featureId:newId()};for(const key of ["start","end"])if(edge[key])copy[key]={x:edge[key].x,y:edge[key].y,featureId:newId()};for(const key of ["center","majorAxis"])if(edge[key])copy[key]={x:edge[key].x,y:edge[key].y};for(const key of ["radius","minorRadius","sweep","clockwise"])if(edge[key]!==undefined)copy[key]=edge[key];return copy})}))
+        return freeze({id:newId(),type:"region",layerId:currentDrawingLayerId(),...window.CaderactObjectProperties.BY_LAYER_PROPERTIES,loops})
+      },
       createLine(start, end) {
         return freeze({ id: newId(), type: "line", layerId: currentDrawingLayerId(), ...window.CaderactObjectProperties.BY_LAYER_PROPERTIES,
           start: { x: start?.x, y: start?.y, featureId: newId() },
@@ -325,8 +330,7 @@
       createRadialDimension(geometry){const feature=value=>({x:value?.x,y:value?.y,featureId:newId()});return freeze({id:newId(),type:"dimension-radial",layerId:currentDrawingLayerId(),...window.CaderactObjectProperties.BY_LAYER_PROPERTIES,mode:geometry.mode,centerPoint:feature(geometry.centerPoint),dimensionPoint:feature(geometry.dimensionPoint),leaderPoint:feature(geometry.leaderPoint),textOverride:geometry.textOverride??null,dimensionStyleId:geometry.dimensionStyleId||state.currentDimensionStyleId})},
       createText(geometry){return freeze({id:newId(),type:"text",layerId:currentDrawingLayerId(),...window.CaderactObjectProperties.BY_LAYER_PROPERTIES,insertionPoint:{x:geometry.insertionPoint?.x,y:geometry.insertionPoint?.y,featureId:newId()},text:geometry.text,height:geometry.height,rotation:window.CaderactAnnotationGeometry.normalizeRotation(geometry.rotation),horizontalAlignment:geometry.horizontalAlignment||"left"})},
       createRegion(boundaries){
-        const loops=window.CaderactRegionGeometry.canonicalizeSources(boundaries).map(loop=>({featureId:newId(),depth:loop.depth,parentIndex:loop.parentIndex,edges:loop.edges.map(edge=>{const copy={...edge,featureId:newId()};for(const key of ["start","end"])if(copy[key])copy[key]={...copy[key],featureId:newId()};return copy})}))
-        return freeze({id:newId(),type:"region",layerId:currentDrawingLayerId(),...window.CaderactObjectProperties.BY_LAYER_PROPERTIES,loops})
+        return this.createRegionFromLoops(window.CaderactRegionGeometry.canonicalizeSources(boundaries).map(loop=>loop.edges))
       },
       createAll(records) {
         if (records.some(record => !layerUsable(record.layerId))) return Object.freeze({ status: "record-layer-unavailable" })

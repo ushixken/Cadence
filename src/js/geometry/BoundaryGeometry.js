@@ -15,7 +15,7 @@
     const described=window.CaderactCurveDescriptor.describe(value)
     if(!described.valid||described.kind==="polyline")return bad(described.reason||"unsupported-edge")
     if(described.kind==="line")return ok({edge:Object.freeze({kind:"line",start:point(described.start),end:point(described.end)})})
-    if(described.kind==="arc")return ok({edge:Object.freeze({kind:"arc",center:point(described.center),radius:described.radius,start:evaluate(described,0),end:evaluate(described,1),sweep:described.sweep})})
+    if(described.kind==="arc"){const start=point({x:described.center.x+Math.cos(described.startAngle)*described.radius,y:described.center.y+Math.sin(described.startAngle)*described.radius}),end=point({x:described.center.x+Math.cos(described.startAngle+described.sweep)*described.radius,y:described.center.y+Math.sin(described.startAngle+described.sweep)*described.radius});return ok({edge:Object.freeze({kind:"arc",center:point(described.center),radius:described.radius,start,end,sweep:described.sweep})})}
     if(described.kind==="circle")return ok({edge:Object.freeze({kind:"circle",center:point(described.center),radius:described.radius})})
     return ok({edge:Object.freeze({kind:"ellipse",center:point(described.center),majorAxis:point(described.majorAxis),minorRadius:described.minorRadius})})
   }
