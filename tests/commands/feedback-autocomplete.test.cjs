@@ -78,7 +78,7 @@ test('autocomplete renders matcher-provided highlighted indices without innerHTM
   const b=await browser();b.input.value='ie';b.emit(b.input,'input');
   const button=b.suggestions.children[0];
   assert.equal(button.dataset.commandIndex,'0');
-  assert.deepEqual(button.children.map(child=>[child.tag,child.textContent]),[['span','L'],['strong','i'],['span','n'],['strong','e']]);
+  assert.deepEqual(button.children.map(child=>[child.tag,child.textContent]),[['strong','I'],['span','n'],['span','s'],['strong','e'],['span','r'],['span','t']]);
 });
 
 test('command-token normalization accepts compact, hyphen, and underscore forms but not spaces',async()=>{

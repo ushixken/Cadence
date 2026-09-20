@@ -87,6 +87,8 @@ interface CaderactViewportCommandSurface {
   createAngularDimensionCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createRadialDimensionCommandSession(name: "DimRadius" | "DimDiameter", mode: "radius" | "diameter", context: CaderactCommandActivationContext): CaderactCommandSession;
   createArcCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
+  createBlockCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
+  createInsertCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createAngleMeasurementCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createObjectMeasurementCommandSession(kind: "Area" | "Length" | "Perimeter" | "Radius" | "Diameter", context: CaderactCommandActivationContext): CaderactCommandSession;
   createCircleCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;

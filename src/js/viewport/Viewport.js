@@ -20,7 +20,7 @@ const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettin
 const camera = viewportCamera.state
 const documentSession = window.CaderactDocumentSession.createSession()
 window.caderactDocumentSession = documentSession
-let { reader: modelReader, recordGateway, groupGateway, layerGateway, unitGateway, dimensionStyleGateway, controller: documentController } = documentSession.store
+let { reader: modelReader, recordGateway, groupGateway, blockDefinitionGateway, layerGateway, unitGateway, dimensionStyleGateway, controller: documentController } = documentSession.store
 
 let viewportWidth = 0, viewportHeight = 0
 let renderer = null, isInitialized = false, isRenderScheduled = false
@@ -88,6 +88,14 @@ function getActiveCommandSession() {
 }
 function visibleRecords(){return modelReader.visibleRecords()}
 function editableRecords(){return modelReader.editableRecords()}
+function expandedVisibleRecords(){
+  const snapshot=modelReader.snapshot(),definitions=snapshot.blockDefinitions||{},records=[]
+  for(const record of modelReader.visibleRecords()){
+    if(record.type!=="block-instance"){records.push(record);continue}
+    try{for(const entry of window.CaderactBlockTraversal.traverse({blockDefinitions:definitions},record).entries){const transformed=window.CaderactGeometryTransform.similarityRecord(entry.record,entry.transform);records.push(Object.freeze({...transformed,id:entry.semanticId,layerId:record.layerId}))}}catch{}
+  }
+  return Object.freeze(records)
+}
 const trimExtendCurveTypes=new Set(["line","circle","arc","ellipse","polyline"])
 function isTrimExtendCurve(record){return trimExtendCurveTypes.has(record?.type)}
 
@@ -140,7 +148,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getViewportSize: () => ({ width: viewportWidth, height: viewportHeight }),
   getDocumentUnit: () => modelReader.units().length,
   getDimensionStyle:record=>modelReader.resolveDimensionStyle(record),
-  getRecords: visibleRecords,
+  getRecords: expandedVisibleRecords,
   getLayer: layerId => modelReader.layer(layerId),
   getDraftLines: () => getActiveCommandSession()?.getDraftLines?.() || [],
   getPreviewLines: () => getActiveCommandSession()?.getPreviewLines?.() || [],
@@ -340,6 +348,39 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
     getSnapCandidates, getOrthoReference: () => draft.currentPoint, hasPointerPreview, get options() { return options() },
     get prompt() { return promptPresentation.text }, get promptPresentation() { return promptPresentation },
   })
+}
+
+function createBlockCommandSession({setPrompt=()=>{}}={}){
+  const eligible=new Set(["line","circle","arc","ellipse","polyline","region","hatch","text","dimension-linear","dimension-angular","dimension-radial"])
+  let phase=selection.selectedIds().length?"name":"selection",selectedRecordIds=phase==="name"?selection.selectedIds():Object.freeze([]),name=null
+  let promptPresentation=createCommandPrompt("Block",phase==="selection"?"Select objects, then press Enter":"Enter block name, or press Enter for default")
+  function update(text){promptPresentation=createCommandPrompt("Block",text);setPrompt(promptPresentation.text,promptPresentation);requestRender()}
+  function sources(){const ids=new Set(selectedRecordIds);return editableRecords().filter(record=>ids.has(record.id))}
+  function validateSelection(){const records=sources();if(!selectedRecordIds.length||records.length!==selectedRecordIds.length)return "Select at least one valid object";if(records.some(record=>!eligible.has(record.type)||record.type==="block-instance"))return "Selection contains an unsupported Block member";if(records.some(record=>modelReader.groupForRecord(record.id)))return "Grouped objects cannot be used to create a Block in this version";return null}
+  function confirmSelection(){selectedRecordIds=selection.selectedIds();const error=validateSelection();if(error)return Object.freeze({status:"invalid-input",reason:"invalid-selection",command:"Block",message:error});phase="name";update("Enter block name, or press Enter for default");return Object.freeze({status:"input-accepted",command:"Block",kind:"selection",recordIds:selectedRecordIds})}
+  function defaultName(){const used=new Set(modelReader.blockDefinitions().map(value=>value.name.toLowerCase()));for(let index=1;;index++)if(!used.has(`block ${index}`))return `Block ${index}`}
+  function acceptName(value){const selectionError=validateSelection();if(selectionError)return Object.freeze({status:"invalid-input",reason:"invalid-selection",command:"Block",message:selectionError});const explicit=String(value??"").trim(),candidate=explicit||defaultName();if(modelReader.blockDefinitions().some(value=>value.name.toLowerCase()===candidate.toLowerCase()))return Object.freeze({status:"invalid-input",reason:"duplicate-name",command:"Block",message:"A Block Definition with that name already exists"});name=candidate;phase="base";update("Specify base point");return Object.freeze({status:"input-accepted",command:"Block",kind:"name",name})}
+  function publish(point){const error=validateSelection();if(error)return Object.freeze({status:"invalid-input",reason:"invalid-selection",command:"Block",message:error});let members;try{members=sources().map(record=>recordGateway.copyWithFreshIdentity(record))}catch(error){return Object.freeze({status:"invalid-input",reason:"identity-copy-failed",command:"Block",message:error.message})}const outcome=blockDefinitionGateway.create({name,basePoint:{x:point.x,y:point.y},records:members,recordOrder:members.map(record=>record.id)});if(outcome.status!=="committed")return Object.freeze({status:"invalid-input",reason:outcome.status,command:"Block",message:outcome.message||"Unable to create Block Definition",outcome});clearSnap();requestRender();return Object.freeze({status:"command-completed",command:"Block",definition:outcome.definition,outcome})}
+  function handleInput(input){if(phase==="selection")return Object.freeze({status:"invalid-input",reason:"selection-phase",command:"Block",message:"Press Enter to confirm selection"});if(phase==="name")return acceptName(input);const parsed=resolveTypedPrecisionPoint(input,null);clearSnap();return parsed.status==="point-resolved"?publish(parsed):Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Block",message:"Enter a point as x,y"})}
+  function finish(){if(phase==="selection")return confirmSelection();if(phase==="name")return acceptName("");return Object.freeze({status:"invalid-input",reason:"point-required",command:"Block",message:"Specify a base point"})}
+  function cancel(){clearSnap();requestRender();return Object.freeze({status:"command-cancelled",command:"Block"})}
+  requestRender();return Object.freeze({name:"Block",finish,cancel,handleInput,handlePointerDown:point=>phase==="base"?publish(point):Object.freeze({status:"invalid-input",reason:"point-unavailable",command:"Block"}),handlePointerMove:()=>requestRender(),handlePointerLeave:()=>{clearSnap();requestRender()},hasPointerPreview:()=>phase==="base",get usesResolvedPoint(){return phase==="base"},get isSelectionPhase(){return phase==="selection"},get phase(){return phase},get selectedRecordIds(){return selectedRecordIds},get definitionName(){return name},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
+}
+
+function createInsertCommandSession({setPrompt=()=>{}}={}){
+  let phase="definition",definition=null,insertionPoint=null,candidatePoint=null,scale=1,rotation=0
+  let promptPresentation=createCommandPrompt("Insert",modelReader.blockDefinitions().length?"Enter Block Definition name":"No Block Definitions are available")
+  function update(text){promptPresentation=createCommandPrompt("Insert",text);setPrompt(promptPresentation.text,promptPresentation);requestRender()}
+  function choose(value){const key=String(value??"").trim().toLowerCase(),matches=modelReader.blockDefinitions().filter(item=>item.name.toLowerCase()===key);if(matches.length!==1)return Object.freeze({status:"invalid-input",reason:key?"unknown-definition":"definition-required",command:"Insert",message:key?"Unknown Block Definition":"Enter a Block Definition name"});definition=matches[0];phase="insertion";update("Specify insertion point");return Object.freeze({status:"input-accepted",command:"Insert",kind:"definition",definitionId:definition.id})}
+  function acceptPoint(point){insertionPoint=Object.freeze({x:point.x,y:point.y});candidatePoint=insertionPoint;phase="scale";update("Enter positive uniform scale <1>");return Object.freeze({status:"input-accepted",command:"Insert",kind:"insertion-point",point:insertionPoint})}
+  function acceptScale(value){const text=String(value??"").trim(),parsed=text?window.CaderactPrecisionInput.parseScalar(text,modelReader.units().length):{status:"precision-parsed",value:1};if(parsed.status!=="precision-parsed"||!Number.isFinite(parsed.value)||!(parsed.value>0))return Object.freeze({status:"invalid-input",reason:"invalid-scale",command:"Insert",message:"Scale must be a positive finite number"});scale=parsed.value;phase="rotation";update("Enter rotation <0>");return Object.freeze({status:"input-accepted",command:"Insert",kind:"scale",scale})}
+  function publish(value){const text=String(value??"").trim(),parsed=text?window.CaderactPrecisionInput.parseAngle(text):{status:"precision-parsed",degrees:0};if(parsed.status!=="precision-parsed"||!Number.isFinite(parsed.degrees))return Object.freeze({status:"invalid-input",reason:"invalid-rotation",command:"Insert",message:"Rotation must be a finite angle"});try{rotation=window.CaderactSimilarityTransform.canonicalAngle(parsed.degrees*Math.PI/180);window.CaderactSimilarityTransform.fromComponents({insertionPoint,basePoint:definition.basePoint,rotation,scale,mirrored:false})}catch(error){return Object.freeze({status:"invalid-input",reason:"invalid-transform",command:"Insert",message:error.message})}let record;try{record=recordGateway.createBlockInstance({definitionId:definition.id,insertionPoint,rotation,scale,mirrored:false})}catch(error){return Object.freeze({status:"invalid-input",reason:"invalid-instance",command:"Insert",message:error.message})}const outcome=recordGateway.createAll([record]);if(outcome.status!=="committed")return Object.freeze({status:"invalid-input",reason:"commit-failed",command:"Insert",message:"Unable to insert Block",outcome});selection.applyRecordIds([record.id]);clearSnap();candidatePoint=null;requestRender();return Object.freeze({status:"command-completed",command:"Insert",record,outcome})}
+  function handleInput(input){if(phase==="definition")return choose(input);if(phase==="insertion"){const parsed=resolveTypedPrecisionPoint(input,null);clearSnap();return parsed.status==="point-resolved"?acceptPoint(parsed):Object.freeze({status:"invalid-input",reason:parsed.reason,command:"Insert",message:"Enter a point as x,y"})}if(phase==="scale")return acceptScale(input);return publish(input)}
+  function finish(){if(phase==="scale")return acceptScale("");if(phase==="rotation")return publish("");return Object.freeze({status:"invalid-input",reason:"value-required",command:"Insert",message:phase==="definition"?"Enter a Block Definition name":"Specify an insertion point"})}
+  function previewRecords(){if(!definition||!(candidatePoint||insertionPoint))return Object.freeze([]);const instance={id:"preview-instance",type:"block-instance",definitionId:definition.id,insertionPoint:candidatePoint||insertionPoint,rotation,scale,mirrored:false};try{return Object.freeze(window.CaderactBlockTraversal.traverse({blockDefinitions:modelReader.snapshot().blockDefinitions},instance).entries.map(entry=>Object.freeze({...window.CaderactGeometryTransform.similarityRecord(entry.record,entry.transform),id:entry.semanticId,layerId:modelReader.snapshot().currentLayerId})))}catch{return Object.freeze([])}}
+  function getMovePreview(){const records=previewRecords();return records.length?Object.freeze({mode:"insert",preserveSourceVisible:true,recordIds:Object.freeze([]),sourceRecords:Object.freeze([]),records}):null}
+  function cancel(){candidatePoint=null;clearSnap();requestRender();return Object.freeze({status:"command-cancelled",command:"Insert"})}
+  requestRender();return Object.freeze({name:"Insert",finish,cancel,handleInput,handlePointerDown:point=>phase==="insertion"?acceptPoint(point):Object.freeze({status:"invalid-input",reason:"point-unavailable",command:"Insert"}),handlePointerMove:point=>{if(phase==="insertion")candidatePoint=Object.freeze({x:point.x,y:point.y});requestRender()},handlePointerLeave:()=>{if(phase==="insertion")candidatePoint=null;clearSnap();requestRender()},getMovePreview,hasPointerPreview:()=>phase==="insertion",get usesResolvedPoint(){return phase==="insertion"},get phase(){return phase},get definition(){return definition},get insertionPoint(){return insertionPoint},get scale(){return scale},get rotation(){return rotation},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
 function createMoveCommandSession({ setPrompt = () => {} } = {}) {
@@ -1517,6 +1558,7 @@ documentSession.subscribe(({ store }) => {
   modelReader = store.reader
   recordGateway = store.recordGateway
   groupGateway = store.groupGateway
+  blockDefinitionGateway = store.blockDefinitionGateway
   layerGateway = store.layerGateway
   unitGateway = store.unitGateway
   dimensionStyleGateway=store.dimensionStyleGateway
@@ -1573,6 +1615,8 @@ function cancelGripEdit() {
 }
 
 window.caderactViewport = { createHatchCommandSession, createRegionCommandSession, createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createRadialDimensionCommandSession, createTextCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
+window.caderactViewport.createBlockCommandSession=createBlockCommandSession
+window.caderactViewport.createInsertCommandSession=createInsertCommandSession
 
 function resizeCanvas() {
   interactionVisuals.leave()
