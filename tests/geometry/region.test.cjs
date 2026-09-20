@@ -49,8 +49,8 @@ test('R2 ordered Line loops are copied while sources remain independent',async()
 test('R2 whole-object selection respects filled interior holes and exposes one centroid grip',async()=>{
   const b=await browser();
   b.run('window.__region=recordGateway.createRegion([recordGateway.createCircle({x:0,y:0},10),recordGateway.createCircle({x:0,y:0},4)]);recordGateway.createAll([window.__region]);window.__records=modelReader.records()');
-  assert.equal(b.read('window.CaderactSelection.hitTestRecords({screenPoint:worldToScreen(8,0),records:window.__records,worldToScreen}).recordId'),b.read('window.__region.id'));
-  assert.equal(b.read('window.CaderactSelection.hitTestRecords({screenPoint:worldToScreen(0,0),records:window.__records,worldToScreen}).hit'),false);
+  assert.equal(b.read('window.CaderactSelection.hitTestRecords({screenPoint:worldToScreen(8,0),records:window.__records,worldToScreen,screenToWorld}).recordId'),b.read('window.__region.id'));
+  assert.equal(b.read('window.CaderactSelection.hitTestRecords({screenPoint:worldToScreen(0,0),records:window.__records,worldToScreen,screenToWorld}).hit'),false);
   assert.equal(b.read('window.CaderactGrips.discoverRegionGrips(window.__records,[window.__region.id]).length'),1);
 });
 

@@ -27,7 +27,7 @@
     return hits.length ? result("hit",{hit:true,recordId:hits[0].recordId,distancePx:hits[0].distancePx}) : result("miss",{hit:false})
   }
 
-  function hitTestRecords({ screenPoint, records = [], worldToScreen, tolerancePx = DEFAULT_HIT_TOLERANCE_PX }) {
+  function hitTestRecords({ screenPoint, records = [], worldToScreen, screenToWorld, tolerancePx = DEFAULT_HIT_TOLERANCE_PX }) {
     if (!Number.isFinite(screenPoint?.x) || !Number.isFinite(screenPoint?.y) || typeof worldToScreen !== "function") {
       return result("invalid-hit-test")
     }
@@ -70,8 +70,9 @@
         for(let index=0;index<segments.length;index+=4)distancePx=Math.min(distancePx,segmentDistance(screenPoint,...segments.slice(index,index+4)))
         if(distancePx<=tolerancePx)hits.push({recordId:record.id,distancePx})
       } else if(record?.type==="region"){
-        let distancePx=Infinity,inside=false
-        for(const loop of record.loops){const points=[];for(const edge of loop.edges){const sampled=window.CaderactRegionGeometry.sampleEdge(edge).map(world=>worldToScreen(world.x,world.y));for(let i=1;i<sampled.length;i++){const a=sampled[i-1],b=sampled[i];distancePx=Math.min(distancePx,segmentDistance(screenPoint,a.x,a.y,b.x,b.y))}points.push(...sampled.slice(0,-1))}let crossings=0;for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length];if((a.y>screenPoint.y)!==(b.y>screenPoint.y)&&screenPoint.x<(b.x-a.x)*(screenPoint.y-a.y)/(b.y-a.y)+a.x)crossings++}if(crossings%2)inside=!inside}
+        let distancePx=Infinity
+        for(const loop of record.loops)for(const edge of loop.edges){const sampled=window.CaderactRegionGeometry.sampleEdge(edge).map(world=>worldToScreen(world.x,world.y));for(let i=1;i<sampled.length;i++){const a=sampled[i-1],b=sampled[i];distancePx=Math.min(distancePx,segmentDistance(screenPoint,a.x,a.y,b.x,b.y))}}
+        const worldPoint=typeof screenToWorld==="function"?screenToWorld(screenPoint.x,screenPoint.y):null,inside=worldPoint?window.CaderactRegionGeometry.classifyPoint(record,worldPoint)==="inside":false
         if(distancePx<=tolerancePx||inside)hits.push({recordId:record.id,distancePx:inside?0:distancePx})
       } else if(record?.type==="text"){
         const corners=window.CaderactAnnotationGeometry.projectedCorners(record,worldToScreen);if(corners.length){let distancePx=Infinity;for(let index=0;index<4;index++){const a=corners[index],b=corners[(index+1)%4];distancePx=Math.min(distancePx,segmentDistance(screenPoint,a.x,a.y,b.x,b.y))}let sign=null,inside=true;for(let index=0;index<4;index++){const a=corners[index],b=corners[(index+1)%4],cross=(b.x-a.x)*(screenPoint.y-a.y)-(b.y-a.y)*(screenPoint.x-a.x);if(Math.abs(cross)<1e-9)continue;const next=Math.sign(cross);if(sign===null)sign=next;else if(sign!==next){inside=false;break}}if(inside)distancePx=0;if(distancePx<=tolerancePx)hits.push({recordId:record.id,distancePx})}
