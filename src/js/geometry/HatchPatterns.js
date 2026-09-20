@@ -19,7 +19,7 @@
     if(pattern?.kind!=="named")return["invalid pattern kind"]
     if(Reflect.ownKeys(pattern).some(key=>!["kind","name","angle","scale","origin"].includes(key)))return["unknown pattern field"]
     if(!Object.hasOwn(definitions,pattern.name))return["unknown pattern name"]
-    if(!Number.isFinite(pattern.angle))return["invalid pattern angle"]
+    if(!Number.isFinite(pattern.angle)||!(pattern.angle>-Math.PI&&pattern.angle<=Math.PI))return["invalid pattern angle"]
     if(!Number.isFinite(pattern.scale)||!(pattern.scale>0))return["invalid pattern scale"]
     if(!finitePoint(pattern.origin))return["invalid pattern origin"]
     return[]
@@ -27,7 +27,7 @@
   function descriptor(edge){const api=window.CaderactCurveDescriptor;if(edge.kind==="line")return api.describeLine(edge.start,edge.end);if(edge.kind==="arc")return api.describeArc(edge.center,edge.radius,edge.start,edge.sweep);if(edge.kind==="circle")return api.describeCircle(edge.center,edge.radius);if(edge.kind==="ellipse")return api.describeEllipse(edge.center,edge.majorAxis,edge.minorRadius);return null}
   function fail(reason,counts={}){return Object.freeze({valid:false,reason,...counts})}
   function generate(record){
-    const errors=validate(record?.pattern);if(errors.length||window.CaderactRegionGeometry.validate(record).length)return fail("invalid-pattern")
+    const errors=validate(record?.pattern);if(errors.length)return fail("invalid-pattern");if(window.CaderactRegionGeometry.validate(record).length)return fail("invalid-boundary")
     if(record.pattern.kind!=="named")return fail("not-named")
     const definition=definitions[record.pattern.name];if(definition.families.length>LIMITS.families)return fail("family-limit")
     const bounds=window.CaderactRegionGeometry.bounds(record),corners=[point(bounds.minX,bounds.minY),point(bounds.maxX,bounds.minY),point(bounds.maxX,bounds.maxY),point(bounds.minX,bounds.maxY)]

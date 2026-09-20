@@ -14,6 +14,7 @@
   // every flattened edge is linear and parity is constant, so paired crossings
   // form deterministic trapezoids that naturally preserve holes and islands.
   function triangulate(record,options={}){
+    if(record?.pattern?.kind!=="solid")return Object.freeze({valid:false,reason:"not-solid"})
     const flat=flatten(record,options);if(!flat.valid)return flat
     const edges=[],ys=[];for(const contour of flat.contours){const p=contour.points;for(let i=0;i<p.length;i++){const a=p[i],b=p[(i+1)%p.length];ys.push(a.y);if(a.y!==b.y)edges.push({a,b,key:`${Math.min(a.x,b.x)},${Math.min(a.y,b.y)},${Math.max(a.x,b.x)},${Math.max(a.y,b.y)}`})}}
     const levels=Array.from(new Set(ys)).sort((a,b)=>a-b),triangles=[]
