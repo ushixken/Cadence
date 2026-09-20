@@ -12,6 +12,7 @@
   function canonicalLayer(layer) {
     return { id: layer.id, name: layer.name, visible: layer.visible, locked: layer.locked, ...window.CaderactObjectProperties.layerProperties(layer) }
   }
+  const canonicalGroup=group=>({id:group.id,name:group.name,memberIds:Array.from(group.memberIds)})
   const properties=record=>window.CaderactObjectProperties.recordProperties(record)
   function canonicalRecord(record) {
     if (record.type === "line") return {
@@ -59,6 +60,7 @@
         currentLayerId: document.currentLayerId,
         layers: sortById(Object.values(document.layers)).map(canonicalLayer),
         records: sortById(Object.values(document.geometry.objects)).map(canonicalRecord),
+        groups:sortById(Object.values(document.groups)).map(canonicalGroup),nextGroupNumber:document.nextGroupNumber,
       },
     }
   }
@@ -83,6 +85,7 @@
     if(source.formatVersion!==payload.fileVersion)invalid(`document formatVersion does not match fileVersion ${payload.fileVersion}`)
     if (!Array.isArray(source.layers)) invalid("layers must be an array")
     if (!Array.isArray(source.records)) invalid("records must be an array")
+    if(!legacy&&!version2&&source.groups!==undefined&&!Array.isArray(source.groups))invalid("groups must be an array")
 
     function tableFrom(items, label, canonicalize) {
       const entries = [], ids = new Set()
@@ -135,6 +138,7 @@
 
     const layers = tableFrom(source.layers, "layer", canonicalLayer)
     const objects = tableFrom(source.records, "record", canonicalRecord)
+    const groups=legacy||version2||source.groups===undefined?{}:tableFrom(source.groups,"group",group=>{rejectUnknown(group,fields.group,"Group entry");if(!Array.isArray(group.memberIds))invalid("Group memberIds must be an array");return canonicalGroup(group)})
     let styleId,dimensionStyles,dimensionStyleOrder,currentDimensionStyleId
     if(legacy||version2){styleId=`ds_${source.id}_standard`;dimensionStyles={[styleId]:{id:styleId,name:"Standard",...(version2?source.dimensionStyle:window.CaderactDocument.DEFAULT_DIMENSION_STYLE)}};dimensionStyleOrder=[styleId];currentDimensionStyleId=styleId;for(const record of Object.values(objects))if(record.type.startsWith("dimension-"))record.dimensionStyleId=styleId}
     else {dimensionStyles=tableFrom(source.dimensionStyles,"dimension style",style=>({...style}));dimensionStyleOrder=source.dimensionStyles.map(style=>style.id);currentDimensionStyleId=source.currentDimensionStyleId}
@@ -145,6 +149,7 @@
       units: { length: source.units?.length },
       dimensionStyles,dimensionStyleOrder,currentDimensionStyleId,
       geometry: { objects },
+      groups,nextGroupNumber:legacy||version2||source.nextGroupNumber===undefined?1:source.nextGroupNumber,
       layers,
       defaultLayerId: source.defaultLayerId,
       currentLayerId: source.currentLayerId,

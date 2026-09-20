@@ -25,11 +25,12 @@
   const DEFAULT_DIMENSION_STYLE=Object.freeze({textHeight:2.5,arrowSize:2.5,extensionGap:1,extensionBeyond:1,textGap:.75,linearPrecision:3,angularPrecision:2,showUnit:true,prefix:"",suffix:"",arrowStyle:"closed-filled"})
   const MAX_DIMENSION_TEXT_OVERRIDE_LENGTH=256
   const MAX_DIMENSION_STYLE_NAME_LENGTH=64
+  const MAX_GROUP_NAME_LENGTH=128,MAX_GROUPS=10000,MAX_GROUP_MEMBERS=10000
   const V2_FIELDS=Object.freeze({...V1_FIELDS,persistedDocument:fields([...V1_FIELDS.persistedDocument,"dimensionStyle"]),document:fields([...V1_FIELDS.document,"dimensionStyle"]),dimensionStyle:fields(Object.keys(DEFAULT_DIMENSION_STYLE)),dimensionLinear:fields(["id","type","layerId","color","linetype","lineweight","mode","firstPoint","secondPoint","dimensionLinePoint","textOverride"]),dimensionAngular:fields(["id","type","layerId","color","linetype","lineweight","firstRayPoint","vertex","secondRayPoint","dimensionArcPoint","textOverride"]),dimensionRadial:fields(["id","type","layerId","color","linetype","lineweight","mode","centerPoint","dimensionPoint","leaderPoint","textOverride"])})
-  const V3_FIELDS=Object.freeze({...V2_FIELDS,persistedDocument:fields([...V1_FIELDS.persistedDocument,"dimensionStyles","currentDimensionStyleId"]),document:fields([...V1_FIELDS.document,"dimensionStyles","dimensionStyleOrder","currentDimensionStyleId"]),dimensionStyle:fields(["id","name",...Object.keys(DEFAULT_DIMENSION_STYLE)]),dimensionLinear:fields([...V2_FIELDS.dimensionLinear,"dimensionStyleId"]),dimensionAngular:fields([...V2_FIELDS.dimensionAngular,"dimensionStyleId"]),dimensionRadial:fields([...V2_FIELDS.dimensionRadial,"dimensionStyleId"]),text:fields(["id","type","layerId","color","linetype","lineweight","insertionPoint","text","height","rotation","horizontalAlignment"]),region:fields(["id","type","layerId","color","linetype","lineweight","loops"]),hatch:fields(["id","type","layerId","color","linetype","lineweight","loops","pattern"]),hatchPattern:fields(["kind","name","angle","scale","origin"]),regionLoop:fields(["featureId","depth","parentIndex","edges"]),regionEdge:fields(["kind","featureId","start","end","center","majorAxis","radius","minorRadius","sweep","clockwise"])})
+  const V3_FIELDS=Object.freeze({...V2_FIELDS,persistedDocument:fields([...V1_FIELDS.persistedDocument,"dimensionStyles","currentDimensionStyleId","groups","nextGroupNumber"]),document:fields([...V1_FIELDS.document,"dimensionStyles","dimensionStyleOrder","currentDimensionStyleId","groups","nextGroupNumber"]),group:fields(["id","name","memberIds"]),dimensionStyle:fields(["id","name",...Object.keys(DEFAULT_DIMENSION_STYLE)]),dimensionLinear:fields([...V2_FIELDS.dimensionLinear,"dimensionStyleId"]),dimensionAngular:fields([...V2_FIELDS.dimensionAngular,"dimensionStyleId"]),dimensionRadial:fields([...V2_FIELDS.dimensionRadial,"dimensionStyleId"]),text:fields(["id","type","layerId","color","linetype","lineweight","insertionPoint","text","height","rotation","horizontalAlignment"]),region:fields(["id","type","layerId","color","linetype","lineweight","loops"]),hatch:fields(["id","type","layerId","color","linetype","lineweight","loops","pattern"]),hatchPattern:fields(["kind","name","angle","scale","origin"]),regionLoop:fields(["featureId","depth","parentIndex","edges"]),regionEdge:fields(["kind","featureId","start","end","center","majorAxis","radius","minorRadius","sweep","clockwise"])})
   const normalizeDimensionStyleName=value=>typeof value==="string"?value.trim():""
   function validateDimensionStyle(style){const errors=[];if(!isRecord(style))return["Invalid dimension style"];const name=normalizeDimensionStyleName(style.name);if(typeof style.id!=="string"||!style.id.trim())errors.push("Dimension style: missing ID");if(!name||name!==style.name||name.length>MAX_DIMENSION_STYLE_NAME_LENGTH||/[\u0000-\u001f\u007f]/.test(name))errors.push("Dimension style: invalid name");for(const key of ["textHeight","arrowSize"])if(!Number.isFinite(style[key])||style[key]<=0)errors.push(`Invalid dimension style ${key}`);for(const key of ["extensionGap","extensionBeyond","textGap"])if(!Number.isFinite(style[key])||style[key]<0)errors.push(`Invalid dimension style ${key}`);for(const key of ["linearPrecision","angularPrecision"])if(!Number.isInteger(style[key])||style[key]<0||style[key]>15)errors.push(`Invalid dimension style ${key}`);if(typeof style.showUnit!=="boolean"||typeof style.prefix!=="string"||typeof style.suffix!=="string"||style.arrowStyle!=="closed-filled")errors.push("Invalid dimension style fields");return errors}
-  function migrateDocument(document){if(document?.formatVersion===3)return copyValue(document);const source=copyValue(document),styleId=`ds_${source.id}_standard`,style={id:styleId,name:"Standard",...(source.dimensionStyle||DEFAULT_DIMENSION_STYLE)},objects={};for(const [id,record] of Object.entries(source.geometry?.objects||{}))objects[id]=record.type?.startsWith("dimension-")?{...record,dimensionStyleId:styleId}:record;delete source.dimensionStyle;return{...source,formatVersion:3,geometry:{objects},dimensionStyles:{[styleId]:style},dimensionStyleOrder:[styleId],currentDimensionStyleId:styleId}}
+  function migrateDocument(document){if(document?.formatVersion===3){const source=copyValue(document);source.groups??={};source.nextGroupNumber??=1;return source}const source=copyValue(document),styleId=`ds_${source.id}_standard`,style={id:styleId,name:"Standard",...(source.dimensionStyle||DEFAULT_DIMENSION_STYLE)},objects={};for(const [id,record] of Object.entries(source.geometry?.objects||{}))objects[id]=record.type?.startsWith("dimension-")?{...record,dimensionStyleId:styleId}:record;delete source.dimensionStyle;return{...source,formatVersion:3,geometry:{objects},dimensionStyles:{[styleId]:style},dimensionStyleOrder:[styleId],currentDimensionStyleId:styleId,groups:{},nextGroupNumber:1}}
   function unknownFields(value, allowedFields) {
     if (!isRecord(value)) return []
     const allowed = new Set(allowedFields)
@@ -154,6 +155,18 @@
         for(const error of (record.type==="hatch"?window.CaderactHatchGeometry:window.CaderactRegionGeometry).validate(record))errors.push(error)
       } else errors.push("Unsupported object type")
     }
+    const groups=value.groups,groupNames=new Set(),memberships=new Set();let highestDefaultGroupNumber=0
+    if(!isRecord(groups))errors.push("Invalid Group table")
+    else if(Object.keys(groups).length>MAX_GROUPS)errors.push("Group: group limit exceeded")
+    else for(const [key,group] of Object.entries(groups)){
+      if(!isRecord(group)){errors.push("Invalid Group");continue}
+      closedShape(group,V3_FIELDS.group,"Group");identity(group.id,"Group");if(key!==group.id)errors.push("Group key/ID mismatch")
+      const name=typeof group.name==="string"?group.name.trim():"";if(!name||name!==group.name||name.length>MAX_GROUP_NAME_LENGTH||/[\u0000-\u001f\u007f]/.test(name))errors.push("Group: invalid name");else{const nameKey=name.toLowerCase();if(groupNames.has(nameKey))errors.push(`Duplicate Group name ${name}`);groupNames.add(nameKey);const numbered=/^Group ([1-9]\d*)$/.exec(name);if(numbered)highestDefaultGroupNumber=Math.max(highestDefaultGroupNumber,Number(numbered[1]))}
+      if(!Array.isArray(group.memberIds)||group.memberIds.length<2)errors.push("Group: at least two members are required")
+      else if(group.memberIds.length>MAX_GROUP_MEMBERS)errors.push("Group: member limit exceeded")
+      else {const local=new Set();for(const memberId of group.memberIds){if(typeof memberId!=="string"||!has(objects||{},memberId))errors.push(`Group: missing member ${String(memberId)}`);if(local.has(memberId))errors.push(`Group: duplicate member ${memberId}`);local.add(memberId);if(memberships.has(memberId))errors.push(`Group: record ${memberId} belongs to multiple Groups`);memberships.add(memberId)}const sorted=[...group.memberIds].sort();if(group.memberIds.some((id,index)=>id!==sorted[index]))errors.push("Group: member order must be canonical")}
+    }
+    if(!Number.isSafeInteger(value.nextGroupNumber)||value.nextGroupNumber<1||value.nextGroupNumber<=highestDefaultGroupNumber)errors.push("Invalid nextGroupNumber")
     return errors
   }
 
@@ -187,6 +200,7 @@
       allocated.add(candidate.id)
       for (const layer of Object.values(candidate.layers)) allocated.add(layer.id)
       for(const style of Object.values(candidate.dimensionStyles))allocated.add(style.id)
+      for(const group of Object.values(candidate.groups))allocated.add(group.id)
       for (const record of Object.values(candidate.geometry.objects)) {
         allocated.add(record.id)
         if (record.type === "line" || record.type === "arc") {
@@ -199,7 +213,7 @@
       state = freeze(candidate)
     } else {
       const id = newId(), layerId = newId()
-      const dimensionStyleId=newId();state = freeze({ id, name: "Untitled", formatVersion: 3, units: { length: "mm" },dimensionStyles:{[dimensionStyleId]:{id:dimensionStyleId,name:"Standard",...DEFAULT_DIMENSION_STYLE}},dimensionStyleOrder:[dimensionStyleId],currentDimensionStyleId:dimensionStyleId,
+      const dimensionStyleId=newId();state = freeze({ id, name: "Untitled", formatVersion: 3, units: { length: "mm" },dimensionStyles:{[dimensionStyleId]:{id:dimensionStyleId,name:"Standard",...DEFAULT_DIMENSION_STYLE}},dimensionStyleOrder:[dimensionStyleId],currentDimensionStyleId:dimensionStyleId,groups:{},nextGroupNumber:1,
         geometry: { objects: {} },
         layers: { [layerId]: { id: layerId, name: "Default", visible: true, locked: false, ...window.CaderactObjectProperties.DEFAULT_LAYER_PROPERTIES } },
         defaultLayerId: layerId,
@@ -211,11 +225,12 @@
     // the controller a way to read/replace `state` and the existing A2 validator.
     const controller = window.DocumentController.createController({
       getDocument: () => state,
-      getCollections: document => ({ records: document.geometry.objects, layers: document.layers,
-        settings: { units: document.units, currentLayerId: document.currentLayerId,dimensionStyles:document.dimensionStyles,dimensionStyleOrder:document.dimensionStyleOrder,currentDimensionStyleId:document.currentDimensionStyleId } }),
+      getCollections: document => ({ records: document.geometry.objects, groups:document.groups, layers: document.layers,
+        settings: { units: document.units, currentLayerId: document.currentLayerId,dimensionStyles:document.dimensionStyles,dimensionStyleOrder:document.dimensionStyleOrder,currentDimensionStyleId:document.currentDimensionStyleId,nextGroupNumber:document.nextGroupNumber } }),
       assembleDocument: (baseDocument, collections) => ({
         ...baseDocument,
         geometry: { objects: collections.records },
+        groups:collections.groups,nextGroupNumber:collections.settings.nextGroupNumber,
         layers: collections.layers,
         units: collections.settings.units,
         currentLayerId: collections.settings.currentLayerId,
@@ -246,6 +261,9 @@
       // Compatibility query for current Line-oriented callers; render code uses
       // records() and performs its own supported-type projection.
       lines: () => Object.freeze(Object.values(state.geometry.objects).filter(record => record.type === "line")),
+      groups:()=>Object.freeze(Object.values(state.groups).sort((a,b)=>a.id.localeCompare(b.id))),
+      group:groupId=>state.groups[groupId]||null,
+      groupForRecord:recordId=>Object.values(state.groups).find(group=>group.memberIds.includes(recordId))||null,
     })
     // Schema-aware, command-agnostic record gateway. Commands may construct
     // immutable records before publication, while atomic creation remains
@@ -253,6 +271,8 @@
     function layerUsable(layerId) { const layer=state.layers[layerId];return Boolean(layer?.visible&&!layer.locked) }
     function currentDrawingLayerId() { if(!layerUsable(state.currentLayerId))throw new Error("Current layer is hidden or locked");return state.currentLayerId }
     function recordEditable(recordId) { const record=state.geometry.objects[recordId];return Boolean(record&&layerUsable(record.layerId)) }
+    const validGroupName=value=>typeof value==="string"&&value.trim()===value&&value.length>0&&value.length<=MAX_GROUP_NAME_LENGTH&&!/[\u0000-\u001f\u007f]/.test(value)
+    function cleanupGroupsForRemovedRecords(transaction,recordIds){const removed=new Set(recordIds);for(const group of Object.values(state.groups)){const memberIds=group.memberIds.filter(id=>!removed.has(id));if(memberIds.length===group.memberIds.length)continue;if(memberIds.length<2)transaction.removeIn("groups",group.id);else transaction.replaceIn("groups",group.id,{...group,memberIds})}}
     function updateRecordProperties(recordId, properties) {
       if (!recordEditable(recordId)) return Object.freeze({ status: "record-layer-unavailable", recordId })
       const transaction = controller.beginTransaction()
@@ -370,6 +390,7 @@
         let transaction
         try {
           transaction = controller.beginTransaction()
+          cleanupGroupsForRemovedRecords(transaction,recordIds)
           for (const recordId of recordIds) transaction.remove(recordId)
           return transaction.publish()
         } catch (error) {
@@ -529,6 +550,10 @@
         return assignRecordsToLayer([recordId], layerId)
       },
     })
+    const groupGateway=Object.freeze({
+      createGroup(memberIds,{name}={}){const members=Array.from(memberIds||[]);if(members.length<2)return Object.freeze({status:"insufficient-members"});if(members.length>MAX_GROUP_MEMBERS)return Object.freeze({status:"member-limit"});if(new Set(members).size!==members.length)return Object.freeze({status:"duplicate-member"});if(members.some(id=>typeof id!=="string"||!has(state.geometry.objects,id)))return Object.freeze({status:"missing-member"});if(members.some(id=>reader.groupForRecord(id)))return Object.freeze({status:"already-grouped"});if(Object.keys(state.groups).length>=MAX_GROUPS)return Object.freeze({status:"group-limit"});const defaultName=name===undefined,groupName=defaultName?`Group ${state.nextGroupNumber}`:name;if(!validGroupName(groupName))return Object.freeze({status:"invalid-name"});if(Object.values(state.groups).some(group=>group.name.toLowerCase()===groupName.toLowerCase()))return Object.freeze({status:"duplicate-name"});const numbered=/^Group ([1-9]\d*)$/.exec(groupName),nextGroupNumber=numbered?Math.max(state.nextGroupNumber,Number(numbered[1])+1):state.nextGroupNumber;const group=freeze({id:newId(),name:groupName,memberIds:[...members].sort()}),transaction=controller.beginTransaction();try{transaction.createIn("groups",group.id,group);if(nextGroupNumber!==state.nextGroupNumber)transaction.replaceIn("settings","nextGroupNumber",nextGroupNumber);const outcome=transaction.publish();return Object.freeze({...outcome,group})}catch(error){if(transaction.isOpen)transaction.rollback();return Object.freeze({status:"commit-failed",message:error.message})}},
+      ungroup(groupId){if(!has(state.groups,groupId))return Object.freeze({status:"missing-group",groupId});const transaction=controller.beginTransaction();try{const group=state.groups[groupId];transaction.removeIn("groups",groupId);const outcome=transaction.publish();return Object.freeze({...outcome,group})}catch(error){if(transaction.isOpen)transaction.rollback();return Object.freeze({status:"commit-failed",message:error.message})}},
+    })
     function layerByName(name) {
       const key = layerNameKey(name)
       return Object.values(state.layers).find(layer => layerNameKey(layer.name) === key) || null
@@ -612,7 +637,7 @@
       delete(styleId){if(!state.dimensionStyles[styleId])return Object.freeze({status:"unknown-style"});if(styleId===state.currentDimensionStyleId)return Object.freeze({status:"current-style"});const referenceCount=Object.values(state.geometry.objects).filter(record=>record.dimensionStyleId===styleId).length;if(referenceCount)return Object.freeze({status:"style-in-use",referenceCount});if(state.dimensionStyleOrder.length<=1)return Object.freeze({status:"last-style"});const styles={...state.dimensionStyles};delete styles[styleId];return publishStyleSettings({dimensionStyles:styles,dimensionStyleOrder:state.dimensionStyleOrder.filter(id=>id!==styleId)})},
       assign(recordIds,styleId){if(!state.dimensionStyles[styleId])return Object.freeze({status:"unknown-style"});const ids=Array.from(new Set(recordIds||[])),records=ids.map(id=>state.geometry.objects[id]);if(records.some(record=>!record?.type?.startsWith("dimension-")||!recordEditable(record.id)))return Object.freeze({status:"invalid-selection"});const changes=records.filter(record=>record.dimensionStyleId!==styleId);if(!changes.length)return Object.freeze({status:"no-op",changes:Object.freeze([])});const transaction=controller.beginTransaction();for(const record of changes)transaction.replace(record.id,{...record,dimensionStyleId:styleId});return transaction.publish()}
     })
-    return Object.freeze({ reader, recordGateway, layerGateway, unitGateway, dimensionStyleGateway, controller })
+    return Object.freeze({ reader, recordGateway, groupGateway, layerGateway, unitGateway, dimensionStyleGateway, controller })
   }
-  window.CaderactDocument = Object.freeze({ createStore, validateDocument,validateDimensionStyle,migrateDocument,V1_FIELDS,V2_FIELDS,V3_FIELDS,DEFAULT_DIMENSION_STYLE,MAX_DIMENSION_TEXT_OVERRIDE_LENGTH,MAX_DIMENSION_STYLE_NAME_LENGTH, unknownFields })
+  window.CaderactDocument = Object.freeze({ createStore, validateDocument,validateDimensionStyle,migrateDocument,V1_FIELDS,V2_FIELDS,V3_FIELDS,DEFAULT_DIMENSION_STYLE,MAX_DIMENSION_TEXT_OVERRIDE_LENGTH,MAX_DIMENSION_STYLE_NAME_LENGTH,MAX_GROUP_NAME_LENGTH,MAX_GROUPS,MAX_GROUP_MEMBERS,unknownFields })
 })()

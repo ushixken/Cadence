@@ -19,7 +19,7 @@ test('save payload contains only versioned durable content in deterministic ID o
   assert.equal(payload.fileVersion, 3);
   assert.deepEqual(Object.keys(payload), ['fileVersion', 'document']);
   assert.deepEqual(Object.keys(payload.document), [
-    'id', 'name', 'formatVersion', 'units', 'dimensionStyles', 'currentDimensionStyleId', 'defaultLayerId', 'currentLayerId', 'layers', 'records',
+    'id', 'name', 'formatVersion', 'units', 'dimensionStyles', 'currentDimensionStyleId', 'defaultLayerId', 'currentLayerId', 'layers', 'records', 'groups', 'nextGroupNumber',
   ]);
   assert.deepEqual(payload.document.layers.map(layer => layer.id), [...payload.document.layers.map(layer => layer.id)].sort());
   assert.deepEqual(payload.document.records.map(record => record.id), [...payload.document.records.map(record => record.id)].sort());
