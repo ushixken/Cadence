@@ -69,7 +69,7 @@
         let distancePx=Infinity
         for(let index=0;index<segments.length;index+=4)distancePx=Math.min(distancePx,segmentDistance(screenPoint,...segments.slice(index,index+4)))
         if(distancePx<=tolerancePx)hits.push({recordId:record.id,distancePx})
-      } else if(record?.type==="region"){
+      } else if(record?.type==="region"||record?.type==="hatch"){
         let distancePx=Infinity
         for(const loop of record.loops)for(const edge of loop.edges){const sampled=window.CaderactRegionGeometry.sampleEdge(edge).map(world=>worldToScreen(world.x,world.y));for(let i=1;i<sampled.length;i++){const a=sampled[i-1],b=sampled[i];distancePx=Math.min(distancePx,segmentDistance(screenPoint,a.x,a.y,b.x,b.y))}}
         const worldPoint=typeof screenToWorld==="function"?screenToWorld(screenPoint.x,screenPoint.y):null,inside=worldPoint?window.CaderactRegionGeometry.classifyPoint(record,worldPoint)==="inside":false

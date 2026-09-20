@@ -123,7 +123,7 @@
         acceptedDraft = [],
         nextPreview = [],
         snapMarker = [], polarGuideSegments = [], objectTrackingGuide = [], objectTrackingMarkers = [], measurementSegments = [], measurementMarkers = [],
-        selection = [], dimensionTriangles=[],dimensionAnnotations=[]
+        selection = [], hatchTriangles=[],dimensionTriangles=[],dimensionAnnotations=[]
       const selectionWindow = [],
         selectionCrossing = []
       const selectionWindowFill = [],
@@ -148,7 +148,7 @@
       const previewPropertyBuckets=new Map()
       function previewPropertyBucket(record){const style=propertyStyle(record),key=`${style.color}|${style.linetype}|${style.lineweight}`;if(!previewPropertyBuckets.has(key))previewPropertyBuckets.set(key,{style,segments:[],circles:[],arcs:[],ellipses:[],recordIds:[]});const bucket=previewPropertyBuckets.get(key);if(record.id)bucket.recordIds.push(record.id);return bucket}
       function appendTextAnnotation(record,color,{selected=false,preview=false}={}){const presentation=window.CaderactAnnotationGeometry.derive(record);if(!presentation.supported)return;const text=presentation.annotation,anchor=camera.worldToScreen(text.point.x,text.point.y);dimensionAnnotations.push(Object.freeze({recordId:record.id??null,role:"text",text:text.text,x:anchor.x,y:anchor.y,rotation:-text.rotation,fontSize:text.height*camera.state.zoom,horizontalAlignment:text.horizontalAlignment,color,selected,preview}))}
-      function appendStyledPreview(record){const bucket=previewPropertyBucket(record);if(record.type==="line"){const a=camera.worldToScreen(record.start.x,record.start.y),b=camera.worldToScreen(record.end.x,record.end.y);addSegment(bucket.segments,a.x,a.y,b.x,b.y);addSegment(nextPreview,a.x,a.y,b.x,b.y)}else if(record.type==="polyline"){const count=record.closed?record.vertices.length:record.vertices.length-1;for(let index=0;index<count;index++){const a=record.vertices[index],b=record.vertices[(index+1)%record.vertices.length],pa=camera.worldToScreen(a.x,a.y),pb=camera.worldToScreen(b.x,b.y);addSegment(bucket.segments,pa.x,pa.y,pb.x,pb.y);addSegment(nextPreview,pa.x,pa.y,pb.x,pb.y)}}else if(record.type==="circle"){const center=camera.worldToScreen(record.center.x,record.center.y),edge=camera.worldToScreen(record.center.x+record.radius,record.center.y);bucket.circles.push(Object.freeze({recordId:record.id,center:Object.freeze(center),radius:Math.hypot(edge.x-center.x,edge.y-center.y)}))}else if(record.type==="arc")bucket.arcs.push(projectArc(record));else if(record.type==="ellipse")bucket.ellipses.push(projectEllipse(record));else if(record.type==="text")appendTextAnnotation(record,viewportSettings.previewColor,{preview:true});else if(record.type?.startsWith("dimension-")){const presentation=window.CaderactDimensionGeometry.derive(record,getDimensionStyle(record),{length:getDocumentUnit()});if(presentation.supported){for(const [start,end] of presentation.lines){const a=camera.worldToScreen(start.x,start.y),b=camera.worldToScreen(end.x,end.y);addSegment(bucket.segments,a.x,a.y,b.x,b.y)}for(const arc of presentation.arcs||[])bucket.arcs.push(projectArc({...arc,id:record.id}))}}}
+      function appendStyledPreview(record){const bucket=previewPropertyBucket(record);if(record.type==="line"){const a=camera.worldToScreen(record.start.x,record.start.y),b=camera.worldToScreen(record.end.x,record.end.y);addSegment(bucket.segments,a.x,a.y,b.x,b.y);addSegment(nextPreview,a.x,a.y,b.x,b.y)}else if(record.type==="polyline"){const count=record.closed?record.vertices.length:record.vertices.length-1;for(let index=0;index<count;index++){const a=record.vertices[index],b=record.vertices[(index+1)%record.vertices.length],pa=camera.worldToScreen(a.x,a.y),pb=camera.worldToScreen(b.x,b.y);addSegment(bucket.segments,pa.x,pa.y,pb.x,pb.y);addSegment(nextPreview,pa.x,pa.y,pb.x,pb.y)}}else if(record.type==="circle"){const center=camera.worldToScreen(record.center.x,record.center.y),edge=camera.worldToScreen(record.center.x+record.radius,record.center.y);bucket.circles.push(Object.freeze({recordId:record.id,center:Object.freeze(center),radius:Math.hypot(edge.x-center.x,edge.y-center.y)}))}else if(record.type==="arc")bucket.arcs.push(projectArc(record));else if(record.type==="ellipse")bucket.ellipses.push(projectEllipse(record));else if(record.type==="hatch"){const derived=window.CaderactHatchGeometry.triangulate(record);if(derived.valid)for(const triangle of derived.triangles)hatchTriangles.push(Object.freeze({preview:true,recordId:record.id,points:Object.freeze(triangle.map(value=>Object.freeze(camera.worldToScreen(value.x,value.y)))),color:viewportSettings.previewColor,colorData:colorToRgba(viewportSettings.previewColor)}))}else if(record.type==="text")appendTextAnnotation(record,viewportSettings.previewColor,{preview:true});else if(record.type?.startsWith("dimension-")){const presentation=window.CaderactDimensionGeometry.derive(record,getDimensionStyle(record),{length:getDocumentUnit()});if(presentation.supported){for(const [start,end] of presentation.lines){const a=camera.worldToScreen(start.x,start.y),b=camera.worldToScreen(end.x,end.y);addSegment(bucket.segments,a.x,a.y,b.x,b.y)}for(const arc of presentation.arcs||[])bucket.arcs.push(projectArc({...arc,id:record.id}))}}}
       const moveSourceGhost = [],
         moveGuide = [],
         moveSourceCircles = [],
@@ -356,6 +356,10 @@
           const ellipse = projectEllipse(record)
           bucket.ellipses.push(ellipse)
           if (selectedIds.has(record.id)) selectedEllipses.push(ellipse)
+        } else if(record?.type==="hatch"){
+          const derived=window.CaderactHatchGeometry.triangulate(record),selected=selectedIds.has(record.id)
+          if(derived.valid)for(const triangle of derived.triangles){const points=Object.freeze(triangle.map(value=>Object.freeze(camera.worldToScreen(value.x,value.y))));hatchTriangles.push(Object.freeze({recordId:record.id,points,color:bucket.style.color,colorData:colorToRgba(bucket.style.color)}))}
+          if(selected)for(const loop of record.loops)for(const edge of loop.edges){const points=window.CaderactRegionGeometry.sampleEdge(edge).map(value=>camera.worldToScreen(value.x,value.y));for(let i=1;i<points.length;i++)addSegment(selection,points[i-1].x,points[i-1].y,points[i].x,points[i].y)}
         } else if(record?.type==="region"){
           const selected=selectedIds.has(record.id)
           for(const loop of record.loops)for(const edge of loop.edges){if(edge.kind==="line"){const a=camera.worldToScreen(edge.start.x,edge.start.y),b=camera.worldToScreen(edge.end.x,edge.end.y);addSegment(bucket.segments,a.x,a.y,b.x,b.y);if(selected)addSegment(selection,a.x,a.y,b.x,b.y)}else if(edge.kind==="arc"){const arc=projectArc({...edge,id:record.id});bucket.arcs.push(arc);if(selected)selectedArcs.push(arc)}else if(edge.kind==="circle"){const center=camera.worldToScreen(edge.center.x,edge.center.y),p=camera.worldToScreen(edge.center.x+edge.radius,edge.center.y),circle=Object.freeze({recordId:record.id,center:Object.freeze(center),radius:Math.hypot(p.x-center.x,p.y-center.y)});bucket.circles.push(circle);if(selected)selectedCircles.push(circle)}else if(edge.kind==="ellipse"){const ellipse=projectEllipse({...edge,id:record.id});bucket.ellipses.push(ellipse);if(selected)selectedEllipses.push(ellipse)}}
@@ -730,7 +734,8 @@
             const b = camera.worldToScreen(next.x, next.y)
             addSegment(nextPreview, a.x, a.y, b.x, b.y)
           }
-        } else if(gripPreview.type==="text")appendTextAnnotation(gripPreview,viewportSettings.previewColor,{preview:true})
+        } else if(gripPreview.type==="hatch")appendStyledPreview(gripPreview)
+        else if(gripPreview.type==="text")appendTextAnnotation(gripPreview,viewportSettings.previewColor,{preview:true})
         else if(gripPreview.type?.startsWith("dimension-")){
           const presentation=window.CaderactDimensionGeometry.derive(gripPreview,getDimensionStyle(gripPreview),{length:getDocumentUnit()})
           if(presentation.supported){for(const [start,end] of presentation.lines){const a=camera.worldToScreen(start.x,start.y),b=camera.worldToScreen(end.x,end.y);addSegment(nextPreview,a.x,a.y,b.x,b.y)}for(const arc of presentation.arcs||[])previewArcs.push(projectArc({...arc,id:null}));for(const triangle of presentation.triangles)dimensionTriangles.push(Object.freeze({preview:true,points:Object.freeze(triangle.map(value=>Object.freeze(camera.worldToScreen(value.x,value.y)))),color:viewportSettings.previewColor,colorData:colorToRgba(viewportSettings.previewColor)}));const anchor=camera.worldToScreen(presentation.text.point.x,presentation.text.point.y);dimensionAnnotations.push(Object.freeze({preview:true,text:presentation.text.value,x:anchor.x,y:anchor.y,rotation:-presentation.text.rotation,fontSize:presentation.text.height*camera.state.zoom,color:viewportSettings.previewColor}))}
@@ -1275,7 +1280,8 @@
         circleGroups,
         arcGroups,
         ellipseGroups,
-        triangleGroups:Object.freeze([Object.freeze({triangles:Object.freeze(dimensionTriangles)})]),
+        solidFillOverlay:Object.freeze({triangles:Object.freeze(hatchTriangles)}),
+        triangleGroups:Object.freeze([Object.freeze({role:"annotation",triangles:Object.freeze(dimensionTriangles)}),Object.freeze({role:"solid-hatch",triangles:Object.freeze(hatchTriangles)})]),
         annotationOverlay:Object.freeze({items:Object.freeze(dimensionAnnotations)}),
         propertyDrawGroups:Object.freeze(propertyDrawGroups),
         propertyPreviewDrawGroups:Object.freeze(propertyPreviewDrawGroups),

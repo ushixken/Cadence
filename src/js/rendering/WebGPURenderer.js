@@ -90,9 +90,10 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
         batches.push({segments,color:ellipseGroup.colorData});vertexCount+=(segments.length/4)*2
       }
     }
-    const triangles=(scene.triangleGroups||[]).flatMap(group=>group.triangles||[]),triangleVertexCount=triangles.length*3
+    const hatchTriangles=(scene.triangleGroups||[]).filter(group=>group.role==="solid-hatch").flatMap(group=>group.triangles||[]),overlayTriangles=(scene.triangleGroups||[]).filter(group=>group.role!=="solid-hatch").flatMap(group=>group.triangles||[]),hatchVertexCount=hatchTriangles.length*3,overlayTriangleVertexCount=overlayTriangles.length*3,triangleVertexCount=hatchVertexCount+overlayTriangleVertexCount
     const data = new Float32Array((vertexCount+triangleVertexCount) * 6)
     let offset = 0
+    for(const triangle of hatchTriangles)for(const point of triangle.points){data.set([point.x,point.y,...triangle.colorData],offset);offset+=6}
     for (const batch of batches) {
       for (let index = 0; index < batch.segments.length; index += 4) {
         data.set([batch.segments[index], batch.segments[index + 1], ...batch.color,
@@ -100,7 +101,7 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
         offset += 12
       }
     }
-    for(const triangle of triangles)for(const point of triangle.points){data.set([point.x,point.y,...triangle.colorData],offset);offset+=6}
+    for(const triangle of overlayTriangles)for(const point of triangle.points){data.set([point.x,point.y,...triangle.colorData],offset);offset+=6}
     const bytes = Math.max(24, data.byteLength)
     if (bytes > this.vertexCapacity) {
       this.vertexBuffer?.destroy()
@@ -111,13 +112,12 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
     this.device.queue.writeBuffer(this.uniformBuffer, 0, new Float32Array([scene.width, scene.height, 0, 0]))
     const encoder = this.device.createCommandEncoder()
     const pass = encoder.beginRenderPass({ colorAttachments: [{ view: this.context.getCurrentTexture().createView(), clearValue: scene.backgroundColorData, loadOp: "clear", storeOp: "store" }] })
-    pass.setPipeline(this.pipeline)
-    pass.setBindGroup(0, this.bindGroup)
+    if(hatchVertexCount){pass.setPipeline(this.trianglePipeline);pass.setBindGroup(0,this.triangleBindGroup);pass.setVertexBuffer(0,this.vertexBuffer);pass.draw(hatchVertexCount)}
+    pass.setPipeline(this.pipeline);pass.setBindGroup(0, this.bindGroup)
     if (vertexCount) {
-      pass.setVertexBuffer(0, this.vertexBuffer)
-      pass.draw(vertexCount)
+      pass.setVertexBuffer(0, this.vertexBuffer);pass.draw(vertexCount,1,hatchVertexCount)
     }
-    if(triangleVertexCount){pass.setPipeline(this.trianglePipeline);pass.setBindGroup(0,this.triangleBindGroup);pass.setVertexBuffer(0,this.vertexBuffer);pass.draw(triangleVertexCount,1,vertexCount)}
+    if(overlayTriangleVertexCount){pass.setPipeline(this.trianglePipeline);pass.setBindGroup(0,this.triangleBindGroup);pass.setVertexBuffer(0,this.vertexBuffer);pass.draw(overlayTriangleVertexCount,1,hatchVertexCount+vertexCount)}
     pass.end()
     this.device.queue.submit([encoder.finish()])
   }

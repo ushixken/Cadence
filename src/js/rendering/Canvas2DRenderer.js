@@ -18,6 +18,8 @@ class Canvas2DRenderer extends window.CaderactRenderer {
     context.fillStyle = scene.backgroundColor
     context.fillRect(0, 0, scene.width, scene.height)
 
+    const drawTriangles=groups=>{for(const group of groups)for(const triangle of group.triangles||[]){const [a,b,c]=triangle.points;context.beginPath();context.moveTo(a.x,a.y);context.lineTo(b.x,b.y);context.lineTo(c.x,c.y);context.closePath?.();context.fillStyle=triangle.color;context.fill()}}
+    drawTriangles((scene.triangleGroups||[]).filter(group=>group.role==="solid-hatch"))
     const drawGroups = scene.drawGroups || scene.lineGroups.map(lineGroup => ({ lineGroup, circleGroup: null }))
     for (const { lineGroup, circleGroup, arcGroup, ellipseGroup } of drawGroups) {
       context.setLineDash?.(Array.from(lineGroup.dashPattern || []))
@@ -60,7 +62,7 @@ class Canvas2DRenderer extends window.CaderactRenderer {
         context.stroke()
       }
     }
-    for(const group of scene.triangleGroups||[])for(const triangle of group.triangles||[]){const [a,b,c]=triangle.points;context.beginPath();context.moveTo(a.x,a.y);context.lineTo(b.x,b.y);context.lineTo(c.x,c.y);context.closePath?.();context.fillStyle=triangle.color;context.fill()}
+    drawTriangles((scene.triangleGroups||[]).filter(group=>group.role!=="solid-hatch"))
     context.setLineDash?.([])
     context.lineDashOffset = 0
     context.lineWidth = 1

@@ -53,7 +53,7 @@
     if(record?.type==="text"){
       const corners=window.CaderactAnnotationGeometry.projectedCorners(record,worldToScreen);if(!corners.length)return false;const contained=corners.every(point=>pointInRect(point,rect));if(mode==="window"||contained)return contained;for(let index=0;index<4;index++)if(segmentIntersectsRect(corners[index],corners[(index+1)%4],rect))return true;return false
     }
-    if(record?.type==="region"){
+    if(record?.type==="region"||record?.type==="hatch"){
       const values=[];for(const loop of record.loops)for(const edge of loop.edges){const points=window.CaderactRegionGeometry.sampleEdge(edge).map(world=>worldToScreen(world.x,world.y));for(let i=1;i<points.length;i++)values.push(points[i-1].x,points[i-1].y,points[i].x,points[i].y)}const segments=new Float32Array(values),contained=segmentsContained(segments,rect);return mode==="window"?contained:contained||segmentsCross(segments,rect)
     }
     if(record?.type?.startsWith("dimension-")){

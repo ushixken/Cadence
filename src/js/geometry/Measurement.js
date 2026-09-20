@@ -15,7 +15,7 @@
     if(record.type==="arc"){const sweepRadians=record.sweep,sweepDegrees=sweepRadians*180/Math.PI;return Object.freeze({type:"arc",radius:record.radius,diameter:record.radius*2,sweepRadians,sweepDegrees,arcLength:Math.abs(sweepRadians)*record.radius})}
     if(record.type==="polyline"){let length=0;const count=record.closed?record.vertices.length:Math.max(0,record.vertices.length-1);for(let index=0;index<count;index++){const a=record.vertices[index],b=record.vertices[(index+1)%record.vertices.length];length+=Math.hypot(b.x-a.x,b.y-a.y)}const base={type:"polyline",length,vertexCount:record.vertices.length,closed:Boolean(record.closed)};if(!record.closed)return Object.freeze(base);const vertices=record.vertices.length>1&&samePoint(record.vertices[0],record.vertices.at(-1))?record.vertices.slice(0,-1):record.vertices,signedArea=shoelace(vertices),selfIntersecting=hasSelfIntersection(vertices);return Object.freeze({...base,perimeter:length,signedArea,selfIntersecting,...(!selfIntersecting?{area:Math.abs(signedArea)}:{})})}
     if(record.type==="ellipse"){const majorRadius=Math.hypot(record.majorAxis.x,record.majorAxis.y),minorRadius=record.minorRadius;return Object.freeze({type:"ellipse",majorRadius,minorRadius,majorDiameter:majorRadius*2,minorDiameter:minorRadius*2,area:Math.PI*majorRadius*minorRadius})}
-    if(record.type==="region")return window.CaderactRegionGeometry.measure(record)
+    if(record.type==="region"||record.type==="hatch")return window.CaderactRegionGeometry.measure(record)
     return null
   }
   function samePoint(a,b){return a.x===b.x&&a.y===b.y}
