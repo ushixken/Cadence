@@ -31,6 +31,7 @@
       get controller() { return store.controller },
       get recordGateway() { return store.recordGateway },
       get groupGateway() { return store.groupGateway },
+      get blockDefinitionGateway() { return store.blockDefinitionGateway },
       get layerGateway() { return store.layerGateway },
       get unitGateway() { return store.unitGateway },
       get dimensionStyleGateway() { return store.dimensionStyleGateway },

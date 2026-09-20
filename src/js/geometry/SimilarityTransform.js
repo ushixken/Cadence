@@ -1,0 +1,17 @@
+// GB3: pure bounded 2D similarity-transform authority.
+(() => {
+  const TAU=Math.PI*2,EPSILON=1e-12
+  function angle(value){if(!Number.isFinite(value))throw new Error("Invalid rotation");let result=((value+Math.PI)%TAU+TAU)%TAU-Math.PI;if(result<=-Math.PI)result=Math.PI;return Object.is(result,-0)?0:result}
+  function finitePoint(value,label="point"){if(!value||!Number.isFinite(value.x)||!Number.isFinite(value.y))throw new Error(`Invalid ${label}`);return value}
+  function make(a,b,c,d,tx,ty){if(![a,b,c,d,tx,ty].every(Number.isFinite))throw new Error("Invalid similarity transform");const sx=Math.hypot(a,b),sy=Math.hypot(c,d),dot=a*c+b*d;if(!(sx>0)||Math.abs(sx-sy)>EPSILON*Math.max(1,sx,sy)||Math.abs(dot)>EPSILON*Math.max(1,sx*sy))throw new Error("Transform is not a nonsingular similarity");return Object.freeze({a,b,c,d,tx,ty})}
+  const identity=()=>make(1,0,0,1,0,0)
+  function fromComponents({insertionPoint,basePoint={x:0,y:0},rotation=0,scale=1,mirrored=false}){finitePoint(insertionPoint,"insertion point");finitePoint(basePoint,"base point");if(!Number.isFinite(scale)||!(scale>0)||typeof mirrored!=="boolean")throw new Error("Invalid similarity components");const r=angle(rotation),cos=Math.cos(r),sin=Math.sin(r),a=(mirrored?-1:1)*scale*cos,b=(mirrored?-1:1)*scale*sin,c=-scale*sin,d=scale*cos,tx=insertionPoint.x-(a*basePoint.x+c*basePoint.y),ty=insertionPoint.y-(b*basePoint.x+d*basePoint.y);return make(a,b,c,d,tx,ty)}
+  function point(transform,value){finitePoint(value);const x=transform.a*value.x+transform.c*value.y+transform.tx,y=transform.b*value.x+transform.d*value.y+transform.ty;if(!Number.isFinite(x)||!Number.isFinite(y))throw new Error("Transform overflow");return Object.freeze({...value,x,y})}
+  function vector(transform,value){finitePoint(value,"vector");const x=transform.a*value.x+transform.c*value.y,y=transform.b*value.x+transform.d*value.y;if(!Number.isFinite(x)||!Number.isFinite(y))throw new Error("Transform overflow");return Object.freeze({...value,x,y})}
+  function compose(parent,child){return make(parent.a*child.a+parent.c*child.b,parent.b*child.a+parent.d*child.b,parent.a*child.c+parent.c*child.d,parent.b*child.c+parent.d*child.d,parent.a*child.tx+parent.c*child.ty+parent.tx,parent.b*child.tx+parent.d*child.ty+parent.ty)}
+  function inverse(transform){const determinant=transform.a*transform.d-transform.b*transform.c;if(!Number.isFinite(determinant)||Math.abs(determinant)<=Number.MIN_VALUE)throw new Error("Singular similarity transform");return make(transform.d/determinant,-transform.b/determinant,-transform.c/determinant,transform.a/determinant,(transform.c*transform.ty-transform.d*transform.tx)/determinant,(transform.b*transform.tx-transform.a*transform.ty)/determinant)}
+  const determinant=transform=>transform.a*transform.d-transform.b*transform.c
+  function components(transform){const scale=Math.hypot(transform.a,transform.b),mirrored=determinant(transform)<0,rotation=angle(mirrored?Math.atan2(-transform.b,-transform.a):Math.atan2(transform.b,transform.a));return Object.freeze({translation:Object.freeze({x:transform.tx,y:transform.ty}),rotation,scale,mirrored,determinant:determinant(transform)})}
+  const isValid=transform=>{try{make(transform?.a,transform?.b,transform?.c,transform?.d,transform?.tx,transform?.ty);return true}catch{return false}}
+  window.CaderactSimilarityTransform=Object.freeze({identity,fromComponents,point,vector,compose,inverse,determinant,components,isValid,canonicalAngle:angle})
+})()

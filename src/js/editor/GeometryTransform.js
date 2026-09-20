@@ -104,5 +104,6 @@
     if(record.type.startsWith("dimension-"))return transformDimension(record,value=>mirrorPoint(value,axisA,axisB))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
-  window.CaderactGeometryTransform = Object.freeze({ translateRecord, rotatePoint, rotateRecord, normalizeAngle, scalePoint, scaleRecord, mirrorPoint, mirrorRecord })
+  function similarityRecord(record,transform){if(!window.CaderactSimilarityTransform.isValid(transform))throw new Error("Invalid similarity transform");const parts=window.CaderactSimilarityTransform.components(transform);let result=scaleRecord(record,{x:0,y:0},parts.scale);if(parts.mirrored)result=mirrorRecord(result,{x:0,y:0},{x:0,y:1});if(parts.rotation!==0)result=rotateRecord(result,{x:0,y:0},parts.rotation);return translateRecord(result,parts.translation.x,parts.translation.y)}
+  window.CaderactGeometryTransform = Object.freeze({ translateRecord, rotatePoint, rotateRecord, normalizeAngle, scalePoint, scaleRecord, mirrorPoint, mirrorRecord,similarityRecord })
 })()
