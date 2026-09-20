@@ -356,6 +356,9 @@
           const ellipse = projectEllipse(record)
           bucket.ellipses.push(ellipse)
           if (selectedIds.has(record.id)) selectedEllipses.push(ellipse)
+        } else if(record?.type==="region"){
+          const selected=selectedIds.has(record.id)
+          for(const loop of record.loops)for(const edge of loop.edges){if(edge.kind==="line"){const a=camera.worldToScreen(edge.start.x,edge.start.y),b=camera.worldToScreen(edge.end.x,edge.end.y);addSegment(bucket.segments,a.x,a.y,b.x,b.y);if(selected)addSegment(selection,a.x,a.y,b.x,b.y)}else if(edge.kind==="arc"){const arc=projectArc({...edge,id:record.id});bucket.arcs.push(arc);if(selected)selectedArcs.push(arc)}else if(edge.kind==="circle"){const center=camera.worldToScreen(edge.center.x,edge.center.y),p=camera.worldToScreen(edge.center.x+edge.radius,edge.center.y),circle=Object.freeze({recordId:record.id,center:Object.freeze(center),radius:Math.hypot(p.x-center.x,p.y-center.y)});bucket.circles.push(circle);if(selected)selectedCircles.push(circle)}else if(edge.kind==="ellipse"){const ellipse=projectEllipse({...edge,id:record.id});bucket.ellipses.push(ellipse);if(selected)selectedEllipses.push(ellipse)}}
         }
       }
       const defaultStyleKey=`${viewportSettings.geometryColor}|continuous|0.25`,propertyDrawGroups=[]

@@ -69,6 +69,10 @@
         let distancePx=Infinity
         for(let index=0;index<segments.length;index+=4)distancePx=Math.min(distancePx,segmentDistance(screenPoint,...segments.slice(index,index+4)))
         if(distancePx<=tolerancePx)hits.push({recordId:record.id,distancePx})
+      } else if(record?.type==="region"){
+        let distancePx=Infinity,inside=false
+        for(const loop of record.loops){const points=[];for(const edge of loop.edges){const sampled=window.CaderactRegionGeometry.sampleEdge(edge).map(world=>worldToScreen(world.x,world.y));for(let i=1;i<sampled.length;i++){const a=sampled[i-1],b=sampled[i];distancePx=Math.min(distancePx,segmentDistance(screenPoint,a.x,a.y,b.x,b.y))}points.push(...sampled.slice(0,-1))}let crossings=0;for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length];if((a.y>screenPoint.y)!==(b.y>screenPoint.y)&&screenPoint.x<(b.x-a.x)*(screenPoint.y-a.y)/(b.y-a.y)+a.x)crossings++}if(crossings%2)inside=!inside}
+        if(distancePx<=tolerancePx||inside)hits.push({recordId:record.id,distancePx:inside?0:distancePx})
       } else if(record?.type==="text"){
         const corners=window.CaderactAnnotationGeometry.projectedCorners(record,worldToScreen);if(corners.length){let distancePx=Infinity;for(let index=0;index<4;index++){const a=corners[index],b=corners[(index+1)%4];distancePx=Math.min(distancePx,segmentDistance(screenPoint,a.x,a.y,b.x,b.y))}let sign=null,inside=true;for(let index=0;index<4;index++){const a=corners[index],b=corners[(index+1)%4],cross=(b.x-a.x)*(screenPoint.y-a.y)-(b.y-a.y)*(screenPoint.x-a.x);if(Math.abs(cross)<1e-9)continue;const next=Math.sign(cross);if(sign===null)sign=next;else if(sign!==next){inside=false;break}}if(inside)distancePx=0;if(distancePx<=tolerancePx)hits.push({recordId:record.id,distancePx})}
       } else if(record?.type?.startsWith("dimension-")){
@@ -115,13 +119,13 @@
       return changed?publish("selection-pruned"):result("selection-unchanged",{selectedIds:snapshot()})
     }
     function applyRecordIds(recordIds,{toggle=false}={}){
-      const ids=Array.from(new Set(recordIds)).filter(id=>typeof id==="string"&&id).sort()
+      const ids=Array.from(new Set(recordIds)).filter(id=>typeof id==="string"&&id),sorted=Object.freeze(ids.slice().sort())
       if(toggle){if(ids.length===0)return result("selection-unchanged",{selectedIds:snapshot()});for(const id of ids)selected.has(id)?selected.delete(id):selected.add(id)}
-      else{const current=snapshot();if(current.length===ids.length&&current.every((id,index)=>id===ids[index]))return result("selection-unchanged",{selectedIds:current});selected.clear();for(const id of ids)selected.add(id)}
+      else{const current=snapshot();if(current.length===sorted.length&&current.every((id,index)=>id===sorted[index]))return result("selection-unchanged",{selectedIds:current});selected.clear();for(const id of ids)selected.add(id)}
       return publish(toggle?"selection-toggled":"selection-replaced")
     }
     function subscribe(listener){if(typeof listener!=="function")throw new Error("Selection listener must be a function");listeners.add(listener);return()=>listeners.delete(listener)}
-    return Object.freeze({selectOnly,toggle,clear,applyRecordIds,has:id=>selected.has(id),selectedIds:snapshot,pruneAgainstDocument,subscribe})
+    return Object.freeze({selectOnly,toggle,clear,applyRecordIds,has:id=>selected.has(id),selectedIds:snapshot,orderedIds:()=>Object.freeze(Array.from(selected)),pruneAgainstDocument,subscribe})
   }
   window.CaderactSelection=Object.freeze({createSelection,hitTestLines,hitTestRecords,DEFAULT_HIT_TOLERANCE_PX})
 })()

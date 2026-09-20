@@ -29,12 +29,13 @@
   }
 
   function discoverGeometryGrips(records, selectedIds) {
-    return Object.freeze([...discoverLineGrips(records, selectedIds), ...discoverPolylineGrips(records, selectedIds), ...discoverTextGrips(records,selectedIds), ...discoverDimensionGrips(records,selectedIds)]
+    return Object.freeze([...discoverLineGrips(records, selectedIds), ...discoverPolylineGrips(records, selectedIds), ...discoverTextGrips(records,selectedIds), ...discoverDimensionGrips(records,selectedIds), ...discoverRegionGrips(records,selectedIds)]
       .sort((a, b) => a.recordId.localeCompare(b.recordId) || a.featureId.localeCompare(b.featureId)))
   }
 
   function discoverDimensionGrips(records,selectedIds){const selected=new Set(selectedIds),grips=[];for(const record of records){if(!record?.type?.startsWith("dimension-")||!selected.has(record.id))continue;const style=window.caderactDocumentSession?.reader.resolveDimensionStyle(record)||window.CaderactDocument.DEFAULT_DIMENSION_STYLE,presentation=window.CaderactDimensionGeometry.derive(record,style,{length:"mm"});if(!presentation.supported)continue;for(const descriptor of presentation.grips)grips.push(Object.freeze({recordId:record.id,featureId:descriptor.featureId,kind:descriptor.kind,point:freezePoint(descriptor.point)}))}return Object.freeze(grips)}
   function discoverTextGrips(records,selectedIds){const selected=new Set(selectedIds);return Object.freeze(records.filter(record=>record?.type==="text"&&selected.has(record.id)).map(record=>Object.freeze({recordId:record.id,featureId:record.insertionPoint.featureId,kind:"insertionPoint",point:freezePoint(record.insertionPoint)})))}
+  function discoverRegionGrips(records,selectedIds){const selected=new Set(selectedIds);return Object.freeze(records.filter(record=>record?.type==="region"&&selected.has(record.id)).map(record=>Object.freeze({recordId:record.id,featureId:record.id+":centroid",kind:"centroid",point:window.CaderactRegionGeometry.centroid(record)})))}
 
   const lineAdapter = Object.freeze({
     discover: discoverLineGrips,
@@ -75,9 +76,10 @@
   function validDimension(record){if(record.type==="dimension-linear")return Math.hypot(record.secondPoint.x-record.firstPoint.x,record.secondPoint.y-record.firstPoint.y)>0;if(record.type==="dimension-angular"){const rays=window.CaderactAngularDimensionDraftSession.validateRays(record.firstRayPoint,record.vertex,record.secondRayPoint),radius=Math.hypot(record.dimensionArcPoint.x-record.vertex.x,record.dimensionArcPoint.y-record.vertex.y);return rays.valid&&radius>0}if(record.type==="dimension-radial")return Math.hypot(record.dimensionPoint.x-record.centerPoint.x,record.dimensionPoint.y-record.centerPoint.y)>0;return false}
   const dimensionAdapter=Object.freeze({discover:discoverDimensionGrips,preview:(record,grip,point)=>Object.freeze(dimensionReplacement(record,grip,point)),replacement:dimensionReplacement,resolves:(record,grip)=>Boolean(dimensionPoint(record,grip)),currentPoint:dimensionPoint,valid:validDimension})
   const textAdapter=Object.freeze({discover:discoverTextGrips,preview:(record,grip,point)=>Object.freeze({...record,insertionPoint:Object.freeze({...record.insertionPoint,x:point.x,y:point.y})}),replacement:(record,grip,point)=>({...record,insertionPoint:{...record.insertionPoint,x:point.x,y:point.y}}),resolves:(record,grip)=>record?.type==="text"&&record.insertionPoint?.featureId===grip.featureId,currentPoint:record=>record.insertionPoint,valid:record=>window.CaderactAnnotationGeometry.validate(record).length===0})
+  const regionAdapter=Object.freeze({discover:discoverRegionGrips,preview:(record,grip,point)=>window.CaderactGeometryTransform.translateRecord(record,point.x-grip.point.x,point.y-grip.point.y),replacement:(record,grip,point)=>{const current=window.CaderactRegionGeometry.centroid(record);return window.CaderactGeometryTransform.translateRecord(record,point.x-current.x,point.y-current.y)},resolves:(record,grip)=>record?.type==="region"&&grip.featureId===record.id+":centroid",currentPoint:record=>window.CaderactRegionGeometry.centroid(record),valid:record=>window.CaderactRegionGeometry.validate(record).length===0})
   const geometryAdapter = Object.freeze({
     discover: discoverGeometryGrips,
-    target(record) { return record?.type === "line" ? lineAdapter : record?.type === "polyline" ? polylineAdapter : record?.type==="text"?textAdapter:record?.type?.startsWith("dimension-")?dimensionAdapter:null },
+    target(record) { return record?.type === "line" ? lineAdapter : record?.type === "polyline" ? polylineAdapter : record?.type==="text"?textAdapter:record?.type==="region"?regionAdapter:record?.type?.startsWith("dimension-")?dimensionAdapter:null },
     preview(record, grip, point) { return this.target(record).preview(record, grip, point) },
     replacement(record, grip, point) { return this.target(record).replacement(record, grip, point) },
     resolves(record, grip) { return Boolean(this.target(record)?.resolves(record, grip)) },
@@ -169,6 +171,6 @@
       get active() { return active }, get isActive() { return Boolean(active) } })
   }
 
-  window.CaderactGrips = Object.freeze({ discoverLineGrips, discoverPolylineGrips, discoverTextGrips, discoverDimensionGrips, discoverGeometryGrips,
+  window.CaderactGrips = Object.freeze({ discoverLineGrips, discoverPolylineGrips, discoverTextGrips, discoverDimensionGrips, discoverRegionGrips, discoverGeometryGrips,
     hitTestGrips, createManager, lineAdapter, polylineAdapter, textAdapter, dimensionAdapter, geometryAdapter })
 })()

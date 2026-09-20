@@ -2,6 +2,7 @@
 (() => {
   const point = (value, dx, dy) => ({ ...value, x: value.x + dx, y: value.y + dy })
   const dimensionPointKeys=record=>record.type==="dimension-linear"?["firstPoint","secondPoint","dimensionLinePoint"]:record.type==="dimension-angular"?["firstRayPoint","vertex","secondRayPoint","dimensionArcPoint"]:record.type==="dimension-radial"?["centerPoint","dimensionPoint","leaderPoint"]:null
+  function transformRegion(record,transformPoint,transformVector=value=>value,scale=1,reverse=false){const edgeTransform=edge=>{let result={...edge};for(const key of ["start","end","center"])if(edge[key])result[key]=transformPoint(edge[key]);if(edge.majorAxis)result.majorAxis=transformVector(edge.majorAxis);if(edge.radius!==undefined)result.radius=edge.radius*scale;if(edge.minorRadius!==undefined)result.minorRadius=edge.minorRadius*scale;if(reverse){if(result.start&&result.end)[result.start,result.end]=[result.end,result.start];if(result.sweep!==undefined)result.sweep=-result.sweep;if(result.clockwise!==undefined)result.clockwise=!result.clockwise}return Object.freeze(result)};return Object.freeze({...record,loops:Object.freeze(record.loops.map(loop=>Object.freeze({...loop,edges:Object.freeze((reverse?[...loop.edges].reverse():loop.edges).map(edgeTransform))})))})}
   function transformDimension(record,transform){const keys=dimensionPointKeys(record);if(!keys)return null;const result={...record};for(const key of keys)result[key]=transform(record[key]);return Object.freeze(result)}
   function translateRecord(record, dx, dy) {
     if (!record || !Number.isFinite(dx) || !Number.isFinite(dy)) throw new Error("Invalid translation")
@@ -14,6 +15,7 @@
     if (record.type === "polyline") return Object.freeze({ ...record,
       vertices: Object.freeze(record.vertices.map(vertex => Object.freeze(point(vertex, dx, dy)))) })
     if(record.type==="text")return Object.freeze({...record,insertionPoint:Object.freeze(point(record.insertionPoint,dx,dy))})
+    if(record.type==="region")return transformRegion(record,value=>Object.freeze(point(value,dx,dy)))
     if(record.type.startsWith("dimension-"))return transformDimension(record,value=>Object.freeze(point(value,dx,dy)))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
@@ -40,6 +42,7 @@
     if(record.type==="ellipse")return Object.freeze({...record,center:rotatePoint(record.center,center,normalized),majorAxis:rotateVector(record.majorAxis,normalized)})
     if(record.type==="polyline")return Object.freeze({...record,vertices:Object.freeze(record.vertices.map(vertex=>rotatePoint(vertex,center,normalized)) )})
     if(record.type==="text")return Object.freeze({...record,insertionPoint:rotatePoint(record.insertionPoint,center,normalized),rotation:window.CaderactAnnotationGeometry.normalizeRotation(record.rotation+normalized)})
+    if(record.type==="region")return transformRegion(record,value=>rotatePoint(value,center,normalized),value=>rotateVector(value,normalized))
     if(record.type.startsWith("dimension-"))return transformDimension(record,value=>rotatePoint(value,center,normalized))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
@@ -63,6 +66,7 @@
     if(record.type==="ellipse"){const minorRadius=record.minorRadius*factor;if(!Number.isFinite(minorRadius)||minorRadius<=0)throw new Error("Invalid scale result");return Object.freeze({...record,center:scalePoint(record.center,base,factor),majorAxis:scaleVector(record.majorAxis,factor),minorRadius})}
     if(record.type==="polyline")return Object.freeze({...record,vertices:Object.freeze(record.vertices.map(vertex=>scalePoint(vertex,base,factor)))})
     if(record.type==="text")return Object.freeze({...record,insertionPoint:scalePoint(record.insertionPoint,base,factor),height:record.height*factor})
+    if(record.type==="region")return transformRegion(record,value=>scalePoint(value,base,factor),value=>scaleVector(value,factor),factor)
     if(record.type.startsWith("dimension-"))return transformDimension(record,value=>scalePoint(value,base,factor))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }
@@ -95,6 +99,7 @@
     if(record.type==="ellipse")return Object.freeze({...record,center:mirrorPoint(record.center,axisA,axisB),majorAxis:mirrorVector(record.majorAxis,axisA,axisB)})
     if(record.type==="polyline")return Object.freeze({...record,vertices:Object.freeze(record.vertices.map(vertex=>mirrorPoint(vertex,axisA,axisB)))})
     if(record.type==="text"){const insertionPoint=mirrorPoint(record.insertionPoint,axisA,axisB),direction=mirrorVector({x:Math.cos(record.rotation),y:Math.sin(record.rotation)},axisA,axisB);return Object.freeze({...record,insertionPoint,rotation:window.CaderactAnnotationGeometry.normalizeRotation(Math.atan2(direction.y,direction.x))})}
+    if(record.type==="region")return transformRegion(record,value=>mirrorPoint(value,axisA,axisB),value=>mirrorVector(value,axisA,axisB),1,true)
     if(record.type.startsWith("dimension-"))return transformDimension(record,value=>mirrorPoint(value,axisA,axisB))
     throw new Error(`Unsupported geometry type: ${record.type}`)
   }

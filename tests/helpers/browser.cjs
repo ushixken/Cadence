@@ -140,6 +140,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/geometry/CurveDescriptor.js');
   load('src/js/geometry/BoundaryTolerance.js');
   load('src/js/geometry/BoundaryGeometry.js');
+  load('src/js/geometry/RegionGeometry.js');
   load('src/js/geometry/CurveParameter.js');
   load('src/js/geometry/CurveIntersection.js');
   load('src/js/geometry/IntersectionClassifier.js');
