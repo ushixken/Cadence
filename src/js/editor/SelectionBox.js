@@ -76,7 +76,8 @@
   }
   function query({start,current,records=[],worldToScreen}){
     const rect=normalizeRect(start,current),mode=current.x>=start.x?"window":"crossing"
-    const recordIds=Array.from(records).filter(record=>recordMatches(record,rect,mode,worldToScreen)).map(record=>record.id).sort()
+    const grouped=new Map();for(const record of records){const matches=recordMatches(record,rect,mode,worldToScreen),state=grouped.get(record.id)||{all:true,any:false};state.all=state.all&&matches;state.any=state.any||matches;grouped.set(record.id,state)}
+    const recordIds=Array.from(grouped).filter(([,state])=>mode==="window"?state.all:state.any).map(([id])=>id).sort()
     return Object.freeze({mode,rect,recordIds:Object.freeze(recordIds)})
   }
   function createInteraction(){
