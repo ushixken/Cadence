@@ -97,6 +97,7 @@
     <script src="./src/js/editor/DocumentFileState.js" defer></script>
     <script src="./src/js/editor/RecoveryStorage.js" defer></script>
     <script src="./src/js/editor/RecoveryValidation.js" defer></script>
+    <script src="./src/js/editor/FileSafetyUx.js" defer></script>
     <script src="./src/js/editor/file-actions.js" defer></script>
     <script src="./src/js/editor/layers-panel.js" defer></script>
     <script src="./src/js/editor/properties-panel.js" defer></script>
@@ -486,6 +487,16 @@
             </div>
             <footer class="settings-panel-footer"><button id="settings-reset" type="button">Reset to Defaults</button></footer>
           </section>
+          <section id="recovery-dialog" class="file-safety-dialog" role="dialog" aria-modal="true" aria-labelledby="recovery-title" hidden>
+            <header><h2 id="recovery-title">Recovery available</h2></header>
+            <div class="file-safety-dialog-body"><p id="recovery-message"></p><label for="recovery-candidates">Recovered document</label><select id="recovery-candidates"></select><p id="recovery-details"></p></div>
+            <footer><button id="recovery-dismiss" type="button">Dismiss</button><button id="recovery-cancel" type="button">Not now</button><button id="recovery-apply" type="button">Recover</button></footer>
+          </section>
+          <section id="unsaved-dialog" class="file-safety-dialog" role="dialog" aria-modal="true" aria-labelledby="unsaved-title" hidden>
+            <header><h2 id="unsaved-title">Unsaved changes</h2></header>
+            <div class="file-safety-dialog-body"><p id="unsaved-message">Save your changes before continuing?</p></div>
+            <footer><button id="unsaved-discard" type="button">Discard</button><button id="unsaved-save" type="button">Save</button><button id="unsaved-cancel" type="button" autofocus>Cancel</button></footer>
+          </section>
           <div class="menu-actions">
             <button
               class="notification"
@@ -543,6 +554,7 @@
           </aside>
         </div>
         <footer class="editor-footer" aria-label="Editor status bar">
+          <span id="document-save-state" class="document-save-state" aria-live="polite"></span>
           <div class="command-area">
             <span class="command-label">Command:</span>
             <div class="command-input-wrap">

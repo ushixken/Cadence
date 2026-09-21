@@ -2,6 +2,17 @@
 (() => {
   const result = (status, details = {}) => Object.freeze({ status, ...details })
   const DEFAULT_FILENAME = "Untitled.caderact"
+  const MAX_NATIVE_INPUT_BYTES = 16 * 1024 * 1024
+  const MAX_DXF_INPUT_BYTES = 8 * 1024 * 1024
+
+  const byteLength = value => typeof TextEncoder === "function" ? new TextEncoder().encode(value).byteLength : value.length
+  const permissionFailure = error => ["NotAllowedError", "SecurityError"].includes(error?.name)
+  function inputFailure(error, fallback = "invalid-file") {
+    const message = error?.message || "Unable to process file"
+    if (/unsupported fileVersion/i.test(message)) return "incompatible-version"
+    if (/limit|too large|exceeds|excessive|maximum/i.test(message)) return "resource-rejected"
+    return fallback
+  }
 
   function normalizeFilename(name) {
     const base = typeof name === "string" && name.trim() ? name.trim() : DEFAULT_FILENAME
@@ -10,6 +21,7 @@
   function browserAdapters() {
     return {
       confirmDiscard: () => window.confirm("Discard unsaved changes?"),
+      resolveUnsaved: details => window.caderactFileSafetyUx?.requestUnsaved(details) ?? Promise.resolve(undefined),
       async pickOpenFile() {
         return new Promise(resolve => {
           const input = document.createElement("input")
@@ -62,11 +74,12 @@
     dxfImporter = window.CaderactDxfImport, dxfExporter = window.CaderactDxfExport, adapters = browserAdapters(),
     fileState = window.CaderactDocumentFileState.create({ defaultFilename: DEFAULT_FILENAME }), recovery = null }) {
     let lastResult = result("file-idle")
-    const publish = outcome => { lastResult = outcome; window.caderactFeedback?.presentResult(outcome); return outcome }
+    const publish = outcome => { lastResult = outcome; window.caderactFeedback?.presentResult(outcome); window.caderactFileSafetyUx?.presentOutcome(outcome); return outcome }
     const activeBlocked = operation => commandRouter.isActive
       ? publish(result(`${operation}-blocked-active-command`, { command: commandRouter.activeCommand })) : null
     async function confirmReplacement(operation) {
-      const guarded = await fileState.guardReplacement({ controller: session.controller, operation, confirmDiscard: adapters.confirmDiscard })
+      const guarded = await fileState.guardReplacement({ controller: session.controller, operation, confirmDiscard: adapters.confirmDiscard,
+        resolveUnsaved: adapters.resolveUnsaved, save })
       if (guarded.status === "replacement-allowed") return null
       return publish(result(guarded.status === "replacement-cancelled" ? `${operation}-cancelled` : `${operation}-failed`, { reason: guarded.reason, message: guarded.message }))
     }
@@ -79,9 +92,9 @@
     async function writeCaptured(captured, { targetName, fileHandle = null, operation = "save" }) {
       let output
       try { output = normalizeOutput(await adapters.writeFile({ serialized: captured.serialized, filename: targetName, fileHandle })) }
-      catch (error) { output = Object.freeze({ status: "failed", message: error.message }) }
+      catch (error) { output = Object.freeze({ status: "failed", reason: permissionFailure(error) ? "permission-denied" : "write-failed", message: error.message }) }
       fileState.recordOutput(output.status)
-      if (output.status === "failed") return publish(result(`${operation}-failed`, { reason: "write-failed", message: output.message || "File output failed", durability: "failed" }))
+      if (output.status === "failed") return publish(result(`${operation}-failed`, { reason: output.reason || "write-failed", message: output.message || "File output failed", durability: "failed" }))
       if (output.status === "initiated") return publish(result(`${operation}-initiated`, { filename: targetName, serialized: captured.serialized, stateId: captured.stateId, revision: captured.revision, durability: "initiated" }))
       const payloadFingerprint = await fingerprint(captured.serialized), acknowledgement = captured.acknowledge()
       fileState.manualSave({ filename: targetName, fileHandle, fingerprint: payloadFingerprint.value, stateId: captured.stateId, revision: captured.revision, durability: "committed" })
@@ -97,16 +110,18 @@
       return { captured }
     }
     async function save() {
+      window.caderactFileSafetyUx?.presentOutcome({ status: "save-started" })
       if (!fileState.value.fileHandle && typeof adapters.pickSaveFile === "function") return saveAs("save")
       const prepared = await capture("save"); if (prepared.failure) return prepared.failure
       return writeCaptured(prepared.captured, { targetName: normalizeFilename(fileState.value.filename), fileHandle: fileState.value.fileHandle, operation: "save" })
     }
     async function saveAs(operation = "save-as") {
+      window.caderactFileSafetyUx?.presentOutcome({ status: `${operation}-started` })
       const targetName = normalizeFilename(fileState.value.filename)
       let selection
       if (typeof adapters.pickSaveFile === "function") {
         try { selection = await adapters.pickSaveFile({ suggestedName: targetName }) }
-        catch (error) { return publish(result(`${operation}-failed`, { reason: "picker-failed", message: error.message, durability: "failed" })) }
+        catch (error) { return publish(result(error?.name === "AbortError" ? `${operation}-cancelled` : `${operation}-failed`, { reason: error?.name === "AbortError" ? "picker-cancelled" : permissionFailure(error) ? "permission-denied" : "picker-failed", ...(error?.name === "AbortError" ? {} : { message: error.message, durability: "failed" }) })) }
         if (selection?.status === "cancelled" || selection === null) return publish(result(`${operation}-cancelled`, { reason: "picker-cancelled" }))
         if (selection?.status !== "selected" && selection?.status !== "unsupported") return publish(result(`${operation}-failed`, { reason: "picker-failed", message: "Save As picker returned an invalid result", durability: "failed" }))
       } else selection = Object.freeze({ status: "unsupported" })
@@ -120,13 +135,18 @@
       const guard = await confirmReplacement("open"); if (guard) return guard
       let file
       try { file = await adapters.pickOpenFile() }
-      catch (error) { return publish(result("open-failed", { reason: "picker-failed", message: error.message })) }
+      catch (error) { return publish(result(error?.name === "AbortError" ? "open-cancelled" : "open-failed", { reason: error?.name === "AbortError" ? "picker-cancelled" : permissionFailure(error) ? "permission-denied" : "picker-failed", ...(error?.name === "AbortError" ? {} : { message: error.message }) })) }
       if (!file) return publish(result("open-cancelled", { reason: "picker-cancelled" }))
       let serialized, store
       try {
+        if (Number.isFinite(file.size) && file.size > MAX_NATIVE_INPUT_BYTES) return publish(result("open-failed", { reason: "resource-rejected", message: "Native file exceeds the 16 MiB input limit" }))
         serialized = typeof file.text === "function" ? await file.text() : file.serialized
+      } catch (error) { return publish(result("open-failed", { reason: permissionFailure(error) ? "permission-denied" : "read-failed", message: error.message })) }
+      if (typeof serialized !== "string") return publish(result("open-failed", { reason: "read-failed", message: "Native file did not provide text" }))
+      if (byteLength(serialized) > MAX_NATIVE_INPUT_BYTES) return publish(result("open-failed", { reason: "resource-rejected", message: "Native file exceeds the 16 MiB input limit" }))
+      try {
         store = persistence.loadStore(serialized)
-      } catch (error) { return publish(result("open-failed", { reason: "invalid-file", message: error.message })) }
+      } catch (error) { return publish(result("open-failed", { reason: inputFailure(error), message: error.message })) }
       const filename = normalizeFilename(file.name), payloadFingerprint = await fingerprint(persistence.serializeDocument(store.reader.snapshot()))
       const replacement=replaceDocument(store,{reason:"open"});if(replacement.status!=="document-replaced")return publish(result("open-failed",{reason:"replacement-failed"}))
       fileState.opened({filename,fileHandle:file.handle||null,fingerprint:payloadFingerprint.value})
@@ -137,14 +157,19 @@
       const guard = await confirmReplacement("dxf-open"); if (guard) return guard
       let file
       try { file = await (adapters.pickDxfFile || adapters.pickOpenFile)() }
-      catch (error) { return publish(result("dxf-open-failed", { reason: "picker-failed", message: error.message })) }
+      catch (error) { return publish(result(error?.name === "AbortError" ? "dxf-open-cancelled" : "dxf-open-failed", { reason: error?.name === "AbortError" ? "picker-cancelled" : permissionFailure(error) ? "permission-denied" : "picker-failed", ...(error?.name === "AbortError" ? {} : { message: error.message }) })) }
       if (!file) return publish(result("dxf-open-cancelled", { reason: "picker-cancelled" }))
-      let imported
+      let imported, text
       try {
-        const text = typeof file.text === "function" ? await file.text() : file.serialized
+        if (Number.isFinite(file.size) && file.size > MAX_DXF_INPUT_BYTES) return publish(result("dxf-open-failed", { reason: "resource-rejected", message: "DXF file exceeds the 8 MiB input limit", diagnostics: [] }))
+        text = typeof file.text === "function" ? await file.text() : file.serialized
+      } catch (error) { return publish(result("dxf-open-failed", { reason: permissionFailure(error) ? "permission-denied" : "read-failed", message: error.message, diagnostics: [] })) }
+      if (typeof text !== "string") return publish(result("dxf-open-failed", { reason: "read-failed", message: "DXF file did not provide text", diagnostics: [] }))
+      if (byteLength(text) > MAX_DXF_INPUT_BYTES) return publish(result("dxf-open-failed", { reason: "resource-rejected", message: "DXF file exceeds the 8 MiB input limit", diagnostics: [] }))
+      try {
         imported = dxfImporter.createStore(text)
       } catch (error) {
-        return publish(result("dxf-open-failed", { reason: "invalid-dxf", message: error.message, diagnostics: error.diagnostics || [] }))
+        return publish(result("dxf-open-failed", { reason: inputFailure(error, "invalid-dxf"), message: error.message, diagnostics: error.diagnostics || [] }))
       }
       const sourceName = typeof file.name === "string" ? file.name.replace(/\.dxf$/i, "") : "Untitled"
       const filename = normalizeFilename(sourceName),replacement=replaceDocument(imported.store,{reason:"dxf-open"});if(replacement.status!=="document-replaced")return publish(result("dxf-open-failed",{reason:"replacement-failed"}))
@@ -161,9 +186,11 @@
       try { exported = dxfExporter.exportDocument(session.reader.snapshot()) }
       catch (error) { return publish(result("dxf-export-failed", { reason:"unsupported-document", message:error.message, diagnostics:error.diagnostics||[] })) }
       const targetName=fileState.value.filename.replace(/\.caderact$/i,"")+".dxf"
-      try { await adapters.writeFile({serialized:exported.text,filename:targetName,mimeType:"application/dxf"}) }
-      catch(error){return publish(result("dxf-export-failed",{reason:"write-failed",message:error.message,diagnostics:exported.diagnostics}))}
-      return publish(result("dxf-export-completed",{filename:targetName,serialized:exported.text,exportedCount:exported.exportedCount,diagnostics:exported.diagnostics,unit:exported.unit,version:exported.version}))
+      let output
+      try { output=normalizeOutput(await adapters.writeFile({serialized:exported.text,filename:targetName,mimeType:"application/dxf"})) }
+      catch(error){return publish(result("dxf-export-failed",{reason:permissionFailure(error)?"permission-denied":"write-failed",message:error.message,diagnostics:exported.diagnostics}))}
+      if(output.status==="failed")return publish(result("dxf-export-failed",{reason:output.reason||"write-failed",message:output.message||"DXF output failed",diagnostics:exported.diagnostics}))
+      return publish(result(output.status==="initiated"?"dxf-export-initiated":"dxf-export-completed",{filename:targetName,serialized:exported.text,exportedCount:exported.exportedCount,diagnostics:exported.diagnostics,unit:exported.unit,version:exported.version,durability:output.status}))
     }
     async function newProject() {
       const blocked = activeBlocked("new"); if (blocked) return blocked
@@ -178,7 +205,7 @@
     return Object.freeze({ save, saveAs:()=>saveAs("save-as"), open, openDxf, exportDxf, newProject, fileState, recovery, get filename() { return fileState.value.filename }, get lastResult() { return lastResult } })
   }
 
-  window.CaderactFileActions = Object.freeze({ createActions, DEFAULT_FILENAME, normalizeFilename })
+  window.CaderactFileActions = Object.freeze({ createActions, DEFAULT_FILENAME, MAX_NATIVE_INPUT_BYTES, MAX_DXF_INPUT_BYTES, normalizeFilename })
 
   const newButton = document.querySelector("#file-new")
   const openButton = document.querySelector("#file-open")
@@ -201,6 +228,12 @@
   })
   recovery?.start()
   window.caderactFiles = actions
+  const recoveryValidation = window.CaderactRecoveryValidation?.create({ storage: window.CaderactRecoveryStorage.createStorage() })
+  if (recoveryValidation && window.CaderactFileSafetyUx && document.querySelector("#unsaved-dialog")) {
+    window.caderactFileSafetyUx = window.CaderactFileSafetyUx.create({ recoveryValidation, session: window.caderactDocumentSession,
+      fileState, autosave: recovery, viewport: window.caderactViewport, commandRouter: window.caderactCommandRouter })
+    window.caderactFileSafetyUx.startup().catch(() => window.caderactFeedback?.showTemporary("Recovery storage could not be checked.", "error"))
+  }
   function setFileMenuOpen(open) {
     fileMenu.classList.toggle("is-open", open)
     fileMenuDropdown.hidden = !open

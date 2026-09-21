@@ -18,9 +18,21 @@
       lastManualSaveFingerprint: null, lastSuccessfulSave: null, lastOutputDurability: null })
     const listeners = new Set()
     function update(patch) { value = Object.freeze({ ...value, ...patch }); for (const listener of listeners) listener(value); return value }
-    async function guardReplacement({ controller, operation, confirmDiscard }) {
+    async function guardReplacement({ controller, operation, confirmDiscard, resolveUnsaved, save }) {
       if (!controller.isDirty) return Object.freeze({ status: "replacement-allowed", operation })
-      try { return await confirmDiscard(operation) ? Object.freeze({ status: "replacement-allowed", operation }) : Object.freeze({ status: "replacement-cancelled", operation, reason: "unsaved-changes" }) }
+      try {
+        if (typeof resolveUnsaved === "function") {
+          const decision = await resolveUnsaved({ operation, filename: value.displayName })
+          if (decision === undefined) return await confirmDiscard(operation) ? Object.freeze({ status: "replacement-allowed", operation }) : Object.freeze({ status: "replacement-cancelled", operation, reason: "unsaved-changes" })
+          if (decision === "discard") return Object.freeze({ status: "replacement-allowed", operation, decision })
+          if (decision !== "save") return Object.freeze({ status: "replacement-cancelled", operation, reason: "unsaved-changes", decision: "cancel" })
+          const saved = await save()
+          return saved?.durability === OUTPUT_DURABILITY.COMMITTED
+            ? Object.freeze({ status: "replacement-allowed", operation, decision, saveResult: saved })
+            : Object.freeze({ status: "replacement-cancelled", operation, reason: saved?.durability === OUTPUT_DURABILITY.INITIATED ? "save-not-confirmed" : "save-not-completed", decision, saveResult: saved })
+        }
+        return await confirmDiscard(operation) ? Object.freeze({ status: "replacement-allowed", operation }) : Object.freeze({ status: "replacement-cancelled", operation, reason: "unsaved-changes" })
+      }
       catch (error) { return Object.freeze({ status: "replacement-failed", operation, reason: "confirmation-failed", message: error.message }) }
     }
     function recordOutput(durability) { return update({ lastOutputDurability: durability }) }

@@ -48,7 +48,11 @@
     maxPayloadBytes = window.CaderactRecoveryStorage.MAX_PAYLOAD_BYTES } = {}) {
     async function classify(record, context = {}) {
       const envelopeFailure = validateEnvelope(record, maxPayloadBytes)
-      if (envelopeFailure) return envelopeFailure
+      if (envelopeFailure) return Object.freeze({ ...envelopeFailure,
+        ...(typeof record?.recoveryKey === "string" ? { recoveryKey: record.recoveryKey } : {}),
+        ...(Number.isFinite(record?.timestamp) ? { timestamp: record.timestamp } : {}),
+        ...(typeof record?.filename === "string" ? { filename: record.filename } : {}),
+        ...(typeof record?.displayName === "string" ? { displayName: record.displayName } : {}) })
       if (record.nativePersistenceVersion > persistence.FILE_VERSION) return outcome(CLASSIFICATION.INCOMPATIBLE,
         { reason: "unsupported-native-version", recoveryKey: record.recoveryKey, nativeVersion: record.nativePersistenceVersion })
       let actualFingerprint
