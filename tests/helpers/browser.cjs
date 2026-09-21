@@ -59,7 +59,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   let canvas = new Element('canvas'); const viewportHost = new Element(); const input = new Element('input');
   viewportHost.classList.add('viewport'); viewportHost.parent = document; viewportHost.owner = document;
   const undoButton = new Element('button'); const redoButton = new Element('button');
-  const fileNewButton = new Element('button'); const fileOpenButton = new Element('button'); const fileSaveButton = new Element('button'); const fileImportDxfButton = new Element('button'); const fileExportDxfButton = new Element('button');
+  const fileNewButton = new Element('button'); const fileOpenButton = new Element('button'); const fileSaveButton = new Element('button'); const fileSaveAsButton = new Element('button'); const fileImportDxfButton = new Element('button'); const fileExportDxfButton = new Element('button');
   const fileMenu = new Element('li'); const fileMenuTrigger = new Element('button'); const fileMenuDropdown = new Element(); const editMenuTrigger = new Element('button');
   const toolsMenu = new Element('li'); const toolsMenuTrigger = new Element('button'); const measureMenuDropdown = new Element();
   const measureCommands=['Distance','Length','Radius','Diameter','Area','Perimeter','Angle','DistanceObject','MinDist','DistanceSum'];
@@ -88,8 +88,8 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   for (const el of [input, suggestions, commandPrompt]) { el.parent = commandInputArea; el.owner = document; }
   for (const el of [undoButton, redoButton, fileMenu, toolsMenu, editMenuTrigger]) { el.parent = document; el.owner = document; }
   fileMenuTrigger.parent = fileMenu; fileMenuDropdown.parent = fileMenu;
-  for (const el of [fileNewButton, fileOpenButton, fileSaveButton, fileImportDxfButton, fileExportDxfButton]) el.parent = fileMenuDropdown;
-  for (const el of [fileMenuTrigger, fileMenuDropdown, fileNewButton, fileOpenButton, fileSaveButton, fileImportDxfButton, fileExportDxfButton]) el.owner = document;
+  for (const el of [fileNewButton, fileOpenButton, fileSaveButton, fileSaveAsButton, fileImportDxfButton, fileExportDxfButton]) el.parent = fileMenuDropdown;
+  for (const el of [fileMenuTrigger, fileMenuDropdown, fileNewButton, fileOpenButton, fileSaveButton, fileSaveAsButton, fileImportDxfButton, fileExportDxfButton]) el.owner = document;
   toolsMenuTrigger.parent=toolsMenu;measureMenuDropdown.parent=toolsMenu;measureMenuDropdown.querySelectorAll=selector=>selector==='[data-measure-command]'?measureMenuItems:[];for(const item of measureMenuItems)item.parent=measureMenuDropdown;for(const el of [toolsMenuTrigger,measureMenuDropdown,...measureMenuItems])el.owner=document;
   snapWrap.classList.add('footer-dropdown'); unitsWrap.classList.add('footer-dropdown');
   snapTrigger.parent=snapWrap; snapMenu.parent=snapWrap; snapEnabled.parent=snapMenu; snapDependent.parent=snapMenu;
@@ -115,7 +115,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
     };
   }
   canvas._configure = configureCanvas; canvas._replace = replacement => { canvas = replacement; }; configureCanvas(canvas);
-  document.querySelector = selector => ({ canvas, '.viewport': viewportHost, '#grid-snap-toggle': gridSnapButton, '#ortho-toggle': orthoButton, '#polar-toggle': polarButton, '#track-toggle': trackButton, '#command-input': input, '#command-suggestions': suggestions, '#command-history': commandHistory, '#command-prompt': commandPrompt, '#command-name': commandName, '#undo-button': undoButton, '#redo-button': redoButton, '#file-new': fileNewButton, '#file-open': fileOpenButton, '#file-save': fileSaveButton, '#file-import-dxf': fileImportDxfButton, '#file-export-dxf': fileExportDxfButton, '.file-menu': fileMenu, '.file-menu-trigger': fileMenuTrigger, '#file-menu-actions': fileMenuDropdown, '.tools-menu':toolsMenu,'.tools-menu-trigger':toolsMenuTrigger,'#measure-menu-actions':measureMenuDropdown, '.snap-trigger': snapTrigger, '.snap-menu': snapMenu, '#snap-enabled': snapEnabled, '.snap-dependent': snapDependent, '.units-control': unitsTrigger, '.units-menu': unitsMenu, '[data-unit-value]': unitValue, '#layers-list': layersList, '#layer-create': layerCreateButton, '#layer-assign': layerAssignButton, '#sidebar-layers-tab':layersTab, '#sidebar-properties-tab':propertiesTab, '#layers-panel-view':layersView, '#properties-panel-view':propertiesView, '#properties-content':propertiesContent, '#editor-context-menu': contextMenu })[selector];
+  document.querySelector = selector => ({ canvas, '.viewport': viewportHost, '#grid-snap-toggle': gridSnapButton, '#ortho-toggle': orthoButton, '#polar-toggle': polarButton, '#track-toggle': trackButton, '#command-input': input, '#command-suggestions': suggestions, '#command-history': commandHistory, '#command-prompt': commandPrompt, '#command-name': commandName, '#undo-button': undoButton, '#redo-button': redoButton, '#file-new': fileNewButton, '#file-open': fileOpenButton, '#file-save': fileSaveButton, '#file-save-as': fileSaveAsButton, '#file-import-dxf': fileImportDxfButton, '#file-export-dxf': fileExportDxfButton, '.file-menu': fileMenu, '.file-menu-trigger': fileMenuTrigger, '#file-menu-actions': fileMenuDropdown, '.tools-menu':toolsMenu,'.tools-menu-trigger':toolsMenuTrigger,'#measure-menu-actions':measureMenuDropdown, '.snap-trigger': snapTrigger, '.snap-menu': snapMenu, '#snap-enabled': snapEnabled, '.snap-dependent': snapDependent, '.units-control': unitsTrigger, '.units-menu': unitsMenu, '[data-unit-value]': unitValue, '#layers-list': layersList, '#layer-create': layerCreateButton, '#layer-assign': layerAssignButton, '#sidebar-layers-tab':layersTab, '#sidebar-properties-tab':propertiesTab, '#layers-panel-view':layersView, '#properties-panel-view':propertiesView, '#properties-content':propertiesContent, '#editor-context-menu': contextMenu })[selector];
   document.querySelectorAll = selector => ({ '.menu-items > li > button':[fileMenuTrigger,toolsMenuTrigger,editMenuTrigger], '.snap-dependent input':[], '[data-snap-mode]':[snapEnabled], '.footer-tool':[gridSnapButton,orthoButton,polarButton,trackButton], '.unit-option':unitOptions })[selector] || [];
   document.createElement = tag => { const element = new Element(tag); element.owner = document; return element; };
   window.devicePixelRatio = 1;
@@ -130,7 +130,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const context = vm.createContext({ window, document, crypto: require('node:crypto').webcrypto, navigator: { gpu }, HTMLElement: Element,
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
     ResizeObserver: class { constructor(fn) { this.fn = fn; } observe() { observerStats.observeCount += 1; observedResize = this.fn; } disconnect() { observerStats.disconnectCount += 1; if (observedResize === this.fn) observedResize = undefined; } },
-    requestAnimationFrame: fn => frames.push(fn), setTimeout: setTimer, clearTimeout: clearTimer, console: { info() {}, warn() {} },
+    requestAnimationFrame: fn => frames.push(fn), setTimeout: setTimer, clearTimeout: clearTimer, TextEncoder, console: { info() {}, warn() {} },
   });
   const run = expression => vm.runInContext(expression, context);
   const load = file => vm.runInContext(fs.readFileSync(path.join(__dirname, '../../', file), 'utf8'), context, { filename: file });
@@ -214,6 +214,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   if (commands) load('src/js/editor/command-input.js');
   if (commands) load('src/js/editor/measure-menu.js');
   if (commands) load('src/js/editor/history-actions.js');
+  if (commands) load('src/js/editor/DocumentFileState.js');
   if (commands) load('src/js/editor/file-actions.js');
   if (commands) load('src/js/editor/layers-panel.js');
   if (commands) load('src/js/editor/properties-panel.js');
@@ -225,7 +226,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
       defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...props };
     target.dispatchEvent(event); return event;
   };
-  return { window, document, viewportHost, contextMenu, gridSnapButton, orthoButton, polarButton, trackButton, snapTrigger, snapEnabled, get canvas() { return canvas; }, input, suggestions, commandHistory, commandPrompt, undoButton, redoButton, fileNewButton, fileOpenButton, fileSaveButton, fileImportDxfButton, fileExportDxfButton, fileMenu, fileMenuTrigger, fileMenuDropdown, toolsMenu,toolsMenuTrigger,measureMenuDropdown,measureMenuItems, editMenuTrigger, unitsTrigger, unitsMenu, unitValue, unitOptions, layersList, layerCreateButton, layerAssignButton, layersTab,propertiesTab,layersView,propertiesView,propertiesContent,context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
+  return { window, document, viewportHost, contextMenu, gridSnapButton, orthoButton, polarButton, trackButton, snapTrigger, snapEnabled, get canvas() { return canvas; }, input, suggestions, commandHistory, commandPrompt, undoButton, redoButton, fileNewButton, fileOpenButton, fileSaveButton, fileSaveAsButton, fileImportDxfButton, fileExportDxfButton, fileMenu, fileMenuTrigger, fileMenuDropdown, toolsMenu,toolsMenuTrigger,measureMenuDropdown,measureMenuItems, editMenuTrigger, unitsTrigger, unitsMenu, unitValue, unitOptions, layersList, layerCreateButton, layerAssignButton, layersTab,propertiesTab,layersView,propertiesView,propertiesContent,context, run, load, emit, renders, sizes, fakeRenderer, drawCalls, observerStats,
     advance(milliseconds) { clock += milliseconds; let ran; do { ran = false; for (const [id,timer] of [...timers].sort((a,b)=>a[1].at-b[1].at)) if (timer.at <= clock) { timers.delete(id); timer.fn(); ran = true; } } while (ran); },
     flushOne() { const frame = frames.shift(); if (frame) frame(); return Boolean(frame); },
     flush() { while (frames.length) frames.shift()(); },

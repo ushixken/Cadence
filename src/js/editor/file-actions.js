@@ -30,45 +30,90 @@
           input.click()
         })
       },
-      async writeFile({ serialized, filename, mimeType = "application/json" }) {
+      async pickSaveFile({ suggestedName }) {
+        if (typeof window.showSaveFilePicker !== "function") return Object.freeze({ status: "unsupported" })
+        try {
+          const handle = await window.showSaveFilePicker({ suggestedName, types: [{ description: "Caderact drawing", accept: { "application/json": [".caderact"] } }] })
+          return Object.freeze({ status: "selected", handle, filename: normalizeFilename(handle?.name || suggestedName) })
+        } catch (error) {
+          if (error?.name === "AbortError") return Object.freeze({ status: "cancelled" })
+          throw error
+        }
+      },
+      async writeFile({ serialized, filename, mimeType = "application/json", fileHandle = null }) {
+        if (fileHandle) {
+          const writable = await fileHandle.createWritable()
+          try { await writable.write(serialized); await writable.close() }
+          catch (error) { try { await writable.abort?.() } catch {} throw error }
+          return Object.freeze({ status: "committed" })
+        }
         const blob = new Blob([serialized], { type: mimeType })
         const url = URL.createObjectURL(blob)
         try {
           const anchor = document.createElement("a")
           anchor.href = url; anchor.download = filename; anchor.click()
         } finally { URL.revokeObjectURL(url) }
+        return Object.freeze({ status: "initiated" })
       },
     }
   }
 
   function createActions({ session, commandRouter, viewport, persistence = window.CaderactPersistence,
-    dxfImporter = window.CaderactDxfImport, dxfExporter = window.CaderactDxfExport, adapters = browserAdapters() }) {
-    let filename = DEFAULT_FILENAME
+    dxfImporter = window.CaderactDxfImport, dxfExporter = window.CaderactDxfExport, adapters = browserAdapters(),
+    fileState = window.CaderactDocumentFileState.create({ defaultFilename: DEFAULT_FILENAME }) }) {
     let lastResult = result("file-idle")
     const publish = outcome => { lastResult = outcome; window.caderactFeedback?.presentResult(outcome); return outcome }
     const activeBlocked = operation => commandRouter.isActive
       ? publish(result(`${operation}-blocked-active-command`, { command: commandRouter.activeCommand })) : null
     async function confirmReplacement(operation) {
-      if (!session.controller.isDirty) return null
-      let confirmed
-      try { confirmed = await adapters.confirmDiscard(operation) }
-      catch (error) { return publish(result(`${operation}-failed`, { reason: "confirmation-failed", message: error.message })) }
-      return confirmed ? null : publish(result(`${operation}-cancelled`, { reason: "unsaved-changes" }))
+      const guarded = await fileState.guardReplacement({ controller: session.controller, operation, confirmDiscard: adapters.confirmDiscard })
+      if (guarded.status === "replacement-allowed") return null
+      return publish(result(guarded.status === "replacement-cancelled" ? `${operation}-cancelled` : `${operation}-failed`, { reason: guarded.reason, message: guarded.message }))
     }
-    async function save() {
+    function normalizeOutput(value) {
+      if (value === undefined) return Object.freeze({ status: "committed" }) // Legacy/injected adapters completed when their promise resolves.
+      if (["committed", "initiated", "failed"].includes(value?.status)) return value
+      return Object.freeze({ status: "failed", message: "Output adapter returned an invalid durability result" })
+    }
+    async function fingerprint(serialized) { try { return Object.freeze({ status: "computed", value: await window.CaderactDocumentFileState.fingerprint(serialized) }) } catch (error) { return Object.freeze({ status: "failed", value: null, message: error.message }) } }
+    async function writeCaptured(captured, { targetName, fileHandle = null, operation = "save" }) {
+      let output
+      try { output = normalizeOutput(await adapters.writeFile({ serialized: captured.serialized, filename: targetName, fileHandle })) }
+      catch (error) { output = Object.freeze({ status: "failed", message: error.message }) }
+      fileState.recordOutput(output.status)
+      if (output.status === "failed") return publish(result(`${operation}-failed`, { reason: "write-failed", message: output.message || "File output failed", durability: "failed" }))
+      if (output.status === "initiated") return publish(result(`${operation}-initiated`, { filename: targetName, serialized: captured.serialized, stateId: captured.stateId, revision: captured.revision, durability: "initiated" }))
+      const payloadFingerprint = await fingerprint(captured.serialized), acknowledgement = captured.acknowledge()
+      fileState.manualSave({ filename: targetName, fileHandle, fingerprint: payloadFingerprint.value, stateId: captured.stateId, revision: captured.revision, durability: "committed" })
+      return publish(result(`${operation}-completed`, { filename: targetName, serialized: captured.serialized, stateId: captured.stateId,
+        revision: captured.revision, acknowledgement, durability: "committed", fingerprint: payloadFingerprint.value, fingerprintStatus: payloadFingerprint.status,
+        ...(payloadFingerprint.message ? { fingerprintMessage: payloadFingerprint.message } : {}) }))
+    }
+    async function capture(operation) {
       let captured
       try { captured = persistence.captureSave(session.reader, session.controller) }
-      catch (error) { return publish(result("save-failed", { reason: "serialization-failed", message: error.message })) }
-      const targetName = normalizeFilename(filename)
-      try { await adapters.writeFile({ serialized: captured.serialized, filename: targetName }) }
-      catch (error) { return publish(result("save-failed", { reason: "write-failed", message: error.message })) }
-      const acknowledgement = captured.acknowledge()
-      filename = targetName
-      return publish(result("save-completed", {
-        filename, serialized: captured.serialized, stateId: captured.stateId,
-        revision: captured.revision, acknowledgement,
-      }))
+      catch (error) { return { failure: publish(result(`${operation}-failed`, { reason: "serialization-failed", message: error.message, durability: "failed" })) } }
+      return { captured }
     }
+    async function save() {
+      if (!fileState.value.fileHandle && typeof adapters.pickSaveFile === "function") return saveAs("save")
+      const prepared = await capture("save"); if (prepared.failure) return prepared.failure
+      return writeCaptured(prepared.captured, { targetName: normalizeFilename(fileState.value.filename), fileHandle: fileState.value.fileHandle, operation: "save" })
+    }
+    async function saveAs(operation = "save-as") {
+      const targetName = normalizeFilename(fileState.value.filename)
+      let selection
+      if (typeof adapters.pickSaveFile === "function") {
+        try { selection = await adapters.pickSaveFile({ suggestedName: targetName }) }
+        catch (error) { return publish(result(`${operation}-failed`, { reason: "picker-failed", message: error.message, durability: "failed" })) }
+        if (selection?.status === "cancelled" || selection === null) return publish(result(`${operation}-cancelled`, { reason: "picker-cancelled" }))
+        if (selection?.status !== "selected" && selection?.status !== "unsupported") return publish(result(`${operation}-failed`, { reason: "picker-failed", message: "Save As picker returned an invalid result", durability: "failed" }))
+      } else selection = Object.freeze({ status: "unsupported" })
+      const prepared = await capture(operation); if (prepared.failure) return prepared.failure
+      return writeCaptured(prepared.captured, { targetName: selection.status === "selected" ? normalizeFilename(selection.filename || selection.handle?.name) : targetName,
+        fileHandle: selection.status === "selected" ? selection.handle : null, operation })
+    }
+    function replaceDocument(store, details) { const replacement = session.replaceStore(store, details); if (replacement.status !== "document-replaced") return replacement; viewport.resetForDocumentReplacement(); return replacement }
     async function open() {
       const blocked = activeBlocked("open"); if (blocked) return blocked
       const guard = await confirmReplacement("open"); if (guard) return guard
@@ -81,10 +126,10 @@
         serialized = typeof file.text === "function" ? await file.text() : file.serialized
         store = persistence.loadStore(serialized)
       } catch (error) { return publish(result("open-failed", { reason: "invalid-file", message: error.message })) }
-      filename = normalizeFilename(file.name)
-      session.replaceStore(store, { reason: "open" })
-      viewport.resetForDocumentReplacement()
-      return publish(result("open-completed", { filename, documentId: store.reader.snapshot().id }))
+      const filename = normalizeFilename(file.name), payloadFingerprint = await fingerprint(persistence.serializeDocument(store.reader.snapshot()))
+      const replacement=replaceDocument(store,{reason:"open"});if(replacement.status!=="document-replaced")return publish(result("open-failed",{reason:"replacement-failed"}))
+      fileState.opened({filename,fileHandle:file.handle||null,fingerprint:payloadFingerprint.value})
+      return publish(result("open-completed", { filename, documentId: store.reader.snapshot().id, fingerprint: payloadFingerprint.value, fingerprintStatus: payloadFingerprint.status }))
     }
     async function openDxf() {
       const blocked = activeBlocked("dxf-open"); if (blocked) return blocked
@@ -101,9 +146,8 @@
         return publish(result("dxf-open-failed", { reason: "invalid-dxf", message: error.message, diagnostics: error.diagnostics || [] }))
       }
       const sourceName = typeof file.name === "string" ? file.name.replace(/\.dxf$/i, "") : "Untitled"
-      filename = normalizeFilename(sourceName)
-      session.replaceStore(imported.store, { reason: "dxf-open" })
-      viewport.resetForDocumentReplacement()
+      const filename = normalizeFilename(sourceName),replacement=replaceDocument(imported.store,{reason:"dxf-open"});if(replacement.status!=="document-replaced")return publish(result("dxf-open-failed",{reason:"replacement-failed"}))
+      fileState.imported({filename})
       const outcome = publish(result("dxf-open-completed", { filename, documentId: imported.store.reader.snapshot().id,
         importedCount: imported.importedCount, diagnostics: imported.diagnostics, unit: imported.unit }))
       const warningCount = imported.diagnostics.filter(value => value.severity === "warning")
@@ -115,7 +159,7 @@
       let exported
       try { exported = dxfExporter.exportDocument(session.reader.snapshot()) }
       catch (error) { return publish(result("dxf-export-failed", { reason:"unsupported-document", message:error.message, diagnostics:error.diagnostics||[] })) }
-      const targetName=filename.replace(/\.caderact$/i,"")+".dxf"
+      const targetName=fileState.value.filename.replace(/\.caderact$/i,"")+".dxf"
       try { await adapters.writeFile({serialized:exported.text,filename:targetName,mimeType:"application/dxf"}) }
       catch(error){return publish(result("dxf-export-failed",{reason:"write-failed",message:error.message,diagnostics:exported.diagnostics}))}
       return publish(result("dxf-export-completed",{filename:targetName,serialized:exported.text,exportedCount:exported.exportedCount,diagnostics:exported.diagnostics,unit:exported.unit,version:exported.version}))
@@ -126,12 +170,11 @@
       let store
       try { store = window.CaderactDocument.createStore({ initiallySaved: true }) }
       catch (error) { return publish(result("new-failed", { message: error.message })) }
-      filename = DEFAULT_FILENAME
-      session.replaceStore(store, { reason: "new" })
-      viewport.resetForDocumentReplacement()
-      return publish(result("new-completed", { filename, documentId: store.reader.snapshot().id }))
+      const replacement=replaceDocument(store,{reason:"new"});if(replacement.status!=="document-replaced")return publish(result("new-failed",{reason:"replacement-failed"}))
+      fileState.reset()
+      return publish(result("new-completed", { filename: fileState.value.filename, documentId: store.reader.snapshot().id }))
     }
-    return Object.freeze({ save, open, openDxf, exportDxf, newProject, get filename() { return filename }, get lastResult() { return lastResult } })
+    return Object.freeze({ save, saveAs:()=>saveAs("save-as"), open, openDxf, exportDxf, newProject, fileState, get filename() { return fileState.value.filename }, get lastResult() { return lastResult } })
   }
 
   window.CaderactFileActions = Object.freeze({ createActions, DEFAULT_FILENAME, normalizeFilename })
@@ -139,6 +182,7 @@
   const newButton = document.querySelector("#file-new")
   const openButton = document.querySelector("#file-open")
   const saveButton = document.querySelector("#file-save")
+  const saveAsButton = document.querySelector("#file-save-as")
   const importDxfButton = document.querySelector("#file-import-dxf")
   const exportDxfButton = document.querySelector("#file-export-dxf")
   const fileMenu = document.querySelector(".file-menu")
@@ -164,6 +208,7 @@
   newButton.addEventListener("click", () => { closeFileMenu(); actions.newProject() })
   openButton.addEventListener("click", () => { closeFileMenu(); actions.open() })
   saveButton.addEventListener("click", () => { closeFileMenu(); actions.save() })
+  saveAsButton?.addEventListener("click", () => { closeFileMenu(); actions.saveAs() })
   importDxfButton?.addEventListener("click", () => { closeFileMenu(); actions.openDxf() })
   exportDxfButton?.addEventListener("click", () => { closeFileMenu(); actions.exportDxf() })
   document.addEventListener("click", event => { if (!fileMenu.contains(event.target)) closeFileMenu() })

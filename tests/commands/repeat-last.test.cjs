@@ -93,7 +93,7 @@ test('repeat identity is transient and survives New, Open, Save, and Undo lifecy
   b.run(`window.__saved=[];window.__source=window.CaderactPersistence.serializeDocument(modelReader.snapshot());
     window.__repeatFiles=window.CaderactFileActions.createActions({session:window.caderactDocumentSession,
       commandRouter:window.caderactCommandRouter,viewport:window.caderactViewport,adapters:{confirmDiscard:async()=>true,
-      writeFile:async value=>window.__saved.push(value),pickOpenFile:async()=>({name:'Repeat.caderact',text:async()=>window.__source})}})`);
+      writeFile:async value=>{window.__saved.push(value);},pickOpenFile:async()=>({name:'Repeat.caderact',text:async()=>window.__source})}})`);
   assert.equal((await b.run('window.__repeatFiles.save()')).status,'save-completed');
   assert.equal((await b.run('window.__repeatFiles.newProject()')).status,'new-completed');
   assert.equal((await b.run('window.__repeatFiles.open()')).status,'open-completed');
