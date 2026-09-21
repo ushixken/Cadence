@@ -219,6 +219,16 @@
     }
     warn(collector,entity,"DXF_DIMENSION_TYPE_UNSUPPORTED",`Skipped unsupported DIMENSION type ${kind}.`);return null
   }
+  function parseInsert(entity,collector){
+    const names=all(entity,2)
+    if(names.length!==1||!names[0].value.trim()||names[0].value!==names[0].value.trim()||names[0].value.length>128||/[\u0000-\u001f\u007f]/.test(names[0].value))fail(collector,"DXF_INVALID_BLOCK_NAME","INSERT requires one valid block name.",details(entity))
+    const insertionPoint=Object.freeze({x:optionalNumber(entity,10,collector,"insertion X"),y:optionalNumber(entity,20,collector,"insertion Y")})
+    const z=optionalNumber(entity,30,collector,"insertion Z"),sx=optionalNumber(entity,41,collector,"X scale",1),sy=optionalNumber(entity,42,collector,"Y scale",1),sz=optionalNumber(entity,43,collector,"Z scale",1),rotationDegrees=optionalNumber(entity,50,collector,"rotation",0)
+    if(z!==0||sz!==1||!defaultExtrusion(extrusion(entity,collector)))fail(collector,"DXF_INSERT_3D_UNSUPPORTED","INSERT uses an unsupported 3D transform.",details(entity))
+    if(sx===0||sy===0)fail(collector,"DXF_INSERT_ZERO_SCALE","INSERT scale must be nonzero.",details(entity))
+    if(Math.abs(Math.abs(sx)-Math.abs(sy))>1e-9*Math.max(1,Math.abs(sx),Math.abs(sy)))fail(collector,"DXF_INSERT_NONUNIFORM_SCALE","INSERT nonuniform scale is outside the supported beta subset.",details(entity))
+    return Object.freeze({...neutralBase(entity,collector),blockName:names[0].value,insertionPoint,scaleX:sx,scaleY:sy,rotationDegrees})
+  }
   function rawEntities(pairs, limits, collector) {
     const entities = []; let index = 0
     while (index < pairs.length) {
@@ -231,8 +241,8 @@
     }
     return entities
   }
-  function parseEntities(pairs, limits, collector) {
-    const raw = rawEntities(pairs, limits, collector), entities = []
+  function parseRawEntities(raw, collector) {
+    const entities = []
     for (let index = 0; index < raw.length; index += 1) {
       const entity = raw[index]; let parsed = null
       if (entity.type === "POLYLINE") {
@@ -248,11 +258,31 @@
       else if (entity.type === "ELLIPSE") parsed = parseEllipse(entity, collector)
       else if (entity.type === "TEXT") parsed = parseText(entity, collector)
       else if (entity.type === "DIMENSION") parsed = parseDimension(entity, collector)
+      else if (entity.type === "INSERT") parsed = parseInsert(entity, collector)
       else if (entity.type === "MTEXT") warn(collector,entity,"DXF_MTEXT_UNSUPPORTED","Skipped MTEXT; multiline and rich text are not supported.")
       else warn(collector, entity, "DXF_UNSUPPORTED_ENTITY", `Skipped unsupported ${entity.type || "unnamed"} entity.`)
       if (parsed) entities.push(parsed)
     }
     return entities
+  }
+  function parseEntities(pairs, limits, collector) { return parseRawEntities(rawEntities(pairs,limits,collector),collector) }
+  function parseBlocks(pairs,limits,collector){
+    const raw=rawEntities(pairs,limits,collector),blocks=[];let index=0
+    while(index<raw.length){
+      const header=raw[index++]
+      if(header.type!=="BLOCK")fail(collector,"DXF_MALFORMED_BLOCKS","BLOCKS section must begin each definition with BLOCK.",{section:"BLOCKS",sourceIndex:header.sourceIndex})
+      const names=all(header,2),name=names[0]?.value
+      if(names.length!==1||!name||name!==name.trim()||name.length>128||/[\u0000-\u001f\u007f]/.test(name))fail(collector,"DXF_INVALID_BLOCK_NAME","BLOCK requires one valid name.",{section:"BLOCKS",sourceIndex:header.sourceIndex})
+      const basePoint=Object.freeze({x:optionalNumber(header,10,collector,"base X"),y:optionalNumber(header,20,collector,"base Y")})
+      if(optionalNumber(header,30,collector,"base Z")!==0)fail(collector,"DXF_BLOCK_3D_UNSUPPORTED","BLOCK base point must be planar.",{section:"BLOCKS",sourceIndex:header.sourceIndex})
+      const members=[];while(index<raw.length&&raw[index].type!=="ENDBLK")members.push(raw[index++])
+      if(index>=raw.length)fail(collector,"DXF_UNTERMINATED_BLOCK",`BLOCK ${name} is missing ENDBLK.`,{section:"BLOCKS",sourceIndex:header.sourceIndex})
+      index+=1
+      if(name.startsWith("*")){collector.add({severity:"warning",code:"DXF_SYSTEM_BLOCK_SKIPPED",message:`Skipped system/anonymous block ${name}.`,section:"BLOCKS",sourceIndex:header.sourceIndex});continue}
+      blocks.push(Object.freeze({name,basePoint,entities:Object.freeze(parseRawEntities(members,collector)),sourceIndex:header.sourceIndex}))
+    }
+    const names=new Set();for(const block of blocks){const key=block.name.toLowerCase();if(names.has(key))fail(collector,"DXF_DUPLICATE_BLOCK_NAME",`Duplicate block name ${block.name}.`,{section:"BLOCKS",sourceIndex:block.sourceIndex});names.add(key)}
+    return Object.freeze(blocks)
   }
   function parseTables(pairs,limits,collector){
     const layers=[],linetypes=[],dimensionStyles=[];let index=0,entryCount=0
@@ -342,7 +372,7 @@
       index += 1
       if (sections.has(name)) fail(collector, "DXF_DUPLICATE_SECTION", `Duplicate ${name} section.`, { section: name, sourceIndex: pair.sourceIndex })
       sections.set(name, Object.freeze(content))
-      if (!["HEADER", "TABLES", "ENTITIES"].includes(name)) collector.add({ severity: "warning", code: "DXF_UNSUPPORTED_SECTION", message: `Skipped unsupported ${name} section.`, section: name, sourceIndex: pair.sourceIndex })
+      if (!["HEADER", "TABLES", "BLOCKS", "ENTITIES"].includes(name)) collector.add({ severity: "warning", code: "DXF_UNSUPPORTED_SECTION", message: `Skipped unsupported ${name} section.`, section: name, sourceIndex: pair.sourceIndex })
     }
     if (!sawEof) fail(collector, "DXF_EOF_MISSING", "DXF input is missing EOF.")
     if (index !== pairs.length) fail(collector, "DXF_TRAILING_DATA", "DXF input contains data after EOF.", { sourceIndex: pairs[index].sourceIndex })
@@ -351,8 +381,9 @@
     if (!sections.has("HEADER")) collector.add({ severity: "warning", code: "DXF_HEADER_MISSING", message: "DXF input has no HEADER section." })
     const tables=sections.has("TABLES")?parseTables(sections.get("TABLES"),limits,collector):Object.freeze({layers:Object.freeze([]),linetypes:Object.freeze([]),dimensionStyles:Object.freeze([])})
     const entities = parseEntities(sections.get("ENTITIES"), limits, collector)
+    const blocks=sections.has("BLOCKS")?parseBlocks(sections.get("BLOCKS"),limits,collector):Object.freeze([])
     return Object.freeze({ kind: "ParsedDxf", source, layers:tables.layers,linetypes:tables.linetypes,dimensionStyles:tables.dimensionStyles,
-      entities: Object.freeze(entities), diagnostics: collector.snapshot(), limits })
+      blocks,entities: Object.freeze(entities), diagnostics: collector.snapshot(), limits })
   }
   window.CaderactDxfParser = Object.freeze({ parse, DxfParseError })
 })()

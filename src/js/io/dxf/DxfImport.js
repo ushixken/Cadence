@@ -42,6 +42,8 @@
     function mapLayer(layer){const details={section:"TABLES",entityType:"LAYER",handle:layer.handle,sourceIndex:layer.sourceIndex};const color=layer.trueColor!==null?window.CaderactDxfProperties.trueColorToHex(layer.trueColor):window.CaderactDxfProperties.aciToHex(layer.aci);if(!color)fail("DXF_LAYER_COLOR_UNSUPPORTED",`Unable to map color for layer ${layer.name}.`,"TABLES");return Object.freeze({id:layerIds.get(layer.name.toLowerCase()),name:layer.name,visible:layer.visible,locked:layer.locked,color,linetype:mapLinetype(layer.linetype,true,details),lineweight:mapLineweight(layer.lineweight,true,details)})}
     const nativeLayers=orderedLayers.map(mapLayer),layerTable=Object.fromEntries(nativeLayers.map(layer=>[layer.id,layer]))
 
+    const definitionIds=new Map()
+    for(const block of parsed.blocks||[]){const outcome=draft.blockDefinitionGateway.create({name:block.name,basePoint:block.basePoint,records:[]});if(outcome.status!=="committed")fail("DXF_BLOCK_MAPPING_FAILED",`Unable to create block definition ${block.name}.`,"BLOCKS");definitionIds.set(block.name.toLowerCase(),outcome.definition.id)}
     function geometryRecord(entity){
       if(entity.type==="LINE")return draft.recordGateway.createLine(entity.start,entity.end)
       if(entity.type==="LWPOLYLINE"||entity.type==="POLYLINE")return draft.recordGateway.createPolyline(entity.vertices,entity.closed)
@@ -56,9 +58,17 @@
         if(entity.dimensionKind==="angular")return draft.recordGateway.createAngularDimension({firstRayPoint:entity.firstRayPoint,vertex:entity.vertex,secondRayPoint:entity.secondRayPoint,dimensionArcPoint:entity.dimensionArcPoint,textOverride:entity.textOverride,dimensionStyleId})
         return draft.recordGateway.createRadialDimension({mode:entity.dimensionKind,centerPoint:entity.centerPoint,dimensionPoint:entity.dimensionPoint,leaderPoint:entity.leaderPoint,textOverride:entity.textOverride,dimensionStyleId})
       }
+      if(entity.type==="INSERT"){
+        const definitionId=definitionIds.get(entity.blockName.toLowerCase());if(!definitionId)fail("DXF_BLOCK_REFERENCE_MISSING",`INSERT references missing block ${entity.blockName}.`,"BLOCKS")
+        const s=Math.abs(entity.scaleX),sxNegative=entity.scaleX<0,syNegative=entity.scaleY<0
+        let mirrored=sxNegative!==syNegative,rotation=entity.rotationDegrees*Math.PI/180
+        if((!mirrored&&sxNegative)||(mirrored&&syNegative))rotation+=Math.PI
+        return draft.recordGateway.createBlockInstance({definitionId,insertionPoint:entity.insertionPoint,rotation:window.CaderactSimilarityTransform.canonicalAngle(rotation),scale:s,mirrored})
+      }
       throw new DxfImportError(`Unsupported neutral DXF entity ${entity.type}.`,diagnostics.snapshot())
     }
     function mapEntity(entity){const details={section:"ENTITIES",entityType:entity.type,sourceIndex:entity.sourceIndex},key=entity.layer?.toLowerCase();let layerId=key&&layerIds.get(key);if(!layerId){warn(entity.layer?"DXF_ENTITY_LAYER_UNKNOWN":"DXF_ENTITY_LAYER_MISSING",entity.layer?`Mapped unknown layer ${entity.layer} to Layer 0.`:"Mapped entity without a layer to Layer 0.",details);layerId=defaultId}let color=null;if(entity.properties.color.mode==="truecolor")color=window.CaderactDxfProperties.trueColorToHex(entity.properties.color.value);else if(entity.properties.color.mode==="aci")color=window.CaderactDxfProperties.aciToHex(entity.properties.color.value);else if(entity.properties.color.mode==="byblock")warn("DXF_BYBLOCK_FALLBACK","Mapped BYBLOCK color to ByLayer because block inheritance is unavailable.",details);return Object.freeze({...geometryRecord(entity),layerId,color,linetype:mapLinetype(entity.properties.linetype,false,details),lineweight:mapLineweight(entity.properties.lineweight,false,details)})}
+    for(const block of parsed.blocks||[]){const members=block.entities.map(mapEntity),definitionId=definitionIds.get(block.name.toLowerCase()),outcome=draft.blockDefinitionGateway.replace(definitionId,{name:block.name,basePoint:block.basePoint,records:members,recordOrder:members.map(record=>record.id)});if(outcome.status!=="committed"&&outcome.status!=="no-op")fail("DXF_BLOCK_GRAPH_INVALID",`Unable to publish block ${block.name}; the reference graph contains a cycle, depth violation, or invalid resource state (${outcome.message||outcome.status}).`,"BLOCKS")}
     const records=parsed.entities.map(mapEntity),recordTable=Object.fromEntries(records.map(record=>[record.id,record]))
     let currentLayerId=parsed.source.currentLayer?layerIds.get(parsed.source.currentLayer.toLowerCase()):defaultId
     if(parsed.source.currentLayer&&!currentLayerId)warn("DXF_CURRENT_LAYER_UNKNOWN",`Mapped unknown current layer ${parsed.source.currentLayer} to a usable layer.`,{section:"HEADER"})
