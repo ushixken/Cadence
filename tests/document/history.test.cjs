@@ -5,6 +5,9 @@ const { browser } = require('../helpers/browser.cjs');
 
 async function fixture() {
   const b = await browser();
+  // A4 controller tests exercise the generic dirty-by-default store contract;
+  // the application bootstrap itself intentionally starts with a clean blank.
+  b.run('window.caderactDocumentSession.replaceStore(window.CaderactDocument.createStore(),{reason:"history-fixture"})');
   return { b, layerId: b.read('modelReader.snapshot().currentLayerId') };
 }
 function recordExpr(id, layerId, ax, ay, bx, by, fa = `${id}_a`, fb = `${id}_b`) {

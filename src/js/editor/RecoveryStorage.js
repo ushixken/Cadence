@@ -93,13 +93,15 @@
     setTimer = globalThis.setTimeout.bind(globalThis), clearTimer = globalThis.clearTimeout.bind(globalThis), now = () => Date.now(), maxPayloadBytes = MAX_PAYLOAD_BYTES } = {}) {
     let key = recoveryKey(), sequence = 0, timer = null, unsubscribeHistory = null, unsubscribeSession = null
     let lastScheduledStateId = null, lastStoredStateId = null, lastResult = Object.freeze({ status: "autosave-idle" }), stopped = false
+    const listeners = new Set()
+    function report(value) { lastResult = value; for (const listener of listeners) { try { listener(value) } catch {} } return value }
     function cancelTimer() { if (timer !== null) clearTimer(timer); timer = null }
     function bindController() {
       unsubscribeHistory?.(); unsubscribeHistory = session.controller.subscribeHistory(schedule)
     }
     function rotate() {
       cancelTimer(); key = recoveryKey(); sequence = 0; lastScheduledStateId = null; lastStoredStateId = null
-      lastResult = Object.freeze({ status: "autosave-session-rotated", recoveryKey: key }); bindController(); return lastResult
+      report(Object.freeze({ status: "autosave-session-rotated", recoveryKey: key })); bindController(); return lastResult
     }
     function schedule() {
       if (stopped || !session.controller.isDirty) { cancelTimer(); return Object.freeze({ status: "autosave-not-scheduled", reason: "clean" }) }
@@ -111,17 +113,17 @@
     async function capture() {
       cancelTimer()
       const controller = session.controller, capturedKey = key
-      if (!controller.isDirty) return (lastResult = Object.freeze({ status: "autosave-skipped", reason: "clean" }))
+      if (!controller.isDirty) return report(Object.freeze({ status: "autosave-skipped", reason: "clean" }))
       const capturedSequence = ++sequence
       const stateId = controller.currentStateId, revision = controller.currentRevision
-      if (stateId === lastStoredStateId) return (lastResult = Object.freeze({ status: "autosave-skipped", reason: "unchanged", stateId }))
+      if (stateId === lastStoredStateId) return report(Object.freeze({ status: "autosave-skipped", reason: "unchanged", stateId }))
       let payload, payloadFingerprint
       try { payload = persistence.serializeDocument(session.reader.snapshot()) }
-      catch (error) { return (lastResult = Object.freeze({ status: "autosave-failed", reason: "serialization-failed", message: error.message })) }
+      catch (error) { return report(Object.freeze({ status: "autosave-failed", reason: "serialization-failed", message: error.message })) }
       const payloadBytes = typeof TextEncoder === "function" ? new TextEncoder().encode(payload).byteLength : payload.length
-      if (!payload || payloadBytes > maxPayloadBytes) return (lastResult = Object.freeze({ status: "autosave-failed", reason: "payload-limit", payloadBytes, maxPayloadBytes }))
+      if (!payload || payloadBytes > maxPayloadBytes) return report(Object.freeze({ status: "autosave-failed", reason: "payload-limit", payloadBytes, maxPayloadBytes }))
       try { payloadFingerprint = await fingerprint(payload) }
-      catch (error) { return (lastResult = Object.freeze({ status: "autosave-failed", reason: "fingerprint-failed", message: error.message })) }
+      catch (error) { return report(Object.freeze({ status: "autosave-failed", reason: "fingerprint-failed", message: error.message })) }
       const metadata = fileState.value
       const record = Object.freeze({ recoveryRecordVersion: RECORD_VERSION, recoveryKey: capturedKey, sequence: capturedSequence,
         payload, payloadFingerprint, stateId, revision, timestamp: now(), filename: metadata.filename, displayName: metadata.displayName,
@@ -130,16 +132,16 @@
       let stored
       try { stored = await storage.put(record) }
       catch (error) { stored = failure("put", error) }
-      if (capturedKey !== key) return (lastResult = Object.freeze({ status: "autosave-stale-session", recoveryKey: capturedKey }))
-      if (stored.status !== "recovery-stored") return (lastResult = Object.freeze({ status: "autosave-failed", reason: stored.reason || stored.status, message: stored.message }))
+      if (capturedKey !== key) return report(Object.freeze({ status: "autosave-stale-session", recoveryKey: capturedKey }))
+      if (stored.status !== "recovery-stored") return report(Object.freeze({ status: "autosave-failed", reason: stored.reason || stored.status, message: stored.message }))
       let verified
       try { verified = await storage.get(capturedKey) }
       catch (error) { verified = failure("get", error) }
       if (verified.status !== "recovery-read" || verified.record?.sequence !== capturedSequence || verified.record?.payloadFingerprint !== payloadFingerprint) {
-        return (lastResult = Object.freeze({ status: "autosave-failed", reason: "verification-failed" }))
+        return report(Object.freeze({ status: "autosave-failed", reason: "verification-failed" }))
       }
       lastStoredStateId = stateId
-      lastResult = Object.freeze({ status: "autosave-completed", recoveryKey: capturedKey, sequence: capturedSequence, stateId, revision, payloadFingerprint })
+      report(Object.freeze({ status: "autosave-completed", recoveryKey: capturedKey, sequence: capturedSequence, stateId, revision, payloadFingerprint }))
       if (controller.isDirty && controller.currentStateId !== stateId) schedule()
       return lastResult
     }
@@ -155,6 +157,7 @@
     function start() { if (unsubscribeSession || stopped) return; bindController(); unsubscribeSession = session.subscribe(() => rotate()) }
     function stop() { stopped = true; cancelTimer(); unsubscribeHistory?.(); unsubscribeSession?.(); unsubscribeHistory = null; unsubscribeSession = null }
     return Object.freeze({ start, stop, schedule, flush: capture, rotate, read, clear, manualSaveCommitted,
+      subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener) },
       get recoveryKey() { return key }, get lastResult() { return lastResult }, get hasPendingAutosave() { return timer !== null } })
   }
 

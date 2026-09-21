@@ -89,7 +89,7 @@ test('New/Open are blocked during active commands', async () => {
 });
 
 test('file shortcuts route once and ignore editable controls', async () => {
-  const b=await fixture();
+  const b=await fixture(); line(b);
   for(const [key,status] of [['s','save-failed'],['o','open-failed'],['n','new-failed']]) {
     assert.equal(b.key(key,b.canvas,{ctrlKey:true}).defaultPrevented,true); await settle();
     assert.equal(b.read('window.caderactFiles.lastResult.status'),status);
@@ -113,7 +113,7 @@ test('File menu opens only by click and closes deterministically', async () => {
 });
 
 test('File action clicks close the menu and retain U3 routing', async () => {
-  const b=await fixture();
+  const b=await fixture(); line(b);
   for (const [button,status] of [[b.fileNewButton,'new-failed'],[b.fileOpenButton,'open-failed'],[b.fileSaveButton,'save-failed']]) {
     b.emit(b.fileMenuTrigger,'click'); b.emit(button,'click'); await settle();
     assert.equal(b.fileMenuDropdown.hidden,true); assert.equal(b.read('window.caderactFiles.lastResult.status'),status);

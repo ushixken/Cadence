@@ -40,6 +40,6 @@ Recovery remains blocked by FS3 while a command is active. Successful replacemen
 
 `beforeunload` requests the browser's standard warning only while `DocumentController.isDirty` is true. It does not attempt autosave, promise custom wording, or run synchronous IndexedDB work.
 
-## Deferred UX0 and FS6 work
+## Deferred UX0 work
 
-FS5 does not add thumbnails, recovery diffs, version browsing, cloud sync, workspace customization, or a general status-system redesign. FS6 may harden beta lifecycle edge cases and presentation, while broader UX0 remains separate.
+FS5 does not add thumbnails, recovery diffs, version browsing, cloud sync, workspace customization, or a general status-system redesign. FS6 completed the beta-hardening lifecycle and failure audit; broader UX0 remains separate.

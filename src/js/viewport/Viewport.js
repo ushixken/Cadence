@@ -18,7 +18,9 @@ const viewportSettings = {
 
 const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettings.initialZoom)
 const camera = viewportCamera.state
-const documentSession = window.CaderactDocumentSession.createSession()
+// The application opens on a pristine blank drawing. Generic stores remain
+// dirty-by-default; only the editor bootstrap establishes this clean baseline.
+const documentSession = window.CaderactDocumentSession.createSession(window.CaderactDocument.createStore({ initiallySaved: true }))
 window.caderactDocumentSession = documentSession
 let { reader: modelReader, recordGateway, groupGateway, blockDefinitionGateway, layerGateway, unitGateway, dimensionStyleGateway, controller: documentController } = documentSession.store
 
