@@ -33,9 +33,12 @@
       lastManualSaveFingerprint: payloadFingerprint, lastSuccessfulSave: null, lastOutputDurability: null })
     const imported = ({ filename }) => update({ filename, displayName: filename, sourceKind: "dxf-import", fileHandle: null,
       lastManualSaveFingerprint: null, lastSuccessfulSave: null, lastOutputDurability: null })
+    const recovered = ({ filename, displayName = filename, sourceKind = "recovered", fingerprint: payloadFingerprint = null }) => update({
+      filename, displayName, sourceKind: sourceKind === "untitled" ? "recovered" : sourceKind, fileHandle: null,
+      lastManualSaveFingerprint: null, lastSuccessfulSave: null, lastOutputDurability: null })
     const reset = () => update({ filename: defaultFilename, displayName: defaultFilename, sourceKind: "untitled", fileHandle: null,
       lastManualSaveFingerprint: null, lastSuccessfulSave: null, lastOutputDurability: null })
-    return Object.freeze({ guardReplacement, recordOutput, manualSave, opened, imported, reset, get value() { return value },
+    return Object.freeze({ guardReplacement, recordOutput, manualSave, opened, imported, recovered, reset, get value() { return value },
       subscribe(listener) { listeners.add(listener); listener(value); return () => listeners.delete(listener) } })
   }
   window.CaderactDocumentFileState = Object.freeze({ create, fingerprint, OUTPUT_DURABILITY })
