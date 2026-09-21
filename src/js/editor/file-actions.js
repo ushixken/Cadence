@@ -60,7 +60,7 @@
 
   function createActions({ session, commandRouter, viewport, persistence = window.CaderactPersistence,
     dxfImporter = window.CaderactDxfImport, dxfExporter = window.CaderactDxfExport, adapters = browserAdapters(),
-    fileState = window.CaderactDocumentFileState.create({ defaultFilename: DEFAULT_FILENAME }) }) {
+    fileState = window.CaderactDocumentFileState.create({ defaultFilename: DEFAULT_FILENAME }), recovery = null }) {
     let lastResult = result("file-idle")
     const publish = outcome => { lastResult = outcome; window.caderactFeedback?.presentResult(outcome); return outcome }
     const activeBlocked = operation => commandRouter.isActive
@@ -85,6 +85,7 @@
       if (output.status === "initiated") return publish(result(`${operation}-initiated`, { filename: targetName, serialized: captured.serialized, stateId: captured.stateId, revision: captured.revision, durability: "initiated" }))
       const payloadFingerprint = await fingerprint(captured.serialized), acknowledgement = captured.acknowledge()
       fileState.manualSave({ filename: targetName, fileHandle, fingerprint: payloadFingerprint.value, stateId: captured.stateId, revision: captured.revision, durability: "committed" })
+      try { await recovery?.manualSaveCommitted(captured) } catch {}
       return publish(result(`${operation}-completed`, { filename: targetName, serialized: captured.serialized, stateId: captured.stateId,
         revision: captured.revision, acknowledgement, durability: "committed", fingerprint: payloadFingerprint.value, fingerprintStatus: payloadFingerprint.status,
         ...(payloadFingerprint.message ? { fingerprintMessage: payloadFingerprint.message } : {}) }))
@@ -174,7 +175,7 @@
       fileState.reset()
       return publish(result("new-completed", { filename: fileState.value.filename, documentId: store.reader.snapshot().id }))
     }
-    return Object.freeze({ save, saveAs:()=>saveAs("save-as"), open, openDxf, exportDxf, newProject, fileState, get filename() { return fileState.value.filename }, get lastResult() { return lastResult } })
+    return Object.freeze({ save, saveAs:()=>saveAs("save-as"), open, openDxf, exportDxf, newProject, fileState, recovery, get filename() { return fileState.value.filename }, get lastResult() { return lastResult } })
   }
 
   window.CaderactFileActions = Object.freeze({ createActions, DEFAULT_FILENAME, normalizeFilename })
@@ -189,11 +190,16 @@
   const fileMenuTrigger = document.querySelector(".file-menu-trigger")
   const fileMenuDropdown = document.querySelector("#file-menu-actions")
   if (!newButton || !openButton || !saveButton || !fileMenu || !fileMenuTrigger || !fileMenuDropdown || !window.caderactDocumentSession) return
+  const fileState = window.CaderactDocumentFileState.create({ defaultFilename: DEFAULT_FILENAME })
+  const recovery = window.CaderactRecoveryStorage?.createAutosave({ session: window.caderactDocumentSession, fileState }) || null
   const actions = createActions({
     session: window.caderactDocumentSession,
     commandRouter: window.caderactCommandRouter,
     viewport: window.caderactViewport,
+    fileState,
+    recovery,
   })
+  recovery?.start()
   window.caderactFiles = actions
   function setFileMenuOpen(open) {
     fileMenu.classList.toggle("is-open", open)

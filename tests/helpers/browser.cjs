@@ -215,6 +215,8 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   if (commands) load('src/js/editor/measure-menu.js');
   if (commands) load('src/js/editor/history-actions.js');
   if (commands) load('src/js/editor/DocumentFileState.js');
+  if (commands) load('src/js/editor/RecoveryStorage.js');
+  if (commands) load('src/js/editor/RecoveryValidation.js');
   if (commands) load('src/js/editor/file-actions.js');
   if (commands) load('src/js/editor/layers-panel.js');
   if (commands) load('src/js/editor/properties-panel.js');
