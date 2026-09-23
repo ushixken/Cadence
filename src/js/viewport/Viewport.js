@@ -84,9 +84,16 @@ window.caderactCadCommands = window.CaderactCadCommandExtensions.create({ getSer
   groupGateway: documentSession.groupGateway,
   selection,
   resolveTypedPoint: resolveTypedPrecisionPoint,
+  hitTestEditableLine: point => {
+    const records = editableRecords().filter(record => record.type === "line" && !modelReader.groupForRecord(record.id))
+    const screenPoint = lastKnownPointerScreen || worldToScreen(point.x, point.y)
+    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records, worldToScreen, screenToWorld })
+    return hit.hit ? records.find(record => record.id === hit.recordId) || null : null
+  },
   requestRender,
   clearSnap,
 }) })
+for (const registration of window.CaderactFilletChamferCommands.registrations) window.caderactCadCommands.register(registration)
 const selectionBox = window.CaderactSelectionBox.createInteraction()
 const grips = window.CaderactGrips.createManager({
   getRecords: () => modelReader.editableRecords(), getSelectedIds: () => selection.selectedIds().filter(id=>!modelReader.groupForRecord(id)), worldToScreen,

@@ -19,6 +19,7 @@ const MODULE_FILES = [
   'TrimIntervals.js',
   'TrimPlanner.js',
   'ExtendPlanner.js',
+  'CornerModificationPlanner.js',
 ];
 
 // Evaluated with `new Function` (host realm, not vm.createContext) so the

@@ -449,6 +449,47 @@
       },
       setProperties(recordIds,patch){return setRecordProperties(recordIds,patch)},
       assignLayer(recordIds, layerId) { return assignRecordsToLayer(recordIds, layerId) },
+      // DC1: atomically applies a pure Fillet/Chamfer corner plan. Geometry
+      // planning and pick-side decisions stay outside the document authority.
+      publishCornerPlan(plan) {
+        if (!plan || plan.status !== "planned" || !["fillet", "chamfer"].includes(plan.operation)) return Object.freeze({ status: "no-op", reason: plan?.reason || "missing-plan" })
+        const sourceIds = plan.replacements?.map(value => value.recordId) || []
+        if (sourceIds.length !== 2 || new Set(sourceIds).size !== 2) return Object.freeze({ status: "invalid-plan" })
+        const sources = sourceIds.map(id => state.geometry.objects[id] || null)
+        if (sources.some(record => record?.type !== "line")) return Object.freeze({ status: "missing-record" })
+        if (sourceIds.some(id => !recordEditable(id))) return Object.freeze({ status: "record-layer-unavailable" })
+        if (sourceIds.some(id => reader.groupForRecord(id))) return Object.freeze({ status: "grouped-record" })
+        const snapshot = record => ({ id: record.id, start: { x: record.start.x, y: record.start.y }, end: { x: record.end.x, y: record.end.y } })
+        if (JSON.stringify(sources.map(snapshot)) !== JSON.stringify(plan.sourceGeometry)) return Object.freeze({ status: "stale-plan" })
+        const featureId = intent => intent?.role === "preserve" ? intent.featureId : intent?.role === "allocate" ? newId() : (() => { throw new Error("Invalid corner feature intent") })()
+        const replacements = plan.replacements.map((entry, index) => {
+          const source = sources[index], geometry = entry.geometry
+          return freeze({ ...source,
+            start: { x: geometry.start.x, y: geometry.start.y, featureId: featureId(entry.endpointIntent.start) },
+            end: { x: geometry.end.x, y: geometry.end.y, featureId: featureId(entry.endpointIntent.end) } })
+        })
+        let created = null
+        if (plan.createdGeometry) {
+          const geometry = plan.createdGeometry, source = sources[0], properties = window.CaderactObjectProperties.recordProperties(source)
+          if (geometry.type === "line") created = freeze({ id: newId(), type: "line", layerId: source.layerId, ...properties,
+            start: { x: geometry.start.x, y: geometry.start.y, featureId: newId() }, end: { x: geometry.end.x, y: geometry.end.y, featureId: newId() } })
+          else if (geometry.type === "arc") created = freeze({ id: newId(), type: "arc", layerId: source.layerId, ...properties,
+            center: { x: geometry.center.x, y: geometry.center.y }, radius: geometry.radius,
+            start: { x: geometry.start.x, y: geometry.start.y, featureId: newId() }, end: { x: geometry.end.x, y: geometry.end.y, featureId: newId() }, sweep: geometry.sweep })
+          else return Object.freeze({ status: "invalid-plan" })
+        }
+        let transaction
+        try {
+          transaction = controller.beginTransaction()
+          for (const record of replacements) transaction.replace(record.id, record)
+          if (created) transaction.create(created.id, created)
+          const outcome = transaction.publish()
+          return Object.freeze({ ...outcome, recordIds: Object.freeze([...sourceIds, ...(created ? [created.id] : [])]), createdRecord: created })
+        } catch (error) {
+          if (transaction?.isOpen) transaction.rollback()
+          return Object.freeze({ status: "commit-failed", message: error.message })
+        }
+      },
       // M6P4: publishes an already-computed CaderactTrimPlanner result
       // (`{ target, cuttingEdges, pickPoint } -> plan`) as exactly one atomic
       // document transaction. Pure translation: TrimPlan -> allocate required
