@@ -192,6 +192,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/LinearDimensionDraftSession.js');
   load('src/js/editor/AngularDimensionDraftSession.js');
   load('src/js/editor/GeometryTransform.js');
+  load('src/js/geometry/ArrayPlanner.js');
   load('src/js/editor/BlockEditWorkspace.js');
   load('src/js/editor/RectangleDraftSession.js');
   load('src/js/editor/PolylineDraftSession.js');
@@ -215,6 +216,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/CadCommandExtensions.js');
   load('src/js/editor/FilletChamferCommands.js');
   load('src/js/editor/DirectCommandExtensions.js');
+  load('src/js/editor/ArrayCommands.js');
   load('src/js/viewport/Viewport.js');
   load('src/js/editor/footer-controls.js');
   if (commands) load('src/js/editor/command-input.js');

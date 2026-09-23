@@ -22,6 +22,7 @@ const MODULE_FILES = [
   'CornerModificationPlanner.js',
   'JoinPlanner.js',
   'SplitBreakPlanner.js',
+  'ArrayPlanner.js',
 ];
 
 // Evaluated with `new Function` (host realm, not vm.createContext) so the
