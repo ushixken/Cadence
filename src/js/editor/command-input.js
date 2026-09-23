@@ -83,6 +83,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Diameter", aliases: ["DIA"], repeatable: true, activate: context => window.caderactViewport.createObjectMeasurementCommandSession("Diameter", context) },
   { name: "Trim", aliases: ["TR"], repeatable: true, activate: context => window.caderactViewport.createTrimCommandSession(context) },
   { name: "Text", aliases: ["DTEXT"], repeatable: true, activate: context => window.caderactViewport.createTextCommandSession(context) },
+  ...window.caderactCadCommands.definitions(),
 ])
 commandRouter = window.CaderactCommandRouter.createRouter({ registry: commandRegistry, setPrompt: setCommandHint,
   getPreselectionIds: () => window.caderactSelection?.selectedIds?.() || [] })

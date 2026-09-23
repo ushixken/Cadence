@@ -76,6 +76,17 @@ function applyObjectSnapTrackingPreference(preferences) {
 userPreferences.subscribe(applyObjectSnapTrackingPreference)
 function groupSelectionTarget(recordId){const group=modelReader.groupForRecord(recordId);if(!group)return modelReader.isRecordEditable(recordId)?Object.freeze({kind:"record",id:recordId,recordIds:Object.freeze([recordId])}):null;if(!group.memberIds.every(id=>modelReader.isRecordEditable(id)))return null;return Object.freeze({kind:"group",id:group.id,recordIds:Object.freeze([...group.memberIds])})}
 const selection = window.CaderactSelection.createSelection({resolveTarget:groupSelectionTarget})
+// Extension sessions use the same router, resolved-point pipeline, and scene hooks
+// as legacy sessions; document services are rebound on each activation.
+window.caderactCadCommands = window.CaderactCadCommandExtensions.create({ getServices: () => ({
+  reader: documentSession.reader,
+  recordGateway: documentSession.recordGateway,
+  groupGateway: documentSession.groupGateway,
+  selection,
+  resolveTypedPoint: resolveTypedPrecisionPoint,
+  requestRender,
+  clearSnap,
+}) })
 const selectionBox = window.CaderactSelectionBox.createInteraction()
 const grips = window.CaderactGrips.createManager({
   getRecords: () => modelReader.editableRecords(), getSelectedIds: () => selection.selectedIds().filter(id=>!modelReader.groupForRecord(id)), worldToScreen,

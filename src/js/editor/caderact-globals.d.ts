@@ -128,6 +128,7 @@ interface CaderactSelectionSurface {
 }
 
 interface Window {
+  caderactCadCommands: { definitions(): readonly CaderactCommandDefinition[] };
   CaderactCommandRegistry: {
     createRegistry(definitions: readonly CaderactCommandDefinition[]): CaderactCommandRegistryInstance;
   };

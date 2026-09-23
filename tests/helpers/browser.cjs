@@ -177,6 +177,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/io/dxf/DxfImport.js');
   load('src/js/io/dxf/DxfExport.js');
   load('src/js/editor/DocumentSession.js');
+  load('src/js/editor/UserPreferences.js');
   load('src/js/viewport/ViewportCamera.js');
   load('src/js/viewport/GridPolicy.js');
   load('src/js/viewport/ViewportScene.js');
@@ -199,7 +200,6 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/PrecisionInput.js');
   load('src/js/editor/DynamicInput.js');
   load('src/js/editor/OrthoConstraint.js');
-  load('src/js/editor/UserPreferences.js');
   load('src/js/editor/PolarConstraint.js');
   load('src/js/editor/SnapResolver.js');
   load('src/js/editor/ObjectSnapTracking.js');
@@ -209,6 +209,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/CommandRegistry.js');
   load('src/js/editor/CommandRouter.js');
   load('src/js/editor/CommandFeedback.js');
+  load('src/js/editor/CadCommandExtensions.js');
   load('src/js/viewport/Viewport.js');
   load('src/js/editor/footer-controls.js');
   if (commands) load('src/js/editor/command-input.js');
