@@ -217,8 +217,17 @@ function acceptIdleCommandSuggestion() {
 function submitActiveCommandInput() {
   if (!commandRouter.isActive) return false
   if (commandInput.value.trim() !== "") {
-    const outcome = commandRouter.submitActiveInput(commandInput.value)
-    commandInput.value = ""; syncCommandInputPresentation(); hideSuggestions()
+    const submittedValue = commandInput.value
+    const outcome = commandRouter.submitActiveInput(submittedValue)
+    if (outcome.status === "invalid-input") {
+      commandInput.value = submittedValue
+      commandInput.setAttribute("aria-invalid", "true")
+      commandInput.focus()
+    } else {
+      commandInput.value = ""
+      commandInput.setAttribute("aria-invalid", "false")
+    }
+    syncCommandInputPresentation(); hideSuggestions()
     if (outcome.status === "command-completed") commandInput.blur()
   } else if (commandRouter.activeSession?.acceptsEmptyInput) {
     const outcome = commandRouter.submitActiveInput("")
@@ -238,6 +247,7 @@ window.caderactCommandInput = Object.freeze({ acceptIdleCommandSuggestion, submi
 
 function resetCommandInput() {
   commandInput.value = ""
+  commandInput.setAttribute("aria-invalid", "false")
   syncCommandInputPresentation()
   setCommandHint(commandRouter.currentPrompt)
   hideSuggestions()
@@ -270,6 +280,7 @@ function hasSelection() { return (window.caderactSelection?.selectedIds().length
 function clearSelection() { window.caderactSelection?.clear() }
 
 commandInput.addEventListener("input", () => {
+  commandInput.setAttribute("aria-invalid", "false")
   syncCommandInputPresentation()
   selectedSuggestionIndex = 0; suggestionExplicitlySelected = false; showSuggestions()
 })

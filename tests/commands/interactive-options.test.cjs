@@ -76,6 +76,12 @@ test('invalid Polygon input overlays then restores the exact authoritative promp
   const centerPrompt='Polygon: Specify center of polygon';const centerOptions=[{id:'numSides',label:'NumSides',value:'5',enabled:true}];typed(b,'bad');assert.equal(b.read('window.caderactFeedback.activePrompt'),centerPrompt);assert.deepEqual(b.read('window.caderactFeedback.activeOptions'),centerOptions);assert.equal(promptText(b),'Polygon: Enter a point as x,y');b.advance(2000);assert.equal(promptText(b),centerPrompt);assert.equal(b.commandPrompt.children[1].textContent,'NumSides=5');assert.deepEqual(b.read('window.caderactFeedback.activeOptions'),centerOptions);
 });
 
+test('UX4 invalid correctable input preserves active command and entered value',async()=>{
+  const b=await browser();b.launch('Polygon');b.input.value='2';b.emit(b.input,'input');b.key('Enter',b.input)
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polygon');assert.equal(b.input.value,'2');assert.equal(b.input.getAttribute('aria-invalid'),'true');assert.equal(b.document.activeElement,b.input)
+  b.input.value='5';b.emit(b.input,'input');assert.equal(b.input.getAttribute('aria-invalid'),'false');b.key('Enter',b.input);assert.equal(b.input.value,'');assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.sideCount'),5)
+});
+
 test('clicking NumSides before center edits transient count, retains default on empty Enter, and restores focus',async()=>{
   const b=await browser(),before=state(b);b.launch('Polygon');typed(b,'5');const option=b.commandPrompt.children[1];assert.equal(option.tag,'button');assert.equal(option.getAttribute('aria-label'),'NumSides, current value 5');b.emit(option,'click');assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Polygon');assert.equal(b.read('window.caderactCommandRouter.activeSession.acceptsEmptyInput'),true);assert.equal(b.read('window.caderactFeedback.activePrompt'),'Polygon: Enter number of sides <5>');assert.equal(b.document.activeElement,b.input);b.key('Enter',b.input);assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.sideCount'),5);assert.equal(b.read('window.caderactFeedback.activePrompt'),'Polygon: Specify center of polygon');assert.deepEqual(state(b),before);
 });

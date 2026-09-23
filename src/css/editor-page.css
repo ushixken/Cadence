@@ -254,7 +254,7 @@ canvas.is-navigating {
 }
 
 .command-input-wrap:focus-within { border-color: var(--focus-ring); box-shadow:0 0 0 1px var(--focus-ring-soft); }
-.command-name { flex:none; padding-left:11px; color:var(--mainText); font-family:var(--font-mono); font-size:10px; white-space:nowrap; cursor:text; }
+.command-name { align-self:stretch; display:flex; flex:none; padding:0 8px; align-items:center; color:var(--mainText); background:var(--surface-selected); border-right:1px solid var(--separator); font-family:var(--font-mono); font-size:10px; font-weight:600; white-space:nowrap; cursor:text; }
 .command-name:empty { display:none; }
 .command-input-area { position:relative; flex:1 1 auto; min-width:0; cursor:text; }
 .command-prompt { display:flex; position:absolute; z-index:2; inset:0; align-items:center; gap:5px; min-width:0; padding:0 11px 0 5px; overflow:hidden; color:var(--secondaryText); font-size:10px; white-space:nowrap; pointer-events:none; cursor:text; }
@@ -264,8 +264,9 @@ canvas.is-navigating {
 .command-prompt-text { overflow:hidden; text-overflow:ellipsis; }
 .command-prompt-instruction { min-width:0; overflow:hidden; color:var(--secondaryText); text-overflow:ellipsis; }
 .command-prompt.is-error { color:var(--status-error); }
-.command-option { appearance:none; flex:none; border:0; border-bottom:1px solid var(--accent); padding:0 1px; background:transparent; color:var(--accent); font:inherit; cursor:pointer; pointer-events:auto; }
-.command-option:hover:not(:disabled) { color:var(--mainText); border-color:var(--activeText); }
+.command-option { appearance:none; flex:none; min-height:20px; border:1px solid var(--border-default); padding:1px 5px; background:var(--surface-control); border-radius:var(--radius-sm); color:var(--accent); font:inherit; cursor:pointer; pointer-events:auto; }
+.command-option:hover:not(:disabled) { color:var(--mainText); background:var(--surface-control-hover); border-color:var(--activeText); }
+.command-option:focus-visible { outline:2px solid var(--focus-ring); outline-offset:1px; }
 .command-option:disabled { color:var(--text-disabled); border-color:transparent; cursor:default; }
 
 .command-label {
@@ -298,6 +299,7 @@ canvas.is-navigating {
 }
 
 .command-input.has-command-error::placeholder { color: var(--status-error); }
+.command-input[aria-invalid="true"] { color:var(--status-error); }
 
 .command-history {
   display: flex;
