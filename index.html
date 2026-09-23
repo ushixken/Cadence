@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="./src/css/home-page.css" />
     <link rel="stylesheet" href="./src/css/menu-bar.css" />
     <link rel="stylesheet" href="./src/css/editor-page.css" />
+    <link rel="stylesheet" href="./src/css/application-shell.css" />
     <!-- JavaScript Files -->
     <script src="./src/js/home/home-page.js" defer></script>
     <script src="./src/js/rendering/Renderer.js" defer></script>
@@ -93,6 +94,7 @@
     <script src="./src/js/editor/footer-controls.js" defer></script>
     <script src="./src/js/editor/settings-panel.js" defer></script>
     <script src="./src/js/editor/command-input.js" defer></script>
+    <script src="./src/js/editor/application-shell.js" defer></script>
     <script src="./src/js/editor/measure-menu.js" defer></script>
     <script src="./src/js/editor/history-actions.js" defer></script>
     <script src="./src/js/editor/DocumentFileState.js" defer></script>
@@ -390,12 +392,7 @@
       </div>
       <div class="editor-page">
         <nav class="menu-bar" aria-label="Editor menu">
-          <img
-            class="caderact-img"
-            src="./assets/branding/caderact-logo.svg"
-            alt="CADERACT Logo"
-          />
-          <span class="project-title">Caderact - Project</span>
+          <svg class="shell-brand-symbol" viewBox="0 0 32 32" role="img" aria-label="Caderact"><use href="./assets/branding/caderact-symbol.svg#caderact-symbol" /></svg>
           <ul class="menu-items">
             <li class="file-menu">
               <button
@@ -426,47 +423,27 @@
                 <button id="file-export-dxf" type="button">Export DXF…</button>
               </div>
             </li>
-            <li><button type="button">Edit</button></li>
-            <li><button type="button">View</button></li>
-            <li class="tools-menu">
-              <button class="tools-menu-trigger" type="button" aria-expanded="false" aria-controls="measure-menu-actions">Tools</button>
-              <div class="measure-menu-dropdown" id="measure-menu-actions" role="menu" aria-label="Measure commands" hidden>
-                <span class="measure-menu-heading">Measure</span>
-                <button type="button" role="menuitem" data-measure-command="Distance">Distance</button>
-                <button type="button" role="menuitem" data-measure-command="Length">Length</button>
-                <button type="button" role="menuitem" data-measure-command="Radius">Radius</button>
-                <button type="button" role="menuitem" data-measure-command="Diameter">Diameter</button>
-                <button type="button" role="menuitem" data-measure-command="Area">Area</button>
-                <button type="button" role="menuitem" data-measure-command="Perimeter">Perimeter</button>
-                <button type="button" role="menuitem" data-measure-command="Angle">Angle</button>
-                <button type="button" role="menuitem" data-measure-command="DistanceObject">Distance to Object</button>
-                <button type="button" role="menuitem" data-measure-command="MinDist">Minimum Distance</button>
-                <button type="button" role="menuitem" data-measure-command="DistanceSum">Cumulative Distance</button>
+            <li class="edit-menu">
+              <button class="edit-menu-trigger" type="button" aria-expanded="false" aria-controls="edit-menu-actions">Edit</button>
+              <div class="edit-menu-dropdown" id="edit-menu-actions" role="menu" aria-label="Edit actions" hidden>
+                <button id="undo-button" type="button" role="menuitem" disabled>Undo <span>Ctrl+Z</span></button>
+                <button id="redo-button" type="button" role="menuitem" disabled>Redo <span>Ctrl+Y</span></button>
+                <div class="menu-divider" role="separator"></div>
+                <button type="button" role="menuitem" data-edit-command="Copy">Copy</button>
+                <button type="button" role="menuitem" data-edit-command="Delete">Delete</button>
               </div>
             </li>
-            <li><button id="settings-trigger" type="button">Settings</button></li>
-            <li><button type="button">Window</button></li>
-            <li><button type="button">Help</button></li>
+            <li><button type="button" data-application-menu="View">View</button></li>
+            <li><button type="button" data-application-menu="Window">Window</button></li>
+            <li><button type="button" data-application-menu="Help">Help</button></li>
           </ul>
-          <div class="history-actions" aria-label="Document history">
-            <button
-              id="undo-button"
-              type="button"
-              aria-label="Undo"
-              title="Undo (Ctrl+Z)"
-              disabled
-            >
-              ↶
-            </button>
-            <button
-              id="redo-button"
-              type="button"
-              aria-label="Redo"
-              title="Redo (Ctrl+Y)"
-              disabled
-            >
-              ↷
-            </button>
+          <div class="shell-document-title" aria-label="Document status"><strong>Caderact</strong><span aria-hidden="true">·</span><span id="document-save-state" class="document-save-state" aria-live="polite"></span></div>
+          <div class="utility-menu">
+            <button id="utility-menu-trigger" class="utility-menu-trigger" type="button" aria-label="Application menu" aria-expanded="false" aria-controls="utility-menu-actions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+            <div id="utility-menu-actions" class="utility-menu-dropdown" role="menu" hidden>
+              <button type="button" role="menuitem" data-shell-category="Help">Help</button>
+              <button id="settings-trigger" type="button" role="menuitem">Settings</button>
+            </div>
           </div>
           <section id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
             <header class="settings-panel-header"><div><h2 id="settings-title">Settings</h2><span>Drafting</span></div><button id="settings-close" type="button" aria-label="Close settings">×</button></header>
@@ -498,26 +475,64 @@
             <div class="file-safety-dialog-body"><p id="unsaved-message">Save your changes before continuing?</p></div>
             <footer><button id="unsaved-discard" type="button">Discard</button><button id="unsaved-save" type="button">Save</button><button id="unsaved-cancel" type="button" autofocus>Cancel</button></footer>
           </section>
-          <div class="menu-actions">
-            <button
-              class="notification"
-              type="button"
-              aria-label="Notifications"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M10,21h4a2,2,0,0,1-4,0ZM3.076,18.383a1,1,0,0,1,.217-1.09L5,15.586V10a7.006,7.006,0,0,1,6-6.92V2a1,1,0,0,1,2,0V3.08A7.006,7.006,0,0,1,19,10v5.586l1.707,1.707A1,1,0,0,1,20,19H4A1,1,0,0,1,3.076,18.383ZM6.414,17H17.586l-.293-.293A1,1,0,0,1,17,16V10A5,5,0,0,0,7,10v6a1,1,0,0,1-.293.707Z"
-                />
-              </svg>
-            </button>
-            <button class="profile" type="button">Sign In</button>
-          </div>
         </nav>
+        <nav class="cad-tool-tabs" aria-label="CAD tool collections">
+          <button type="button" data-shell-category="Draw" aria-selected="true">Draw</button>
+          <button type="button" data-shell-category="Modify" aria-selected="false">Modify</button>
+          <button type="button" data-shell-category="Annotate" aria-selected="false">Annotate</button>
+          <button type="button" data-shell-category="Layers" aria-selected="false">Layers</button>
+          <button type="button" data-shell-category="Blocks" aria-selected="false">Blocks</button>
+          <button type="button" data-shell-category="Measure" aria-selected="false">Measure</button>
+          <button type="button" data-shell-category="Drafting" aria-selected="false">Drafting</button>
+          <button type="button" data-shell-category="Custom" aria-selected="false">Custom</button>
+        </nav>
+        <section class="category-tool-area" aria-label="Active CAD tool collection">
+          <div class="category-heading"><span id="active-category-name">Draw</span><small>TOOLS</small></div>
+          <div id="category-tools" class="category-tools"></div>
+        </section>
         <div class="editor-workspace">
+          <svg class="shell-icon-sprite" aria-hidden="true">
+            <symbol id="cad-select" viewBox="0 0 24 24"><path d="M5 3l12 9-6 1 3 6-2 1-3-6-4 4z"/></symbol>
+            <symbol id="cad-line" viewBox="0 0 24 24"><path d="M5 18L19 6M4 16v4h4M16 4h4v4"/></symbol>
+            <symbol id="cad-polyline" viewBox="0 0 24 24"><path d="M4 18l5-10 6 7 5-10"/><circle cx="4" cy="18" r="1.5"/><circle cx="9" cy="8" r="1.5"/><circle cx="15" cy="15" r="1.5"/></symbol>
+            <symbol id="cad-rectangle" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12"/></symbol>
+            <symbol id="cad-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 9v6M9 12h6"/></symbol>
+            <symbol id="cad-arc" viewBox="0 0 24 24"><path d="M5 17A10 10 0 0 1 18 6M4 15v3h3M16 4h3v3"/></symbol>
+            <symbol id="cad-ellipse" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8" ry="5"/><path d="M4 12h16"/></symbol>
+            <symbol id="cad-polygon" viewBox="0 0 24 24"><path d="M12 4l8 6-3 9H7l-3-9z"/></symbol>
+            <symbol id="cad-text" viewBox="0 0 24 24"><path d="M5 5h14M12 5v14M8 19h8"/></symbol>
+            <symbol id="cad-hatch" viewBox="0 0 24 24"><path d="M5 5h14v14H5zM5 10l5-5M5 16L16 5M8 19L19 8M14 19l5-5"/></symbol>
+            <symbol id="cad-region" viewBox="0 0 24 24"><path d="M5 7l5-3 9 4v9l-7 3-7-5z"/><path d="M8 9l7 6M15 8l-7 7"/></symbol>
+            <symbol id="cad-move" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3m3-3l3 3M21 12l-3-3m3 3l-3 3M12 21l-3-3m3 3l3-3M3 12l3-3m-3 3l3 3"/></symbol>
+            <symbol id="cad-copy" viewBox="0 0 24 24"><rect x="7" y="7" width="12" height="12"/><path d="M5 16H4V4h12v1"/></symbol>
+            <symbol id="cad-rotate" viewBox="0 0 24 24"><path d="M18 8V4l3 3-3 3V8a7 7 0 10 1 8"/></symbol>
+            <symbol id="cad-scale" viewBox="0 0 24 24"><path d="M5 19L19 5M13 5h6v6M11 19H5v-6"/></symbol>
+            <symbol id="cad-mirror" viewBox="0 0 24 24"><path d="M12 3v18M9 6L4 10v4l5 4M15 6l5 4v4l-5 4"/></symbol>
+            <symbol id="cad-offset" viewBox="0 0 24 24"><path d="M5 16L16 5M8 19L19 8"/></symbol>
+            <symbol id="cad-trim" viewBox="0 0 24 24"><path d="M4 7h16M7 4v16M14 10l6 6M17 13l3-3"/></symbol>
+            <symbol id="cad-extend" viewBox="0 0 24 24"><path d="M4 18L18 4M5 5h14v14M15 4h4v4"/></symbol>
+            <symbol id="cad-explode" viewBox="0 0 24 24"><path d="M12 9V3M12 15v6M9 12H3M15 12h6M9.5 9.5L5 5M14.5 14.5l4.5 4.5M14.5 9.5L19 5M9.5 14.5L5 19"/></symbol>
+            <symbol id="cad-dimension" viewBox="0 0 24 24"><path d="M4 7v10M20 7v10M5 12h14M5 12l3-2m-3 2l3 2m11-2l-3-2m3 2l-3 2"/></symbol>
+            <symbol id="cad-delete" viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13M10 10v7M14 10v7"/></symbol>
+            <symbol id="cad-block" viewBox="0 0 24 24"><path d="M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10"/></symbol>
+            <symbol id="cad-insert" viewBox="0 0 24 24"><path d="M5 5h10v10H5zM9 9h10v10H9M14 12h5M16.5 9.5v5"/></symbol>
+            <symbol id="cad-measure" viewBox="0 0 24 24"><path d="M4 16L16 4l4 4L8 20zM9 13l2 2M12 10l2 2M15 7l2 2"/></symbol>
+          </svg>
+          <aside class="quick-tools-rail" aria-label="Quick tools">
+            <button type="button" data-shell-command="Select" data-tooltip="Select · Esc"><svg><use href="#cad-select"/></svg></button>
+            <button type="button" data-shell-command="Line" data-tooltip="Line · L"><svg><use href="#cad-line"/></svg></button>
+            <button type="button" data-shell-command="Polyline" data-tooltip="Polyline · PL"><svg><use href="#cad-polyline"/></svg></button>
+            <button type="button" data-shell-command="Rectangle" data-tooltip="Rectangle · REC"><svg><use href="#cad-rectangle"/></svg></button>
+            <button type="button" data-shell-command="Circle" data-tooltip="Circle · C"><svg><use href="#cad-circle"/></svg></button>
+            <span class="rail-separator"></span>
+            <button type="button" data-shell-command="Move" data-tooltip="Move · M"><svg><use href="#cad-move"/></svg></button>
+            <button type="button" data-shell-command="Copy" data-tooltip="Copy · CP"><svg><use href="#cad-copy"/></svg></button>
+            <button type="button" data-shell-command="Rotate" data-tooltip="Rotate · RO"><svg><use href="#cad-rotate"/></svg></button>
+            <button type="button" data-shell-command="Offset" data-tooltip="Offset · O"><svg><use href="#cad-offset"/></svg></button>
+            <span class="rail-separator"></span>
+            <button type="button" data-shell-command="Text" data-tooltip="Text"><svg><use href="#cad-text"/></svg></button>
+            <button type="button" data-shell-command="Dimension" data-tooltip="Dimension"><svg><use href="#cad-dimension"/></svg></button>
+          </aside>
           <div class="viewport">
             <canvas></canvas>
           </div>
@@ -553,17 +568,13 @@
               <div id="properties-content" class="properties-content" tabindex="-1"></div>
             </section>
           </aside>
+          <section class="command-history-region" aria-label="Command history"><div class="command-history" id="command-history" aria-live="polite"></div></section>
         </div>
+        <nav class="model-strip" aria-label="Model space"><button type="button" aria-current="page">Model</button><span>Model space</span></nav>
         <footer class="editor-footer" aria-label="Editor status bar">
-          <span id="document-save-state" class="document-save-state" aria-live="polite"></span>
           <div class="command-area">
             <span class="command-label">Command:</span>
             <div class="command-input-wrap">
-              <div
-                class="command-history"
-                id="command-history"
-                aria-live="polite"
-              ></div>
               <span
                 class="command-name"
                 id="command-name"
