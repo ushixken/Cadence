@@ -102,12 +102,29 @@ window.caderactCadCommands = window.CaderactCadCommandExtensions.create({ getSer
     const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records, worldToScreen, screenToWorld })
     return hit.hit ? records.find(record => record.id === hit.recordId) || null : null
   },
+  hitTestEditableDirectTarget: (point, types) => {
+    const allowed = new Set(types || []), records = editableRecords().filter(record => allowed.has(record.type) && !modelReader.groupForRecord(record.id))
+    const screenPoint = lastKnownPointerScreen || worldToScreen(point.x, point.y)
+    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records, worldToScreen, screenToWorld })
+    return hit.hit ? records.find(record => record.id === hit.recordId) || null : null
+  },
+  hitTestStretchFeatures: (point, recordIds) => {
+    const selected = new Set(recordIds || []), screenPoint = lastKnownPointerScreen || worldToScreen(point.x, point.y), captures = []
+    for (const record of editableRecords()) {
+      if (!selected.has(record.id) || modelReader.groupForRecord(record.id)) continue
+      const features = record.type === "line" ? [record.start, record.end] : record.type === "polyline" && !record.closed ? record.vertices : []
+      const featureIds = features.filter(feature => { const screen=worldToScreen(feature.x,feature.y);return Math.hypot(screen.x-screenPoint.x,screen.y-screenPoint.y)<=10 }).map(feature => feature.featureId)
+      if (featureIds.length) captures.push(Object.freeze({recordId:record.id,featureIds:Object.freeze(featureIds)}))
+    }
+    return Object.freeze(captures)
+  },
   requestRender,
   clearSnap,
 }) })
 for (const registration of window.CaderactFilletChamferCommands.registrations) window.caderactCadCommands.register(registration)
 for (const registration of window.CaderactDirectCommandExtensions.registrations) window.caderactCadCommands.register(registration)
 for (const registration of window.CaderactArrayCommands.registrations) window.caderactCadCommands.register(registration)
+for (const registration of window.CaderactDirectEditingCommands.registrations) window.caderactCadCommands.register(registration)
 const selectionBox = window.CaderactSelectionBox.createInteraction()
 const grips = window.CaderactGrips.createManager({
   getRecords: () => modelReader.editableRecords(), getSelectedIds: () => selection.selectedIds().filter(id=>!modelReader.groupForRecord(id)), worldToScreen,

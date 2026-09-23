@@ -23,6 +23,7 @@ const MODULE_FILES = [
   'JoinPlanner.js',
   'SplitBreakPlanner.js',
   'ArrayPlanner.js',
+  'DirectEditingPlanner.js',
 ];
 
 // Evaluated with `new Function` (host realm, not vm.createContext) so the
