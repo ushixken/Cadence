@@ -14,6 +14,7 @@ The centered top document title/save presentation is a projection of `DocumentFi
 
 - Tool-strip, quick-rail, and search actions resolve and execute through the existing `CaderactCommandRegistry` and `CaderactCommandRouter`.
 - File/Edit/View/Window/Help are application-menu concepts. Draw/Modify/Annotate/Layers/Blocks/Measure/Drafting/Custom are presentation-only CAD collection tabs. Edit delegates Undo/Redo to the existing history controller.
+- View exposes the existing persisted grid-visibility preference; Window delegates to the existing Layers/Properties tabs; Help links to the existing local help surface. Unsupported clipboard and zoom actions are intentionally absent.
 - Category selection, search results, and flyout visibility are runtime UI state only and never enter the document, history, persistence, or recovery systems.
 - Units continue through the document unit gateway and existing footer controller.
 - Viewport sizing, pointer projection, snapping, tracking, dynamic input, selection, rendering, Layers, and Properties retain their existing owners.

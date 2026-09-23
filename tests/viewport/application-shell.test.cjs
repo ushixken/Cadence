@@ -23,6 +23,26 @@ test('UX2R2 separates application menus from CAD collection tabs', () => {
   assert.doesNotMatch(tabs, /data-shell-category="Edit"/)
 })
 
+test('UX3 application menus expose only supported anchored actions', () => {
+  const html=read('index.html'),source=read('src/js/editor/application-shell.js'),fileSource=read('src/js/editor/file-actions.js'),css=read('src/css/application-shell.css')
+  for(const menu of ['view-menu-actions','window-menu-actions','help-menu-actions'])assert.match(html,new RegExp(`id="${menu}"`))
+  assert.match(html,/data-view-action="grid"/);assert.match(html,/data-window-panel="layers"/);assert.match(html,/href="\.\/help\/index\.html"/)
+  assert.doesNotMatch(html,/>Cut<|>Paste<|Zoom Previous|Zoom Selected/)
+  assert.match(css,/\.application-menu-dropdown\{[^}]*position:absolute/s)
+  assert.match(source,/\["ArrowDown","ArrowUp","Home","End"\]/)
+  assert.match(source,/event\.key===\"Escape\"/)
+  assert.match(fileSource,/\["ArrowDown","ArrowUp","Home","End"\]/)
+  assert.match(fileSource,/fileMenuTrigger\.focus\(\)/)
+})
+
+test('UX3 collection navigation is presentation-only and command launches stay router-owned',()=>{
+  const source=read('src/js/editor/application-shell.js')
+  const show=source.slice(source.indexOf('function showCategory'),source.indexOf('root.querySelectorAll(".cad-tool-tabs'))
+  assert.doesNotMatch(show,/router\.execute|cancel|documentController|selection/)
+  assert.match(source,/router\.execute\(name\)/)
+  assert.match(source,/definition\?\.aliases\?\.\[0\]/)
+})
+
 test('UX2R2 relocates authoritative Undo and Redo into anchored Edit menu', () => {
   const html = read('index.html'), source = read('src/js/editor/history-actions.js')
   assert.match(html, /class="edit-menu-dropdown"[^>]*id="edit-menu-actions"/)

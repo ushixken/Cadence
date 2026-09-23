@@ -431,11 +431,12 @@
                 <div class="menu-divider" role="separator"></div>
                 <button type="button" role="menuitem" data-edit-command="Copy">Copy</button>
                 <button type="button" role="menuitem" data-edit-command="Delete">Delete</button>
+                <button type="button" role="menuitem" data-edit-action="select-all">Select All <span>Ctrl+A</span></button>
               </div>
             </li>
-            <li><button type="button" data-application-menu="View">View</button></li>
-            <li><button type="button" data-application-menu="Window">Window</button></li>
-            <li><button type="button" data-application-menu="Help">Help</button></li>
+            <li class="application-menu" data-menu="view"><button type="button" aria-expanded="false" aria-controls="view-menu-actions">View</button><div class="application-menu-dropdown" id="view-menu-actions" role="menu" hidden><button type="button" role="menuitemcheckbox" data-view-action="grid" aria-checked="true">Show Grid</button></div></li>
+            <li class="application-menu" data-menu="window"><button type="button" aria-expanded="false" aria-controls="window-menu-actions">Window</button><div class="application-menu-dropdown" id="window-menu-actions" role="menu" hidden><button type="button" role="menuitem" data-window-panel="layers">Layers</button><button type="button" role="menuitem" data-window-panel="properties">Properties</button></div></li>
+            <li class="application-menu" data-menu="help"><button type="button" aria-expanded="false" aria-controls="help-menu-actions">Help</button><div class="application-menu-dropdown" id="help-menu-actions" role="menu" hidden><a href="./help/index.html" role="menuitem">Caderact Help</a></div></li>
           </ul>
           <div class="shell-document-title" aria-label="Document status"><strong>Caderact</strong><span aria-hidden="true">·</span><span id="document-save-state" class="document-save-state" aria-live="polite"></span></div>
           <div class="utility-menu">

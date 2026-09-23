@@ -241,6 +241,12 @@
   }
   function closeFileMenu() { setFileMenuOpen(false) }
   fileMenuTrigger.addEventListener("click", () => setFileMenuOpen(fileMenuDropdown.hidden))
+  fileMenuDropdown.addEventListener("keydown", event => {
+    const items=Array.from(fileMenuDropdown.querySelectorAll("button:not(:disabled)")),current=Math.max(0,items.indexOf(document.activeElement))
+    if(event.key==="Escape"){event.preventDefault();closeFileMenu();fileMenuTrigger.focus();return}
+    if(!["ArrowDown","ArrowUp","Home","End"].includes(event.key))return
+    event.preventDefault();const next=event.key==="Home"?0:event.key==="End"?items.length-1:(current+(event.key==="ArrowDown"?1:-1)+items.length)%items.length;items[next]?.focus()
+  })
   for (const trigger of document.querySelectorAll(".menu-items > li > button")) {
     if (trigger !== fileMenuTrigger) trigger.addEventListener("click", closeFileMenu)
   }
@@ -254,6 +260,7 @@
   document.addEventListener("keydown", event => {
     if (event.key === "Escape" && !fileMenuDropdown.hidden) {
       closeFileMenu()
+      fileMenuTrigger.focus()
       event.preventDefault()
       return
     }
