@@ -150,6 +150,8 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/geometry/TrimIntervals.js');
   load('src/js/geometry/TrimPlanner.js');
   load('src/js/geometry/CornerModificationPlanner.js');
+  load('src/js/geometry/JoinPlanner.js');
+  load('src/js/geometry/SplitBreakPlanner.js');
   load('src/js/geometry/ExtendPlanner.js');
   load('src/js/geometry/OffsetGeometry.js');
   load('src/js/geometry/Measurement.js');
@@ -212,6 +214,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/CommandFeedback.js');
   load('src/js/editor/CadCommandExtensions.js');
   load('src/js/editor/FilletChamferCommands.js');
+  load('src/js/editor/DirectCommandExtensions.js');
   load('src/js/viewport/Viewport.js');
   load('src/js/editor/footer-controls.js');
   if (commands) load('src/js/editor/command-input.js');

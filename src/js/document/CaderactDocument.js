@@ -490,6 +490,45 @@
           return Object.freeze({ status: "commit-failed", message: error.message })
         }
       },
+      publishJoinPlan(plan) {
+        if (!plan || plan.status !== "planned" || plan.operation !== "join") return Object.freeze({ status: "no-op", reason: plan?.reason || "missing-plan" })
+        const sourceIds = [plan.baseRecordId, ...(plan.removeRecordIds || [])], sources = sourceIds.map(id => state.geometry.objects[id] || null)
+        if (sources.some(record => !record)) return Object.freeze({ status: "missing-record" })
+        if (sourceIds.some(id => !recordEditable(id))) return Object.freeze({ status: "record-layer-unavailable" })
+        if (sourceIds.some(id => reader.groupForRecord(id))) return Object.freeze({ status: "grouped-record" })
+        const snapshot = record => record.type === "line" ? { id: record.id, type: "line", start: { x: record.start.x, y: record.start.y, featureId: record.start.featureId }, end: { x: record.end.x, y: record.end.y, featureId: record.end.featureId } }
+          : { id: record.id, type: "polyline", closed: Boolean(record.closed), vertices: record.vertices.map(vertex => ({ x: vertex.x, y: vertex.y, featureId: vertex.featureId })) }
+        const expectedById = new Map(plan.sourceGeometry.map(value => [value.id, value]))
+        if (sources.some(record => JSON.stringify(snapshot(record)) !== JSON.stringify(expectedById.get(record.id)))) return Object.freeze({ status: "stale-plan" })
+        const source = sources[0], properties = window.CaderactObjectProperties.recordProperties(source), geometry = plan.geometry
+        let replacement
+        if (geometry.type === "line") replacement = freeze({ id: source.id, type: "line", layerId: source.layerId, ...properties,
+          start: { x: geometry.start.x, y: geometry.start.y, featureId: geometry.start.featureId || newId() }, end: { x: geometry.end.x, y: geometry.end.y, featureId: geometry.end.featureId || newId() } })
+        else if (geometry.type === "polyline") replacement = freeze({ id: source.id, type: "polyline", layerId: source.layerId, ...properties, closed: false,
+          vertices: geometry.vertices.map(vertex => ({ x: vertex.x, y: vertex.y, featureId: vertex.featureId || newId() })) })
+        else return Object.freeze({ status: "invalid-plan" })
+        let transaction
+        try { transaction = controller.beginTransaction();transaction.replace(source.id, replacement);cleanupGroupsForRemovedRecords(transaction, plan.removeRecordIds);for (const id of plan.removeRecordIds) transaction.remove(id);const outcome = transaction.publish();return Object.freeze({ ...outcome, record: replacement, removedRecordIds: plan.removeRecordIds }) }
+        catch (error) { if (transaction?.isOpen) transaction.rollback();return Object.freeze({ status: "commit-failed", message: error.message }) }
+      },
+      publishSplitBreakPlan(plan) {
+        if (!plan || plan.status !== "planned" || !["split", "break"].includes(plan.operation)) return Object.freeze({ status: "no-op", reason: plan?.reason || "missing-plan" })
+        const original = state.geometry.objects[plan.targetRecordId]
+        if (!original) return Object.freeze({ status: "missing-record" })
+        if (!recordEditable(original.id)) return Object.freeze({ status: "record-layer-unavailable" })
+        if (reader.groupForRecord(original.id)) return Object.freeze({ status: "grouped-record" })
+        const snapshot = original.type === "line" ? { id: original.id, type: "line", start: { x: original.start.x, y: original.start.y, featureId: original.start.featureId }, end: { x: original.end.x, y: original.end.y, featureId: original.end.featureId } }
+          : { id: original.id, type: "polyline", closed: Boolean(original.closed), vertices: original.vertices.map(vertex => ({ x: vertex.x, y: vertex.y, featureId: vertex.featureId })) }
+        if (JSON.stringify(snapshot) !== JSON.stringify(plan.sourceGeometry)) return Object.freeze({ status: "stale-plan" })
+        const properties = window.CaderactObjectProperties.recordProperties(original)
+        const featureId = intent => intent?.role === "preserve" ? intent.featureId : intent?.role === "allocate" ? newId() : (() => { throw new Error("Invalid split feature intent") })()
+        const build = (id, piece) => piece.geometry.type === "line"
+          ? freeze({ id, type: "line", layerId: original.layerId, ...properties, start: { x: piece.geometry.start.x, y: piece.geometry.start.y, featureId: featureId(piece.vertexIntents[0]) }, end: { x: piece.geometry.end.x, y: piece.geometry.end.y, featureId: featureId(piece.vertexIntents[1]) } })
+          : freeze({ id, type: "polyline", layerId: original.layerId, ...properties, closed: false, vertices: piece.geometry.vertices.map((vertex, index) => ({ x: vertex.x, y: vertex.y, featureId: featureId(piece.vertexIntents[index]) })) })
+        let transaction
+        try { const replacement = build(original.id, plan.replacement), creates = plan.creates.map(piece => build(newId(), piece));transaction = controller.beginTransaction();transaction.replace(original.id, replacement);for (const record of creates) transaction.create(record.id, record);const outcome = transaction.publish();return Object.freeze({ ...outcome, records: Object.freeze([replacement, ...creates]) }) }
+        catch (error) { if (transaction?.isOpen) transaction.rollback();return Object.freeze({ status: "commit-failed", message: error.message }) }
+      },
       // M6P4: publishes an already-computed CaderactTrimPlanner result
       // (`{ target, cuttingEdges, pickPoint } -> plan`) as exactly one atomic
       // document transaction. Pure translation: TrimPlan -> allocate required

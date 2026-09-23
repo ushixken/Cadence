@@ -90,10 +90,17 @@ window.caderactCadCommands = window.CaderactCadCommandExtensions.create({ getSer
     const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records, worldToScreen, screenToWorld })
     return hit.hit ? records.find(record => record.id === hit.recordId) || null : null
   },
+  hitTestEditableSplitTarget: point => {
+    const records = editableRecords().filter(record => (record.type === "line" || (record.type === "polyline" && !record.closed)) && !modelReader.groupForRecord(record.id))
+    const screenPoint = lastKnownPointerScreen || worldToScreen(point.x, point.y)
+    const hit = window.CaderactSelection.hitTestRecords({ screenPoint, records, worldToScreen, screenToWorld })
+    return hit.hit ? records.find(record => record.id === hit.recordId) || null : null
+  },
   requestRender,
   clearSnap,
 }) })
 for (const registration of window.CaderactFilletChamferCommands.registrations) window.caderactCadCommands.register(registration)
+for (const registration of window.CaderactDirectCommandExtensions.registrations) window.caderactCadCommands.register(registration)
 const selectionBox = window.CaderactSelectionBox.createInteraction()
 const grips = window.CaderactGrips.createManager({
   getRecords: () => modelReader.editableRecords(), getSelectedIds: () => selection.selectedIds().filter(id=>!modelReader.groupForRecord(id)), worldToScreen,
@@ -976,23 +983,6 @@ function createLinearDimensionCommandSession({setPrompt=()=>{}}={}){
   const preview=()=>{const value=draft.preview();return value?Object.freeze({...value,dimensionStyleId:capturedStyleId}):null};requestRender();return Object.freeze({name:"Linear",draft,handlePointerDown:point=>present(draft.acceptPoint(point),point),handlePointerMove:point=>{draft.updatePointer(point);requestRender()},handlePointerLeave:()=>{draft.clearPointer();clearSnap();requestRender()},handleInput,finish:cancel,cancel,getDimensionPreview:preview,getDraftPoints:draft.acceptedPoints,getSnapCandidates:()=>draft.acceptedPoints().map((point,index)=>Object.freeze({kind:"draft-point",point,stableKey:`linear-dimension:${index}`,reference:Object.freeze({kind:"draft-point",index})})),getOrthoReference:()=>draft.referencePoint,getDynamicFields:(point,format)=>draft.phase==="placement"?[{id:"placement",kind:"distance",label:"Offset",value:format(Math.min(Math.abs(point.x-draft.referencePoint.x),Math.abs(point.y-draft.referencePoint.y))),editable:false,active:false}]:[],hasPointerPreview:()=>true,get phase(){return draft.phase},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
 }
 
-function createExplodeCommandSession({setPrompt=()=>{}}={}){
-  let promptPresentation=createCommandPrompt("Explode","Select Block Instances to explode, then press Enter")
-  function update(instruction){promptPresentation=createCommandPrompt("Explode",instruction);setPrompt(promptPresentation.text,promptPresentation)}
-  function finish(){
-    const recordIds=selection.selectedIds()
-    if(!recordIds.length)return Object.freeze({status:"invalid-input",reason:"empty-selection",command:"Explode",message:"Select at least one Block Instance"})
-    const records=recordIds.map(id=>modelReader.records().find(record=>record.id===id)||null)
-    if(records.some(record=>record?.type!=="block-instance")){update("Selection must contain only editable Block Instances");return Object.freeze({status:"invalid-input",reason:"invalid-selection",command:"Explode",message:"Selection must contain only Block Instances"})}
-    const outcome=recordGateway.explodeBlockInstances(recordIds)
-    if(outcome.status!=="committed"){update("Unable to explode; selection preserved");requestRender();return Object.freeze({status:"invalid-input",reason:outcome.status,command:"Explode",message:outcome.message||"Unable to explode; selection preserved",outcome})}
-    selection.applyRecordIds(outcome.records.map(record=>record.id));clearSnap();requestRender()
-    return Object.freeze({status:"command-completed",command:"Explode",outcome,recordIds:Object.freeze(outcome.records.map(record=>record.id))})
-  }
-  function cancel(){clearSnap();requestRender();return Object.freeze({status:"command-cancelled",command:"Explode"})}
-  requestRender();return Object.freeze({name:"Explode",finish,cancel,handlePointerLeave:()=>requestRender(),get isSelectionPhase(){return true},get prompt(){return promptPresentation.text},get promptPresentation(){return promptPresentation}})
-}
-
 function createRegionCommandSession({setPrompt=()=>{}}={}){
   let mode="select",promptPresentation=createCommandPrompt("Region","Select closed boundary objects, then press Enter")
   const message=reason=>({"no-eligible-geometry":"No eligible boundary geometry was found","no-bounded-face":"No closed bounded face was found","no-enclosing-boundary":"The point is not inside a discovered boundary","point-on-boundary":"Choose a point strictly inside a boundary","overlapping-or-coincident-geometry":"Overlapping or coincident boundary geometry is ambiguous","unsupported-ellipse-discovery":"Ellipse intersection discovery is not supported","unsupported-curve-type":"The selection contains an unsupported boundary type","complexity-limit-exceeded":"Boundary discovery exceeded its complexity limit"}[reason]||`Boundary discovery failed: ${reason}`)
@@ -1678,7 +1668,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createHatchCommandSession, createRegionCommandSession, createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createRadialDimensionCommandSession, createTextCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createExplodeCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
+window.caderactViewport = { createHatchCommandSession, createRegionCommandSession, createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createRadialDimensionCommandSession, createTextCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 window.caderactViewport.createBlockCommandSession=createBlockCommandSession
 window.caderactViewport.createBlockEditCommandSession=createBlockEditCommandSession
 window.caderactViewport.createInsertCommandSession=createInsertCommandSession
