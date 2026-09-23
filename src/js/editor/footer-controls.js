@@ -3,6 +3,7 @@ const snapMenu = document.querySelector(".snap-menu")
 const snapEnabled = document.querySelector("#snap-enabled")
 const snapDependentOptions = document.querySelectorAll(".snap-dependent input")
 const snapModeOptions = document.querySelectorAll("[data-snap-mode]")
+const extensionTrackingCheckbox = document.querySelector("#extension-tracking-enabled")
 const snapDependentSection = document.querySelector(".snap-dependent")
 const footerTools = document.querySelectorAll(".footer-tool")
 const gridSnapToggle = document.querySelector("#grid-snap-toggle")
@@ -38,6 +39,8 @@ snapTrigger.addEventListener("click", () => {
 
 snapEnabled.addEventListener("change", () => window.caderactViewport.setObjectSnapMode("object", snapEnabled.checked))
 snapModeOptions.forEach(option => option.addEventListener("change", () => window.caderactViewport.setObjectSnapMode(option.dataset.snapMode, option.checked)))
+extensionTrackingCheckbox.addEventListener("change",()=>window.caderactViewport.setExtensionTrackingEnabled(extensionTrackingCheckbox.checked))
+window.caderactViewport.subscribeExtensionTracking(enabled=>{extensionTrackingCheckbox.checked=enabled})
 
 unitsTrigger.addEventListener("click", () => {
   const isOpening = unitsMenu.hidden

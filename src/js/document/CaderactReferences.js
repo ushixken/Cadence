@@ -40,6 +40,9 @@
         const index=record.vertices.findIndex(vertex=>vertex.featureId===reference.featureId)
         return index>=0?result("resolved",{kind:"feature",role:"vertex",index,record,feature:record.vertices[index]}):result("unresolved",{reason:"feature-not-in-record"})
       }
+      if ((record.type === "text" || record.type === "block-instance") && record.insertionPoint.featureId === reference.featureId) {
+        return result("resolved", { kind: "feature", role: "insertion", record, feature: record.insertionPoint })
+      }
       if (record.type !== "line" && record.type !== "arc") return result("unresolved", { reason: "unsupported-record-type" })
       if (record.start.featureId === reference.featureId) {
         return result("resolved", { kind: "feature", role: "start", record, feature: record.start })

@@ -2,7 +2,7 @@
 (() => {
   const DEFAULT_TOLERANCE_PX = 10
   const PRIORITY_WINDOW_PX = 0.75
-  const priorities = Object.freeze({ endpoint: 0, vertex: 0, intersection: 1, "draft-point": 2, midpoint: 3, center: 4, quadrant: 5, perpendicular: 6, tangent: 7, nearest: 8, grid: 9 })
+  const priorities = Object.freeze({ endpoint: 0, vertex: 0, intersection: 1, "draft-point": 2, midpoint: 3, center: 4, insertion: 5, quadrant: 6, perpendicular: 7, tangent: 8, nearest: 9, grid: 10 })
   const objectTier=kind=>kind==="nearest"?2:(kind==="perpendicular"||kind==="tangent")?1:0
   const freezePoint = point => Object.freeze({ x: point.x, y: point.y })
   // Exact half-cells resolve to the greater lattice index (toward +infinity).
@@ -20,7 +20,7 @@
       const excluded = new Set(excludedFeatureIds)
       const excludedRecords = new Set(excludedRecordIds)
       function add(kind, point, stableKey, reference = null) {
-        const advanced = new Set(["center","intersection","quadrant","nearest","perpendicular","tangent","vertex"])
+        const advanced = new Set(["center","intersection","quadrant","nearest","perpendicular","tangent","vertex","insertion"])
         if (enabled[kind] === false || (advanced.has(kind) && enabled[kind] !== true) || (kind !== "grid" && kind !== "draft-point" && enabled.object === false) || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return
         const screen = worldToScreen(point.x, point.y)
         if (!Number.isFinite(screen.x) || !Number.isFinite(screen.y)) return
@@ -41,8 +41,9 @@
         if (!Number.isFinite(distancePx)) return
         candidates.push({ kind: "grid", point: freezePoint(point), distancePx, stableKey: "grid", reference: null })
       }
-      const ordered = Array.from(records).filter(record => !excludedRecords.has(record?.id) && (record?.type === "line" || record?.type === "circle" || record?.type === "arc" || record?.type === "ellipse" || record?.type === "polyline")).sort((a, b) => a.id.localeCompare(b.id))
+      const ordered = Array.from(records).filter(record => !excludedRecords.has(record?.id) && (record?.type === "line" || record?.type === "circle" || record?.type === "arc" || record?.type === "ellipse" || record?.type === "polyline" || record?.type === "text" || record?.type === "block-instance")).sort((a, b) => a.id.localeCompare(b.id))
       for (const record of ordered) {
+        if(record.type==="text"||record.type==="block-instance"){add("insertion",record.insertionPoint,`insertion:${record.id}:${record.insertionPoint.featureId||"point"}`,record.insertionPoint.featureId?window.CaderactReferences.createEndpointReference(record.id,record.insertionPoint.featureId):window.CaderactReferences.createObjectReference(record.id));continue}
         if(record.type==="circle"||record.type==="arc"||record.type==="ellipse") add("center",record.center,`center:${record.id}`)
         if(record.type==="circle") continue
         if(record.type==="ellipse") continue
@@ -78,7 +79,8 @@
         for(const [a,b] of segments){const point=nearestOnSegment(a,b);add("nearest",point,`nearest:${record.id}:${a.featureId||""}:${b.featureId||""}`);if(referencePoint){const dx=b.x-a.x,dy=b.y-a.y,d=dx*dx+dy*dy;if(d){const t=((referencePoint.x-a.x)*dx+(referencePoint.y-a.y)*dy)/d,point={x:a.x+t*dx,y:a.y+t*dy};add("perpendicular",point,`perpendicular:${record.id}:${a.featureId||""}`)}}}
         if(record.type==="circle"||record.type==="arc"){const dx=rawPoint.x-record.center.x,dy=rawPoint.y-record.center.y,len=Math.hypot(dx,dy);if(len){let point={x:record.center.x+dx/len*record.radius,y:record.center.y+dy/len*record.radius};const on=record.type!=="arc"||window.CaderactArcGeometry.angleOnSweep(Math.atan2(point.y-record.center.y,point.x-record.center.x),Math.atan2(record.start.y-record.center.y,record.start.x-record.center.x),record.sweep);if(on)add("nearest",point,`nearest:${record.id}`)}if(referencePoint){const rx=referencePoint.x-record.center.x,ry=referencePoint.y-record.center.y,d=Math.hypot(rx,ry);if(d){for(const sign of [1,-1]){const point={x:record.center.x+sign*rx/d*record.radius,y:record.center.y+sign*ry/d*record.radius},angle=Math.atan2(point.y-record.center.y,point.x-record.center.x),on=record.type!=="arc"||window.CaderactArcGeometry.angleOnSweep(angle,Math.atan2(record.start.y-record.center.y,record.start.x-record.center.x),record.sweep);if(on)add("perpendicular",point,`perpendicular:${record.id}:${sign}`)}if(d>=record.radius){const alpha=Math.atan2(ry,rx),delta=Math.acos(Math.min(1,record.radius/d));for(const angle of d===record.radius?[alpha]:[alpha+delta,alpha-delta]){const point={x:record.center.x+Math.cos(angle)*record.radius,y:record.center.y+Math.sin(angle)*record.radius},on=record.type!=="arc"||window.CaderactArcGeometry.angleOnSweep(angle,Math.atan2(record.start.y-record.center.y,record.start.x-record.center.x),record.sweep);if(on)add("tangent",point,`tangent:${record.id}:${angle}`)}}}}}
       }
-      if(enabled.intersection!==false&&enabled.object!==false)for(let i=0;i<ordered.length;i++)for(let j=i+1;j<ordered.length;j++){const outcome=window.CaderactCurveIntersection.intersect(ordered[i],ordered[j]);if(outcome.valid)for(const hit of outcome.hits)if(hit.onA&&hit.onB)add("intersection",hit.point,`intersection:${ordered[i].id}:${ordered[j].id}:${hit.point.x}:${hit.point.y}`)}
+      const intersectable=ordered.filter(record=>record.type!=="text"&&record.type!=="block-instance")
+      if(enabled.intersection!==false&&enabled.object!==false)for(let i=0;i<intersectable.length;i++)for(let j=i+1;j<intersectable.length;j++){const outcome=window.CaderactCurveIntersection.intersect(intersectable[i],intersectable[j]);if(outcome.valid)for(const hit of outcome.hits)if(hit.onA&&hit.onB)add("intersection",hit.point,`intersection:${intersectable[i].id}:${intersectable[j].id}:${hit.point.x}:${hit.point.y}`)}
       const commandCandidates = Array.from(transientCandidates)
       // Keep the D2 draftPoints input compatible while commands migrate to the
       // generic transient-candidate contract.

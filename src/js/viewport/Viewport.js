@@ -42,9 +42,9 @@ function preferenceColor(hex, opacity) { if (opacity === 1) return hex; const va
 function applyGridAppearance(value) { viewportSettings.gridVisible=value.gridVisible; viewportSettings.gridColor=preferenceColor(value.gridColor,value.gridOpacity); viewportSettings.majorGridColor=preferenceColor(value.majorGridColor,value.majorGridOpacity); viewportSettings.xAxisColor=preferenceColor(value.xAxisColor,value.xAxisOpacity); viewportSettings.yAxisColor=preferenceColor(value.yAxisColor,value.yAxisOpacity); viewportSettings.majorGridInterval=value.majorGridInterval; requestRender?.() }
 applyGridAppearance(userPreferences.value)
 userPreferences.subscribe(applyGridAppearance)
-let snapModes = Object.freeze({ object: userPreferences.value.objectSnapEnabled, endpoint: userPreferences.value.endpointSnapEnabled, midpoint: userPreferences.value.midpointSnapEnabled, center: userPreferences.value.centerSnapEnabled, intersection: userPreferences.value.intersectionSnapEnabled, quadrant: userPreferences.value.quadrantSnapEnabled, nearest: userPreferences.value.nearestSnapEnabled, perpendicular: userPreferences.value.perpendicularSnapEnabled, tangent: userPreferences.value.tangentSnapEnabled, vertex: userPreferences.value.vertexSnapEnabled, grid: userPreferences.value.gridSnapEnabled })
+let snapModes = Object.freeze({ object: userPreferences.value.objectSnapEnabled, endpoint: userPreferences.value.endpointSnapEnabled, midpoint: userPreferences.value.midpointSnapEnabled, center: userPreferences.value.centerSnapEnabled, intersection: userPreferences.value.intersectionSnapEnabled, quadrant: userPreferences.value.quadrantSnapEnabled, nearest: userPreferences.value.nearestSnapEnabled, perpendicular: userPreferences.value.perpendicularSnapEnabled, tangent: userPreferences.value.tangentSnapEnabled, vertex: userPreferences.value.vertexSnapEnabled, insertion: userPreferences.value.insertionSnapEnabled, grid: userPreferences.value.gridSnapEnabled })
 const snapModeListeners = new Set()
-function snapModesFromPreferences(value){return Object.freeze({object:value.objectSnapEnabled,endpoint:value.endpointSnapEnabled,midpoint:value.midpointSnapEnabled,center:value.centerSnapEnabled,intersection:value.intersectionSnapEnabled,quadrant:value.quadrantSnapEnabled,nearest:value.nearestSnapEnabled,perpendicular:value.perpendicularSnapEnabled,tangent:value.tangentSnapEnabled,vertex:value.vertexSnapEnabled,grid:value.gridSnapEnabled})}
+function snapModesFromPreferences(value){return Object.freeze({object:value.objectSnapEnabled,endpoint:value.endpointSnapEnabled,midpoint:value.midpointSnapEnabled,center:value.centerSnapEnabled,intersection:value.intersectionSnapEnabled,quadrant:value.quadrantSnapEnabled,nearest:value.nearestSnapEnabled,perpendicular:value.perpendicularSnapEnabled,tangent:value.tangentSnapEnabled,vertex:value.vertexSnapEnabled,insertion:value.insertionSnapEnabled,grid:value.gridSnapEnabled})}
 userPreferences.subscribe(value=>{const next=snapModesFromPreferences(value);if(Object.keys(next).every(key=>next[key]===snapModes[key]))return;snapModes=next;if(!next.object)objectSnapTracking.clear();for(const listener of snapModeListeners)listener(snapModes);updateSnapAtPointer()})
 let orthoEnabled = userPreferences.value.orthoEnabled
 const orthoListeners = new Set()
@@ -64,6 +64,7 @@ userPreferences.subscribe(value => { dynamicInputEnabled=Boolean(value.dynamicIn
 const snapResolver = window.CaderactSnapResolver.createResolver()
 const objectSnapTracking = window.CaderactObjectSnapTracking.create({ onChange: requestRender })
 let objectSnapTrackingEnabled = userPreferences.value.objectSnapTrackingEnabled
+let extensionTrackingEnabled = userPreferences.value.extensionTrackingEnabled
 const objectSnapTrackingListeners = new Set()
 function applyObjectSnapTrackingPreference(preferences) {
   const next = preferences.objectSnapTrackingEnabled
@@ -74,6 +75,7 @@ function applyObjectSnapTrackingPreference(preferences) {
   requestRender()
 }
 userPreferences.subscribe(applyObjectSnapTrackingPreference)
+userPreferences.subscribe(value=>{const next=Boolean(value.extensionTrackingEnabled);if(next===extensionTrackingEnabled)return;extensionTrackingEnabled=next;if(!next)objectSnapTracking.clearProjection?.();updateSnapAtPointer()})
 function groupSelectionTarget(recordId){const group=modelReader.groupForRecord(recordId);if(!group)return modelReader.isRecordEditable(recordId)?Object.freeze({kind:"record",id:recordId,recordIds:Object.freeze([recordId])}):null;if(!group.memberIds.every(id=>modelReader.isRecordEditable(id)))return null;return Object.freeze({kind:"group",id:group.id,recordIds:Object.freeze([...group.memberIds])})}
 const selection = window.CaderactSelection.createSelection({resolveTarget:groupSelectionTarget})
 // Extension sessions use the same router, resolved-point pipeline, and scene hooks
@@ -144,6 +146,7 @@ function expandedVisibleRecords(){
   const snapshot=modelReader.snapshot(),definitions=snapshot.blockDefinitions||{},records=[]
   for(const record of modelReader.visibleRecords()){
     if(record.type!=="block-instance"){records.push(record);continue}
+    records.push(record)
     try{for(const entry of window.CaderactBlockTraversal.traverse({blockDefinitions:definitions},record).entries){if(modelReader.layer(entry.record.layerId)?.visible===false)continue;const transformed=window.CaderactGeometryTransform.similarityRecord(entry.record,entry.transform),runtimeReference=Object.freeze({kind:"block-semantic",outerRecordId:record.id,instancePath:entry.instancePath,definitionId:entry.definitionId,memberRecordId:entry.recordId,semanticId:entry.semanticId});records.push(Object.freeze({...transformed,id:entry.semanticId,runtimeReference}))}}catch{}
   }
   return Object.freeze(records)
@@ -172,7 +175,7 @@ function refreshDynamicInput() {
   else if(session.name==="Rotate"&&session.phase==="target"){const angle=session.getMovePreview?.()?.angle;if(Number.isFinite(angle))fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(angle*180/Math.PI),editable:true,active:false})}
   else if(reference){const dx=candidate.x-reference.x,dy=candidate.y-reference.y;fields.push({id:session.name==="Circle"?"radius":"distance",kind:"distance",label:session.name==="Circle"?"Radius":"Distance",value:format(Math.hypot(dx,dy)),editable:session.name!=="Distance",active:false});if(session.name!=="Circle"){let degrees=Math.atan2(dy,dx)*180/Math.PI;if(session.name==="Distance"&&degrees<0)degrees+=360;fields.push({id:"angle",kind:"angle",label:"Angle",value:angleFormat(degrees),editable:false,active:false})}}
   else {fields.push({id:"x",kind:"coordinate",label:"X",value:format(candidate.x),editable:false,active:false},{id:"y",kind:"coordinate",label:"Y",value:format(candidate.y),editable:false,active:false})}
-  const relationshipLabels={ortho:"OnOrtho",polar:"OnPolar",perpendicular:"OnPerp",tangent:"OnTan",tracking:"OnTrack",parallel:"OnParallel"},tags=(activeSnapResult?.relationships||[]).map(kind=>relationshipLabels[kind]).filter(Boolean),snapLabel=window.CaderactViewportScene.snapLabel(activeSnapResult)
+  const relationshipLabels={ortho:"OnOrtho",polar:"OnPolar",perpendicular:"OnPerp",tangent:"OnTan",tracking:"OnTrack",parallel:"OnParallel",extension:"OnExtension"},tags=(activeSnapResult?.relationships||[]).map(kind=>relationshipLabels[kind]).filter(Boolean),snapLabel=window.CaderactViewportScene.snapLabel(activeSnapResult)
   if((activeSnapResult?.kinds?.length||activeSnapResult?.kind==="grid")&&snapLabel)tags.push(snapLabel)
   dynamicInput.update({screenPoint:lastKnownPointerScreen,viewport:{width:viewportWidth,height:viewportHeight},prompt:session.prompt,fields,tags:[...new Set(tags)]})
 }
@@ -1562,7 +1565,7 @@ function resolveCommandPointer(rawPoint, session, options = {}) {
   if(orthoActive&&(Math.abs(resolved.point.x-reference.x)<=epsilon||Math.abs(resolved.point.y-reference.y)<=epsilon))relationships.push("ortho")
   if(polarTracked){const angle=Math.atan2(resolved.point.y-reference.y,resolved.point.x-reference.x),delta=Math.atan2(Math.sin(angle-polarAngle),Math.cos(angle-polarAngle));if(Math.abs(delta)<=1e-9)relationships.push("polar")}
   const trackingState=objectSnapTracking.getState()
-  if(resolved.tracking){relationships.push("tracking");if(trackingState.activeGuides.some(guide=>guide.kind==="polar"))relationships.push("polar");if(trackingState.activeGuides.some(guide=>guide.kind==="parallel"))relationships.push("parallel")}
+  if(resolved.tracking){relationships.push("tracking");if(trackingState.activeGuides.some(guide=>guide.kind==="polar"))relationships.push("polar");if(trackingState.activeGuides.some(guide=>guide.kind==="parallel"))relationships.push("parallel");if(trackingState.activeGuides.some(guide=>guide.kind==="extension"))relationships.push("extension")}
   if((resolved.kinds||[]).includes("perpendicular")||resolved.kind==="perpendicular")relationships.push("perpendicular")
   if((resolved.kinds||[]).includes("tangent")||resolved.kind==="tangent")relationships.push("tangent")
   activeSnapResult=Object.freeze({...resolved,relationships:Object.freeze([...new Set(relationships)])})
@@ -1570,6 +1573,19 @@ function resolveCommandPointer(rawPoint, session, options = {}) {
 }
 
 function clearSnap() { activeSnapResult = null; polarGuide = null; interactionVisuals.setSnapAcquired(false) }
+
+function extensionDirection(reference,origin){
+  if(reference?.kind!=="feature")return null
+  const record=modelReader.records().find(value=>value.id===reference.recordId)
+  if(record?.type==="line"){
+    if(record.start.featureId===reference.featureId)return Object.freeze({origin, direction:Object.freeze({x:record.start.x-record.end.x,y:record.start.y-record.end.y})})
+    if(record.end.featureId===reference.featureId)return Object.freeze({origin, direction:Object.freeze({x:record.end.x-record.start.x,y:record.end.y-record.start.y})})
+  }
+  if(record?.type==="polyline"&&!record.closed){const index=record.vertices.findIndex(vertex=>vertex.featureId===reference.featureId),last=record.vertices.length-1;if(index===0)return Object.freeze({origin,direction:Object.freeze({x:record.vertices[0].x-record.vertices[1].x,y:record.vertices[0].y-record.vertices[1].y})});if(index===last)return Object.freeze({origin,direction:Object.freeze({x:record.vertices[last].x-record.vertices[last-1].x,y:record.vertices[last].y-record.vertices[last-1].y})})}
+  return null
+}
+function setExtensionTrackingEnabled(enabled){extensionTrackingEnabled=Boolean(enabled);userPreferences.set({extensionTrackingEnabled});updateSnapAtPointer();return extensionTrackingEnabled}
+function subscribeExtensionTracking(listener){return userPreferences.subscribe(value=>listener(Boolean(value.extensionTrackingEnabled)))}
 
 function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds = [], transientCandidates = [], referencePoint = null, bypass = false } = {}) {
   if (Array.isArray(arguments[1])) {
@@ -1607,6 +1623,7 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds 
       polarIncrementDegrees,
       polarToleranceDegrees: window.CaderactPolarConstraint.ACQUISITION_TOLERANCE_DEGREES,
     }) : null
+    if(!trackingState?.candidate&&extensionTrackingEnabled)trackingState=objectSnapTracking.projectExtension(point,worldToScreen,extensionDirection)
     if(!trackingState?.candidate&&activeSnapResult.kind!=="draft-point"){const session=getActiveCommandSession(),points=session?.draft?.acceptedPoints?.()||[],origin=points.at(-1),previous=points.at(-2);if(origin&&previous){const angle=Math.atan2(origin.y-previous.y,origin.x-previous.x),rawAngle=Math.atan2(point.y-origin.y,point.x-origin.x),delta=Math.min(Math.abs(Math.atan2(Math.sin(rawAngle-angle),Math.cos(rawAngle-angle))),Math.abs(Math.atan2(Math.sin(rawAngle-angle-Math.PI),Math.cos(rawAngle-angle-Math.PI))));if(delta<=Math.PI/36){const ux=Math.cos(angle),uy=Math.sin(angle),t=(point.x-origin.x)*ux+(point.y-origin.y)*uy,parallel={x:origin.x+t*ux,y:origin.y+t*uy};trackingState=objectSnapTracking.setCandidate(parallel,"parallel",[{kind:"parallel",origin,angle,acquisitionOrder:Number.MAX_SAFE_INTEGER}])}}}
     const guideHits=[]
     for(const guide of trackingState?.activeGuides||[]){const angle=guide.kind==="horizontal"?0:guide.kind==="vertical"?Math.PI/2:guide.angle;if(!Number.isFinite(angle))continue;const descriptor=window.CaderactCurveDescriptor.describeLine(guide.origin,{x:guide.origin.x+Math.cos(angle),y:guide.origin.y+Math.sin(angle)});for(const record of expandedVisibleRecords()){const flattened=window.CaderactCurveDescriptor.atomicCurves(record);if(!flattened.valid)continue;for(const curve of flattened.curves){const outcome=window.CaderactCurveIntersection.intersectAtomic(descriptor,curve);if(!outcome.valid)continue;for(const hit of outcome.hits){if(!hit.onB||(guide.kind==="polar"&&hit.parameterA<0))continue;const screen=worldToScreen(hit.point.x,hit.point.y),raw=worldToScreen(point.x,point.y),distancePx=Math.hypot(screen.x-raw.x,screen.y-raw.y);if(distancePx<=objectSnapTracking.guideTolerancePx)guideHits.push({point:hit.point,distancePx,recordId:record.id,segmentIndex:curve.segmentIndex??-1,guide})}}}}
@@ -1614,7 +1631,7 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds 
     const geometryHit=guideHits[0]
     if(geometryHit)trackingState=objectSnapTracking.setCandidate(geometryHit.point,"geometry-intersection",[geometryHit.guide],window.CaderactReferences.createObjectReference(geometryHit.recordId))
     const tracked=trackingState?.candidate
-    if (tracked) activeSnapResult = Object.freeze({ ...activeSnapResult, snapped:true, kind:"tracking", kinds:Object.freeze([]), point:tracked, distancePx:geometryHit?.distancePx||0, reference:geometryHit?window.CaderactReferences.createObjectReference(geometryHit.recordId):null,sourceReference:geometryHit?window.CaderactReferences.createObjectReference(geometryHit.recordId):null, tracking:true,trackingGeometry:Boolean(geometryHit),relationships:Object.freeze(trackingState.candidateKind==="parallel"?["tracking","parallel"]:["tracking"]) })
+    if (tracked) activeSnapResult = Object.freeze({ ...activeSnapResult, snapped:true, kind:"tracking", kinds:Object.freeze([]), point:tracked, distancePx:geometryHit?.distancePx||0, reference:geometryHit?window.CaderactReferences.createObjectReference(geometryHit.recordId):null,sourceReference:geometryHit?window.CaderactReferences.createObjectReference(geometryHit.recordId):null, tracking:true,trackingGeometry:Boolean(geometryHit),relationships:Object.freeze(trackingState.candidateKind==="parallel"?["tracking","parallel"]:trackingState.candidateKind==="extension"?["tracking","extension"]:["tracking"]) })
   }
   return activeSnapResult
 }
@@ -1692,7 +1709,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createHatchCommandSession, createRegionCommandSession, createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createRadialDimensionCommandSession, createTextCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
+window.caderactViewport = { createHatchCommandSession, createRegionCommandSession, createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createRadialDimensionCommandSession, createTextCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setExtensionTrackingEnabled, subscribeExtensionTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get extensionTrackingEnabled(){return extensionTrackingEnabled}, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 window.caderactViewport.createBlockCommandSession=createBlockCommandSession
 window.caderactViewport.createBlockEditCommandSession=createBlockEditCommandSession
 window.caderactViewport.createInsertCommandSession=createInsertCommandSession

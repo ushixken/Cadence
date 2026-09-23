@@ -56,7 +56,15 @@
       if(winner){candidate=winner.point;candidateKind=intersections.includes(winner)?"intersection":"projection";activeGuides=winner.guides;guide=winner.guides.length===1?winner.guides[0].kind:"intersection"}
       return emit()
     }
-    return Object.freeze({observeSnap,toggleAcquire,setCandidate,clearHover,clear,reconcileReferences,project,getState:state,dwellMs,guideTolerancePx,maxAcquiredPoints})
+    function projectExtension(pointerWorld,worldToScreen,resolveDirection){
+      clearProjection();if(!acquired.length||!finitePoint(pointerWorld)||typeof worldToScreen!=="function"||typeof resolveDirection!=="function")return emit()
+      const raw=worldToScreen(pointerWorld.x,pointerWorld.y),solutions=[]
+      for(const item of acquired){const resolved=resolveDirection(item.reference,item.point);if(!resolved||!finitePoint(resolved.origin)||!finitePoint(resolved.direction))continue;const length=Math.hypot(resolved.direction.x,resolved.direction.y);if(!(length>0))continue;const ux=resolved.direction.x/length,uy=resolved.direction.y/length,t=(pointerWorld.x-resolved.origin.x)*ux+(pointerWorld.y-resolved.origin.y)*uy;if(!(t>0))continue;const projected=point({x:resolved.origin.x+t*ux,y:resolved.origin.y+t*uy}),screen=worldToScreen(projected.x,projected.y);if(!finitePoint(screen)||!finitePoint(raw))continue;const distancePx=Math.hypot(screen.x-raw.x,screen.y-raw.y);if(distancePx<=guideTolerancePx)solutions.push({projected,distancePx,item,angle:Math.atan2(uy,ux)})}
+      solutions.sort((a,b)=>a.distancePx-b.distancePx||b.item.acquisitionOrder-a.item.acquisitionOrder);const winner=solutions[0]
+      if(winner){candidate=winner.projected;candidateKind="extension";activeGuides=[Object.freeze({kind:"extension",origin:point(winner.item.point),angle:winner.angle,acquisitionOrder:winner.item.acquisitionOrder})];guide="extension"}
+      return emit()
+    }
+    return Object.freeze({observeSnap,toggleAcquire,setCandidate,clearHover,clear,reconcileReferences,project,projectExtension,getState:state,dwellMs,guideTolerancePx,maxAcquiredPoints})
   }
   window.CaderactObjectSnapTracking = Object.freeze({ create, ELIGIBLE })
 })()
