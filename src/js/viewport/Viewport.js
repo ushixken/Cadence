@@ -24,7 +24,7 @@ const documentSession = window.CaderactDocumentSession.createSession(window.Cade
 window.caderactDocumentSession = documentSession
 let { reader: modelReader, recordGateway, groupGateway, blockDefinitionGateway, layerGateway, unitGateway, dimensionStyleGateway, controller: documentController } = documentSession.store
 
-let viewportWidth = 0, viewportHeight = 0
+let viewportWidth = 0, viewportHeight = 0, viewportDeviceScale = 0
 let renderer = null, isInitialized = false, isRenderScheduled = false
 let rendererStatus = "initializing", rendererError = null, recoveryPromise = null
 let navigation = null, resizeObserver = null
@@ -268,24 +268,25 @@ function createScene() {
   const scene=sceneBuilder.createScene();annotationOverlay.render(scene.annotationOverlay?.items||[]);return scene
 }
 
+function renderNow() {
+  const activeRenderer=renderer
+  if(!activeRenderer||viewportWidth<=0||viewportHeight<=0)return
+  try { activeRenderer.render(createScene()) }
+  catch (error) {
+    if (rendererStatus === "fallback-active" || activeRenderer.kind === "canvas2d") {
+      console.warn("Caderact Canvas2D fallback failed; rendering disabled", error)
+      failRenderer(error, activeRenderer)
+    } else {
+      console.warn("Caderact renderer failed; attempting recovery", error)
+      recoverRenderer(activeRenderer)
+    }
+  }
+}
+
 function requestRender() {
   if (!renderer || isRenderScheduled || viewportWidth <= 0 || viewportHeight <= 0) return
   isRenderScheduled = true
-  requestAnimationFrame(() => {
-    isRenderScheduled = false
-    const activeRenderer = renderer
-    if (!activeRenderer) return
-    try { activeRenderer.render(createScene()) }
-    catch (error) {
-      if (rendererStatus === "fallback-active" || activeRenderer.kind === "canvas2d") {
-        console.warn("Caderact Canvas2D fallback failed; rendering disabled", error)
-        failRenderer(error, activeRenderer)
-      } else {
-        console.warn("Caderact renderer failed; attempting recovery", error)
-        recoverRenderer(activeRenderer)
-      }
-    }
-  })
+  requestAnimationFrame(() => { isRenderScheduled = false; renderNow() })
 }
 
 function createCommandPrompt(commandName, instruction) {
@@ -1743,15 +1744,15 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createHatchCommandSession, createRegionCommandSession, createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createRadialDimensionCommandSession, createTextCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, beginProfessionalSelection,finishProfessionalSelection,cancelProfessionalSelection,getProfessionalSelectionState:professionalSnapshot,selectSimilar,selectByType,selectByLayer,setLayerIsolation,clearLayerIsolation,getLayerIsolationState,cycleSelection,dismissSelectionCycle,getSelectionCycleState:selectionCycleSnapshot, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setExtensionTrackingEnabled, subscribeExtensionTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get extensionTrackingEnabled(){return extensionTrackingEnabled}, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
+window.caderactViewport = { createHatchCommandSession, createRegionCommandSession, createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createRadialDimensionCommandSession, createTextCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, beginProfessionalSelection,finishProfessionalSelection,cancelProfessionalSelection,getProfessionalSelectionState:professionalSnapshot,selectSimilar,selectByType,selectByLayer,setLayerIsolation,clearLayerIsolation,getLayerIsolationState,cycleSelection,dismissSelectionCycle,getSelectionCycleState:selectionCycleSnapshot, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, resizeToHost:resizeCanvas, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setExtensionTrackingEnabled, subscribeExtensionTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get extensionTrackingEnabled(){return extensionTrackingEnabled}, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 window.caderactViewport.createBlockCommandSession=createBlockCommandSession
 window.caderactViewport.createBlockEditCommandSession=createBlockEditCommandSession
 window.caderactViewport.createInsertCommandSession=createInsertCommandSession
 
-function resizeCanvas() {
-  interactionVisuals.leave()
+function resizeCanvas(force=false,synchronous=true) {
   const bounds = canvas.getBoundingClientRect()
-  const width = bounds.width, height = bounds.height
+  const width = bounds.width, height = bounds.height, deviceScale=window.devicePixelRatio||1
+  if(force!==true&&width===viewportWidth&&height===viewportHeight&&deviceScale===viewportDeviceScale)return
   if (!isInitialized) {
     camera.panX = width / 2
     camera.panY = height / 2
@@ -1762,9 +1763,12 @@ function resizeCanvas() {
   }
   viewportWidth = width
   viewportHeight = height
-  renderer?.resize(width, height, window.devicePixelRatio || 1)
+  viewportDeviceScale=deviceScale
+  renderer?.resize(width, height, deviceScale)
   refreshDynamicInput()
-  requestRender()
+  // Canvas backing-store resize clears every pixel. Rebuild the complete scene
+  // synchronously in this same observer turn so no blank buffer reaches paint.
+  if(synchronous)renderNow();else requestRender()
 }
 
 let lastKnownPointerScreen = null
@@ -1989,7 +1993,7 @@ function installRenderer(createdRenderer) {
   rendererError = null
   interactionVisuals.setAvailable(true)
   createdRenderer.onDeviceLost = () => recoverRenderer(createdRenderer)
-  resizeCanvas()
+  resizeCanvas(true,false)
 }
 
 function failRenderer(error, failedRenderer = null) {

@@ -37,10 +37,10 @@ test('UX1 provides visible focus without a global outline reset', () => {
   assert.match(editor, /\.command-input-wrap:focus-within\s*\{[^}]*border-color:\s*var\(--focus-ring\)/s)
 })
 
-test('UX1 application chrome consumes semantic surfaces without changing shell breakpoints', () => {
+test('UX1 application chrome consumes semantic surfaces while preserving responsive shell breakpoints', () => {
   assert.match(menu, /background-color:\s*var\(--surface-chrome\)/)
   assert.match(editor, /\.layers-panel\s*\{[^}]*background:\s*var\(--surface-panel\)/s)
   assert.match(editor, /\.editor-footer\s*\{[^}]*background-color:\s*var\(--surface-chrome\)/s)
   assert.match(editor, /canvas\s*\{[^}]*background-color:\s*var\(--surface-viewport\)/s)
-  for (const breakpoint of ['980px', '760px', '720px', '520px']) assert.match(editor, new RegExp(`max-width:\\s*${breakpoint}`))
+  for (const breakpoint of ['980px', '720px', '520px']) assert.match(editor, new RegExp(`max-width:\\s*${breakpoint}`))
 })

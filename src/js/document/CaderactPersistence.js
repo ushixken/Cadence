@@ -67,6 +67,7 @@
         dimensionStyles:document.dimensionStyleOrder.map(id=>({...document.dimensionStyles[id]})),currentDimensionStyleId:document.currentDimensionStyleId,
         defaultLayerId: document.defaultLayerId,
         currentLayerId: document.currentLayerId,
+        layerOrder: Array.from(document.layerOrder),
         layers: sortById(Object.values(document.layers)).map(canonicalLayer),
         records: sortById(Object.values(document.geometry.objects)).map(canonicalRecord),
         groups:sortById(Object.values(document.groups)).map(canonicalGroup),nextGroupNumber:document.nextGroupNumber,blockDefinitions:sortById(Object.values(document.blockDefinitions)).map(canonicalDefinition),
@@ -176,7 +177,7 @@
       dimensionStyles,dimensionStyleOrder,currentDimensionStyleId,
       geometry: { objects },
       groups,nextGroupNumber:legacy||version2||source.nextGroupNumber===undefined?1:source.nextGroupNumber,blockDefinitions,
-      layers,
+      layers,layerOrder:Array.isArray(source.layerOrder)?Array.from(source.layerOrder):Object.keys(layers).sort(),
       defaultLayerId: source.defaultLayerId,
       currentLayerId: source.currentLayerId,
     }

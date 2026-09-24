@@ -75,10 +75,12 @@ test('cursor has fixed CSS geometry across DPR/resize and document replacement c
   assert.match(css, /transform: translate\(-50%, -50%\)/);
   assert.match(css, /\.cad-cursor-pickbox[^}]*box-sizing: border-box;[^}]*width: 7px;[^}]*height: 7px;/);
   const b = await browser();
+  let hasPointer=false;
   for (const [dpr, point] of [[1,[200,150]],[1.25,[200.25,150.75]],[1.5,[201,151]],[2,[201.5,151.5]]]) {
     b.resize(640, 480, dpr);
-    assert.equal(b.read('window.caderactViewport.getInteractionVisualState().visible'), false);
+    assert.equal(b.read('window.caderactViewport.getInteractionVisualState().visible'), hasPointer);
     b.point(point[0], point[1], 'pointermove');
+    hasPointer=true;
     assert.deepEqual(b.read('(({x,y})=>({x,y}))(window.caderactViewport.getInteractionVisualState())'), {x:point[0]+10,y:point[1]+10});
   }
   b.run('window.caderactViewport.resetForDocumentReplacement()');

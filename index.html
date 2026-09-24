@@ -104,6 +104,8 @@
     <script src="./src/js/editor/AnnotationCommands.js" defer></script>
     <script src="./src/js/editor/LeaderCommands.js" defer></script>
     <script src="./src/js/viewport/Viewport.js" defer></script>
+    <script src="./src/js/editor/RightDock.js" defer></script>
+    <script src="./src/js/editor/ColorPopover.js" defer></script>
     <script src="./src/js/editor/footer-controls.js" defer></script>
     <script src="./src/js/editor/settings-panel.js" defer></script>
     <script src="./src/js/editor/command-input.js" defer></script>
@@ -531,6 +533,19 @@
             <symbol id="cad-block" viewBox="0 0 24 24"><path d="M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10"/></symbol>
             <symbol id="cad-insert" viewBox="0 0 24 24"><path d="M5 5h10v10H5zM9 9h10v10H9M14 12h5M16.5 9.5v5"/></symbol>
             <symbol id="cad-measure" viewBox="0 0 24 24"><path d="M4 16L16 4l4 4L8 20zM9 13l2 2M12 10l2 2M15 7l2 2"/></symbol>
+            <symbol id="dock-current" viewBox="0 0 16 16"><path d="M8 2.5 13.5 8 8 13.5 2.5 8Z"/><path d="M8 5.5 10.5 8 8 10.5 5.5 8Z" fill="currentColor"/></symbol>
+            <symbol id="dock-visible" viewBox="0 0 16 16"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z"/><circle cx="8" cy="8" r="2"/></symbol>
+            <symbol id="dock-hidden" viewBox="0 0 16 16"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z"/><path d="m2.5 13.5 11-11"/></symbol>
+            <symbol id="dock-lock" viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="7" rx="1"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></symbol>
+            <symbol id="dock-unlock" viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="7" rx="1"/><path d="M5 7V5a3 3 0 0 1 5.5-1.7"/></symbol>
+            <symbol id="dock-add" viewBox="0 0 16 16"><path d="M3 8h10M8 3v10"/></symbol>
+            <symbol id="dock-more" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r=".8" fill="currentColor"/><circle cx="8" cy="8" r=".8" fill="currentColor"/><circle cx="12.5" cy="8" r=".8" fill="currentColor"/></symbol>
+            <symbol id="dock-select" viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/><rect x="5.5" y="5.5" width="5" height="5"/></symbol>
+            <symbol id="dock-move-layer" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="5" height="4"/><path d="M10 3v7m-2-2 2 2 2-2M2 13h12"/></symbol>
+            <symbol id="dock-isolate" viewBox="0 0 16 16"><path d="M3 4h10M5 8h6M3 12h10"/></symbol>
+            <symbol id="dock-unisolate" viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h10M1.5 2.5v3M14.5 10.5v3"/></symbol>
+            <symbol id="dock-rename" viewBox="0 0 16 16"><path d="m3 12 1-3 7-7 3 3-7 7-3 1Z"/><path d="m9.5 3.5 3 3"/></symbol>
+            <symbol id="dock-delete" viewBox="0 0 16 16"><path d="M3 4.5h10M6 4.5V2.5h4v2M4.5 4.5l.8 9h5.4l.8-9M7 7v4M9 7v4"/></symbol>
           </svg>
           <aside class="quick-tools-rail" aria-label="Quick tools">
             <button type="button" data-shell-command="Select" data-tooltip="Select · Esc"><svg><use href="#cad-select"/></svg></button>
@@ -551,6 +566,7 @@
             <canvas></canvas>
           </div>
           <aside class="layers-panel editor-sidebar" aria-label="Editor panels">
+            <button id="right-dock-resize" class="right-dock-resize" type="button" role="separator" aria-label="Resize right dock" aria-orientation="vertical" aria-valuemin="230" aria-valuenow="288"></button>
             <div class="sidebar-tabs" role="tablist" aria-label="Editor panels">
               <button id="sidebar-layers-tab" type="button" role="tab" aria-selected="true" aria-controls="layers-panel-view">Layers</button>
               <button id="sidebar-properties-tab" type="button" role="tab" aria-selected="false" aria-controls="properties-panel-view">Properties</button>
@@ -581,7 +597,7 @@
                 aria-label="Create layer"
                 title="Create layer"
               >
-                +
+                <svg aria-hidden="true"><use href="#dock-add"/></svg>
               </button>
             </header>
             <div id="layers-list" class="layers-list" role="list"></div>

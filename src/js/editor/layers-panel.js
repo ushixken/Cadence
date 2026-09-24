@@ -1,137 +1,43 @@
-// U6: authoritative A7 layer presentation and actions.
+// U6/UX9C-R: authoritative layer actions, ordering, and transient dock interactions.
 (() => {
-  const list = document.querySelector("#layers-list")
-  const createButton = document.querySelector("#layer-create")
-  const assignButton = document.querySelector("#layer-assign")
-  const unisolateButton=document.querySelector("#layer-unisolate")
-  if (!list || !createButton || !assignButton || !unisolateButton || !window.caderactDocumentSession) return
-
-  let unsubscribeHistory = null
-  let editingLayerId = null
-  const result = (status, details = {}) => Object.freeze({ status, ...details })
-  const session = window.caderactDocumentSession
-
-  function feedbackFor(outcome) {
-    const messages = {
-      "invalid-layer-name": "Layer name cannot be empty",
-      "duplicate-layer-name": "A layer with that name already exists",
-      "default-layer-required": "The default layer cannot be deleted",
-      "layer-in-use": "Layer is not empty.",
-      "unknown-layer": "Layer no longer exists",
-      "layer-unavailable": "Current layer must be visible and unlocked",
-      "no-usable-current-layer": "Another visible, unlocked layer is required",
-      "target-layer-hidden": "Target layer is hidden.",
-      "target-layer-locked": "Target layer is locked.",
-      "selection-not-editable": "Selection contains non-editable objects.",
-      "empty-selection": "Select objects to assign to a layer.",
-      "invalid-layer-color": "Choose a valid layer color.",
-    }
-    const message = messages[outcome.status]
-    if (message) window.caderactFeedback?.showTemporary(message, "error")
-  }
-  function guardActive() {
-    if (!window.caderactViewport?.isLayerAssignmentBusy?.()) return null
-    const outcome = result("layer-action-blocked-active-command", { command: window.caderactCommandRouter.activeCommand })
-    window.caderactFeedback?.showTemporary("Finish or cancel the active edit before changing layers", "error")
-    return outcome
-  }
-  function run(action) {
-    const blocked = guardActive(); if (blocked) return blocked
-    const outcome = action()
-    feedbackFor(outcome)
-    return outcome
-  }
-  function nextLayerName() {
-    const names = new Set(session.reader.layers().map(layer => layer.name.toLowerCase()))
-    for (let index = 1; ; index++) if (!names.has(`layer ${index}`)) return `Layer ${index}`
-  }
-  function create(name = nextLayerName()) { return run(() => session.layerGateway.create(name, { makeCurrent: true })) }
-  function rename(layerId, name) { return run(() => session.layerGateway.rename(layerId, name)) }
-  function remove(layerId) { return run(() => session.layerGateway.remove(layerId)) }
-  function setCurrent(layerId) { return run(() => session.layerGateway.setCurrent(layerId)) }
-  function setVisibility(layerId, visible) { return run(() => session.layerGateway.setVisibility(layerId, visible)) }
-  function setLocked(layerId, locked) { return run(() => session.layerGateway.setLocked(layerId, locked)) }
-  function setColor(layerId,color){return run(()=>session.layerGateway.setColor(layerId,color))}
-  function selectObjects(layerId){const blocked=guardActive();if(blocked)return blocked;const layer=session.reader.layer(layerId);if(!layer)return result("unknown-layer",{layerId});const outcome=window.caderactViewport.selectByLayer(layerId);window.caderactFeedback?.showTemporary(`Selected ${outcome.selectedIds?.length||0} object${outcome.selectedIds?.length===1?"":"s"} on ${layer.name}.`);return outcome}
-  function isolate(layerId){const blocked=guardActive();if(blocked)return blocked;const outcome=window.caderactViewport.setLayerIsolation(layerId);if(outcome.status==="layer-isolated"||outcome.status==="no-op")render();else feedbackFor(outcome);return outcome}
-  function unisolate(){const blocked=guardActive();if(blocked)return blocked;const outcome=window.caderactViewport.clearLayerIsolation();render();return outcome}
-  function assign(layerId = session.reader.snapshot().currentLayerId) {
-    const blocked=guardActive();if(blocked)return blocked
-    const selectedIds=window.caderactSelection?.selectedIds?.()||[]
-    const layer=session.reader.layer(layerId),outcome=session.recordGateway.assignLayer(selectedIds,layerId)
-    if(outcome.status==="committed")window.caderactFeedback?.showTemporary(`Moved ${outcome.movedCount} object${outcome.movedCount===1?"":"s"} to ${layer.name}.`)
-    else if(outcome.status==="no-op")window.caderactFeedback?.showTemporary(`Selection is already on ${layer.name}.`)
-    else feedbackFor(outcome)
-    return outcome
-  }
-  function beginRename(layerId){if(guardActive())return result("layer-action-blocked-active-command");if(!session.reader.layer(layerId))return result("unknown-layer",{layerId});editingLayerId=layerId;render();return result("rename-started",{layerId})}
-
-  function actionButton(label, className, title, handler) {
-    const button = document.createElement("button")
-    button.type = "button"; button.classList.add(className); button.textContent = label
-    button.setAttribute("aria-label", title); button.title = title
-    button.disabled = window.caderactCommandRouter.isActive
-    button.addEventListener("click", handler)
-    return button
-  }
-  function render() {
-    const documentState = session.reader.snapshot()
-    const blocked = window.caderactCommandRouter.isActive
-    createButton.disabled = blocked
-    const isolation=window.caderactViewport.getLayerIsolationState();unisolateButton.hidden=!isolation.active;unisolateButton.disabled=blocked
-    const currentLayer=session.reader.layer(documentState.currentLayerId),hasSelection=Boolean(window.caderactSelection?.selectedIds?.().length)
-    assignButton.disabled=blocked||!hasSelection||!currentLayer?.visible||currentLayer?.locked
-    let editInput = null
-    const rows = session.reader.layers().map(layer => {
-      const row = document.createElement("div")
-      row.classList.add("layer-row"); row.setAttribute("role", "listitem"); row.dataset.layerId = layer.id
-      if (layer.id === documentState.currentLayerId) { row.classList.add("is-current"); row.setAttribute("aria-current", "true") }
-      if (!layer.visible) row.classList.add("is-hidden")
-      if (layer.locked) row.classList.add("is-locked")
-      if(isolation.active&&isolation.layerId!==layer.id)row.classList.add("is-isolation-muted")
-      const visibilityButton=actionButton(layer.visible?"●":"○","layer-visibility",layer.visible?`Hide ${layer.name}`:`Show ${layer.name}`,()=>setVisibility(layer.id,!layer.visible))
-      visibilityButton.setAttribute("aria-pressed",String(layer.visible))
-      const lockButton=actionButton(layer.locked?"■":"□","layer-lock",layer.locked?`Unlock ${layer.name}`:`Lock ${layer.name}`,()=>setLocked(layer.id,!layer.locked))
-      lockButton.setAttribute("aria-pressed",String(layer.locked))
-      let select
-      if (editingLayerId === layer.id) {
-        select = document.createElement("input"); select.type = "text"; select.value = layer.name; select.maxLength = 128
-        select.classList.add("layer-name-input"); select.setAttribute("aria-label", `Rename ${layer.name}`)
-        select.addEventListener("keydown", event => {
-          if (event.key === "Escape") { event.preventDefault(); editingLayerId = null; render() }
-          else if (event.key === "Enter") { event.preventDefault(); const outcome=rename(layer.id,select.value); if(outcome.status==="committed"||outcome.status==="no-op"){editingLayerId=null;render()} }
-        })
-        editInput = select
-      } else {
-        select = actionButton(layer.name, "layer-select", `Make ${layer.name} current`, () => setCurrent(layer.id))
-        if (layer.id === documentState.currentLayerId) select.setAttribute("aria-pressed", "true")
-      }
-      const badges = document.createElement("span"); badges.classList.add("layer-badges")
-      if (layer.id === documentState.defaultLayerId) { const badge=document.createElement("span"); badge.textContent="Default"; badges.appendChild(badge) }
-      const renameButton = actionButton("✎", "layer-rename", `Rename ${layer.name}`, () => beginRename(layer.id))
-      const deleteButton = actionButton("×", "layer-delete", `Delete ${layer.name}`, () => remove(layer.id))
-      deleteButton.disabled = blocked || layer.id === documentState.defaultLayerId
-      const color=document.createElement("input");color.type="color";color.value=layer.color;color.classList.add("layer-color");color.setAttribute("aria-label",`Color for ${layer.name}`);color.title=`Color for ${layer.name}`;color.disabled=blocked;color.addEventListener("change",()=>setColor(layer.id,color.value))
-      const selectObjectsButton=actionButton("S","layer-select-objects",`Select objects on ${layer.name}`,()=>selectObjects(layer.id))
-      const moveButton=actionButton("→","layer-move-selection",`Move selection to ${layer.name}`,()=>assign(layer.id));moveButton.disabled=blocked||!hasSelection||!layer.visible||layer.locked
-      const isolateButton=actionButton("I","layer-isolate",isolation.layerId===layer.id?`${layer.name} is isolated`:`Isolate ${layer.name}`,()=>isolate(layer.id));isolateButton.setAttribute("aria-pressed",String(isolation.layerId===layer.id))
-      row.appendChild(visibilityButton);row.appendChild(lockButton);row.appendChild(select); row.appendChild(badges); row.appendChild(renameButton); row.appendChild(deleteButton);row.appendChild(color);row.appendChild(selectObjectsButton);row.appendChild(moveButton);row.appendChild(isolateButton)
-      return row
-    })
-    list.replaceChildren(...rows)
-    editInput?.focus()
-  }
-  function bindDocument() {
-    unsubscribeHistory?.()
-    unsubscribeHistory = session.controller.subscribeHistory(render)
-  }
-
-  createButton.addEventListener("click", () => create())
-  assignButton.addEventListener("click", () => assign())
-  unisolateButton.addEventListener("click",unisolate)
-  session.subscribe(bindDocument)
-  window.caderactCommandRouter.subscribe(render)
-  window.caderactSelection?.subscribe(render)
-  bindDocument()
-  window.caderactLayers = Object.freeze({ create, rename, remove, setCurrent, setVisibility, setLocked, setColor, selectObjects, assign, isolate, unisolate, beginRename, refresh: render })
+const list=document.querySelector("#layers-list"),createButton=document.querySelector("#layer-create"),assignButton=document.querySelector("#layer-assign"),unisolateButton=document.querySelector("#layer-unisolate")
+if(!list||!createButton||!assignButton||!unisolateButton||!window.caderactDocumentSession)return
+const session=window.caderactDocumentSession,result=(status,details={})=>Object.freeze({status,...details}),popup=document.createElement("div");popup.classList.add("layer-actions-menu");popup.setAttribute("role","menu");popup.hidden=true;(document.body||document).appendChild(popup);window.caderactLayerActionsMenu=popup
+let unsubscribeHistory=null,editingLayerId=null,openMenuLayerId=null,menuAnchor=null,drag=null,suppressClick=false
+const messages={"invalid-layer-name":"Layer name cannot be empty","duplicate-layer-name":"A layer with that name already exists","default-layer-required":"The default layer cannot be deleted","layer-in-use":"Layer is not empty.","unknown-layer":"Layer no longer exists","layer-unavailable":"Current layer must be visible and unlocked","no-usable-current-layer":"Another visible, unlocked layer is required","target-layer-hidden":"Target layer is hidden.","target-layer-locked":"Target layer is locked.","selection-not-editable":"Selection contains non-editable objects.","empty-selection":"Select objects to assign to a layer.","invalid-layer-color":"Choose a valid layer color."}
+function feedbackFor(outcome){const message=messages[outcome.status];if(message)window.caderactFeedback?.showTemporary(message,"error")}
+function guardActive(){if(!window.caderactViewport?.isLayerAssignmentBusy?.())return null;const outcome=result("layer-action-blocked-active-command",{command:window.caderactCommandRouter.activeCommand});window.caderactFeedback?.showTemporary("Finish or cancel the active edit before changing layers","error");return outcome}
+function run(action){const blocked=guardActive();if(blocked)return blocked;const outcome=action();feedbackFor(outcome);return outcome}
+function nextLayerName(){const names=new Set(session.reader.layers().map(layer=>layer.name.toLowerCase()));for(let index=1;;index++)if(!names.has(`layer ${index}`))return`Layer ${index}`}
+const create=(name=nextLayerName())=>run(()=>session.layerGateway.create(name,{makeCurrent:true})),rename=(id,name)=>run(()=>session.layerGateway.rename(id,name)),remove=id=>run(()=>session.layerGateway.remove(id)),setCurrent=id=>run(()=>session.layerGateway.setCurrent(id)),setVisibility=(id,value)=>run(()=>session.layerGateway.setVisibility(id,value)),setLocked=(id,value)=>run(()=>session.layerGateway.setLocked(id,value)),setColor=(id,value)=>run(()=>session.layerGateway.setColor(id,value)),reorder=(id,index)=>run(()=>session.layerGateway.reorder(id,index))
+function selectObjects(layerId){const blocked=guardActive();if(blocked)return blocked;const layer=session.reader.layer(layerId);if(!layer)return result("unknown-layer",{layerId});const outcome=window.caderactViewport.selectByLayer(layerId);window.caderactFeedback?.showTemporary(`Selected ${outcome.selectedIds?.length||0} object${outcome.selectedIds?.length===1?"":"s"} on ${layer.name}.`);return outcome}
+function isolate(layerId){const blocked=guardActive();if(blocked)return blocked;const outcome=window.caderactViewport.setLayerIsolation(layerId);if(outcome.status==="layer-isolated"||outcome.status==="no-op")render();else feedbackFor(outcome);return outcome}
+function unisolate(){const blocked=guardActive();if(blocked)return blocked;const outcome=window.caderactViewport.clearLayerIsolation();render();return outcome}
+function assign(layerId=session.reader.snapshot().currentLayerId){const blocked=guardActive();if(blocked)return blocked;const selectedIds=window.caderactSelection?.selectedIds?.()||[],layer=session.reader.layer(layerId),outcome=session.recordGateway.assignLayer(selectedIds,layerId);if(outcome.status==="committed")window.caderactFeedback?.showTemporary(`Moved ${outcome.movedCount} object${outcome.movedCount===1?"":"s"} to ${layer.name}.`);else if(outcome.status==="no-op")window.caderactFeedback?.showTemporary(`Selection is already on ${layer.name}.`);else feedbackFor(outcome);return outcome}
+function cancelRename({renderNow=true}={}){if(!editingLayerId)return false;editingLayerId=null;if(renderNow)render();return true}
+function closeMenu(){menuAnchor?.setAttribute?.("aria-expanded","false");openMenuLayerId=null;menuAnchor=null;popup.hidden=true;popup.replaceChildren()}
+function beginRename(layerId){if(guardActive())return result("layer-action-blocked-active-command");if(!session.reader.layer(layerId))return result("unknown-layer",{layerId});closeMenu();editingLayerId=layerId;render();return result("rename-started",{layerId})}
+function icon(name){const svg=(document.createElementNS?.("http://www.w3.org/2000/svg","svg")||document.createElement("svg")),use=(document.createElementNS?.("http://www.w3.org/2000/svg","use")||document.createElement("use"));svg.setAttribute("aria-hidden","true");use.setAttribute("href",`#dock-${name}`);svg.appendChild(use);return svg}
+function button(className,label,iconName,handler){const value=document.createElement("button");value.type="button";value.classList.add(className);value.setAttribute("aria-label",label);value.title=label;if(iconName)value.appendChild(icon(iconName));value.disabled=window.caderactCommandRouter.isActive;value.addEventListener("click",event=>{event.stopPropagation?.();cancelRename({renderNow:false});handler(event)});return value}
+function menuAction(label,iconName,handler,{disabled=false}={}){const value=button("layer-menu-action",label,iconName,()=>{closeMenu();handler()});value.disabled=value.disabled||disabled;const text=document.createElement("span");text.textContent=label;value.appendChild(text);popup.appendChild(value)}
+function placeMenu(){if(!menuAnchor||popup.hidden)return;const anchor=menuAnchor.getBoundingClientRect?.()||{left:8,right:32,top:8,bottom:32},width=popup.offsetWidth||196,height=popup.offsetHeight||172,vw=window.innerWidth||1024,vh=window.innerHeight||768,margin=8;const left=Math.max(margin,Math.min(vw-width-margin,anchor.right-width)),top=anchor.bottom+4+height<=vh-margin?anchor.bottom+4:Math.max(margin,anchor.top-height-4);popup.style.left=`${left}px`;popup.style.top=`${Math.max(margin,Math.min(vh-height-margin,top))}px`;popup.dataset.placement=top<anchor.top?"above":"below"}
+function openMenu(layer,anchor,documentState,isolation,hasSelection){cancelRename({renderNow:false});openMenuLayerId=layer.id;menuAnchor=anchor;anchor.setAttribute("aria-expanded","true");popup.replaceChildren();menuAction("Set Current","current",()=>setCurrent(layer.id),{disabled:layer.id===documentState.currentLayerId});menuAction("Rename","rename",()=>beginRename(layer.id));menuAction("Select Layer Objects","select",()=>selectObjects(layer.id));menuAction("Move Selection to Layer","move-layer",()=>assign(layer.id),{disabled:!hasSelection||!layer.visible||layer.locked});menuAction(isolation.layerId===layer.id?"Layer Isolated":"Isolate","isolate",()=>isolate(layer.id),{disabled:isolation.layerId===layer.id});menuAction("Delete","delete",()=>remove(layer.id),{disabled:layer.id===documentState.defaultLayerId});popup.hidden=false;placeMenu()}
+function targetIndex(clientY){const rows=Array.from(list.children),index=rows.findIndex(row=>{const bounds=row.getBoundingClientRect?.();return bounds&&clientY<(bounds.top+bounds.bottom)/2});return index<0?rows.length-1:index}
+function clearDrag(){for(const row of list.children)row.classList.remove("is-drop-before","is-drag-source");drag=null;document.documentElement?.classList.remove("is-reordering-layer")}
+function beginDrag(layerId,event){if(event.button!==undefined&&event.button!==0)return;drag={layerId,pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,started:false,index:session.reader.snapshot().layerOrder.indexOf(layerId)};event.currentTarget?.setPointerCapture?.(event.pointerId)}
+function moveDrag(event){if(!drag||event.pointerId!==drag.pointerId)return;const distance=Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY);if(!drag.started&&distance<5)return;if(!drag.started){drag.started=true;suppressClick=true;cancelRename();closeMenu();document.documentElement?.classList.add("is-reordering-layer")}drag.index=targetIndex(event.clientY);const rows=Array.from(list.children);rows.forEach((row,index)=>{row.classList.toggle("is-drop-before",index===drag.index);row.classList.toggle("is-drag-source",row.dataset.layerId===drag.layerId)});const bounds=list.getBoundingClientRect?.();if(bounds){if(event.clientY<bounds.top+24)list.scrollTop=Math.max(0,(list.scrollTop||0)-12);else if(event.clientY>bounds.bottom-24)list.scrollTop=(list.scrollTop||0)+12}event.preventDefault?.()}
+function finishDrag(event,{cancel=false}={}){if(!drag||event.pointerId!==undefined&&event.pointerId!==drag.pointerId)return;const pending=drag;clearDrag();if(pending.started&&!cancel)reorder(pending.layerId,pending.index);setTimeout(()=>suppressClick=false,0)}
+function render(){
+ const documentState=session.reader.snapshot(),blocked=window.caderactCommandRouter.isActive,isolation=window.caderactViewport.getLayerIsolationState(),hasSelection=Boolean(window.caderactSelection?.selectedIds?.().length),currentLayer=session.reader.layer(documentState.currentLayerId)
+ createButton.disabled=blocked;unisolateButton.hidden=!isolation.active;unisolateButton.disabled=blocked;assignButton.disabled=blocked||!hasSelection||!currentLayer?.visible||currentLayer?.locked
+ let editInput=null
+ const rows=session.reader.layers().map(layer=>{const row=document.createElement("div");row.classList.add("layer-row");row.setAttribute("role","listitem");row.dataset.layerId=layer.id;if(layer.id===documentState.currentLayerId){row.classList.add("is-current");row.setAttribute("aria-current","true")}if(!layer.visible)row.classList.add("is-hidden");if(layer.locked)row.classList.add("is-locked");if(isolation.active&&isolation.layerId!==layer.id)row.classList.add("is-isolation-muted")
+  const current=button("layer-current",layer.id===documentState.currentLayerId?`${layer.name} is current`:`Make ${layer.name} current`,layer.id===documentState.currentLayerId?"current":null,()=>setCurrent(layer.id));current.setAttribute("aria-pressed",String(layer.id===documentState.currentLayerId));const visible=button("layer-visibility",layer.visible?`Hide ${layer.name}`:`Show ${layer.name}`,layer.visible?"visible":"hidden",()=>setVisibility(layer.id,!layer.visible));visible.setAttribute("aria-pressed",String(layer.visible));const lock=button("layer-lock",layer.locked?`Unlock ${layer.name}`:`Lock ${layer.name}`,layer.locked?"lock":"unlock",()=>setLocked(layer.id,!layer.locked));lock.setAttribute("aria-pressed",String(layer.locked));const color=button("layer-color",`Color for ${layer.name}`,null,()=>window.caderactColorPopover.open({anchor:color,value:layer.color,label:`${layer.name} color`,onApply:value=>setColor(layer.id,value)})),swatch=document.createElement("span");swatch.classList.add("layer-color-swatch");swatch.style.backgroundColor=layer.color;color.appendChild(swatch)
+  let name;if(editingLayerId===layer.id){name=document.createElement("input");name.type="text";name.value=layer.name;name.maxLength=128;name.classList.add("layer-name-input");name.setAttribute("aria-label",`Rename ${layer.name}`);name.addEventListener("keydown",event=>{if(event.key==="Escape"){event.preventDefault();cancelRename()}else if(event.key==="Enter"){event.preventDefault();const outcome=rename(layer.id,name.value);if(outcome.status==="committed"||outcome.status==="no-op"){editingLayerId=null;render()}}});name.addEventListener("blur",()=>{if(editingLayerId===layer.id)cancelRename()});editInput=name}else{name=button("layer-select",`Make ${layer.name} current`,null,()=>{if(!suppressClick)setCurrent(layer.id)});name.textContent=layer.name;if(layer.id===documentState.defaultLayerId)name.dataset.badge="Default";name.title=layer.name;if(layer.id===documentState.currentLayerId)name.setAttribute("aria-pressed","true");name.addEventListener("dblclick",event=>{event.preventDefault();beginRename(layer.id)});name.addEventListener("pointerdown",event=>beginDrag(layer.id,event));name.addEventListener("pointermove",moveDrag);name.addEventListener("pointerup",event=>finishDrag(event));name.addEventListener("pointercancel",event=>finishDrag(event,{cancel:true}))}
+  const more=button("layer-actions",`Actions for ${layer.name}`,"more",event=>openMenuLayerId===layer.id?closeMenu():openMenu(layer,event.currentTarget||more,documentState,isolation,hasSelection));more.setAttribute("aria-expanded",String(openMenuLayerId===layer.id));for(const node of [current,visible,lock,color,name,more])row.appendChild(node);return row})
+ list.replaceChildren(...rows);if(openMenuLayerId){menuAnchor=rows.find(row=>row.dataset.layerId===openMenuLayerId)?.children[5]||menuAnchor;placeMenu()}if(editInput){editInput.focus();editInput.select?.()}
+}
+function bindDocument(){unsubscribeHistory?.();unsubscribeHistory=session.controller.subscribeHistory(render);cancelRename({renderNow:false});closeMenu();clearDrag()}
+createButton.addEventListener("click",()=>{cancelRename({renderNow:false});create()});assignButton.addEventListener("click",()=>{cancelRename({renderNow:false});assign()});unisolateButton.addEventListener("click",()=>{cancelRename({renderNow:false});unisolate()});list.addEventListener("scroll",()=>{cancelRename();if(openMenuLayerId)placeMenu()});document.addEventListener("pointerdown",event=>{if(openMenuLayerId&&!popup.contains(event.target)&&event.target!==menuAnchor)closeMenu()});document.addEventListener("keydown",event=>{if(event.key==="Escape"){if(drag){event.preventDefault();clearDrag()}else if(openMenuLayerId){event.preventDefault();closeMenu()}}});window.addEventListener("resize",placeMenu)
+session.subscribe(bindDocument);window.caderactCommandRouter.subscribe(render);window.caderactSelection?.subscribe(render);bindDocument();window.caderactLayers=Object.freeze({create,rename,remove,setCurrent,setVisibility,setLocked,setColor,reorder,selectObjects,assign,isolate,unisolate,beginRename,cancelRename,refresh:render,getState:()=>Object.freeze({editingLayerId,openMenuLayerId,dragging:Boolean(drag?.started)})})
 })()
