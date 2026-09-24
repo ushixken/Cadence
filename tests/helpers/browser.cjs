@@ -8,7 +8,7 @@ class Element {
   constructor(tag = 'div') {
     this.tag = tag; this.listeners = {}; this.value = ''; this.hidden = true;
     this.disabled = false;
-    this.children = []; this.textContent = ''; this.style = {};
+    this.children = []; this.textContent = ''; this.style = { setProperty(name,value) { this[name]=String(value); }, getPropertyValue(name) { return this[name]||''; } };
     this.dataset = {}; this.attributes = {}; this.isContentEditable = false;
     const classes = this.classes = new Set();
     this.classList = {

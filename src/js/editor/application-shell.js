@@ -61,8 +61,11 @@
   function syncGridAction(){if(gridAction instanceof HTMLElement)gridAction.setAttribute("aria-checked",String(window.caderactUserPreferences.value.gridVisible))}
   gridAction?.addEventListener("click",()=>{window.caderactUserPreferences.set({gridVisible:!window.caderactUserPreferences.value.gridVisible});syncGridAction();closeApplicationMenus()})
   window.caderactUserPreferences.subscribe(syncGridAction)
-  root.querySelector('[data-window-panel="layers"]')?.addEventListener("click",()=>{document.querySelector("#sidebar-layers-tab")?.click();closeApplicationMenus()})
-  root.querySelector('[data-window-panel="properties"]')?.addEventListener("click",()=>{document.querySelector("#sidebar-properties-tab")?.click();closeApplicationMenus()})
+  const windowPanelPreferences=Object.freeze({layers:"rightDockLayersVisible",groups:"rightDockGroupsVisible",blocks:"rightDockBlocksVisible",properties:"rightDockPropertiesVisible"})
+  const windowPanelActions=Array.from(root.querySelectorAll("[data-window-panel]"))
+  function syncWindowPanels(){for(const action of windowPanelActions){const preference=windowPanelPreferences[action.dataset.windowPanel];if(preference)action.setAttribute("aria-checked",String(window.caderactUserPreferences.value[preference]))}}
+  for(const action of windowPanelActions)action.addEventListener("click",()=>{const panel=action.dataset.windowPanel;if(window.caderactPropertiesPanel?.togglePanel)window.caderactPropertiesPanel.togglePanel(panel);else{const preference=windowPanelPreferences[panel];if(preference)window.caderactUserPreferences.set({[preference]:!window.caderactUserPreferences.value[preference]})}syncWindowPanels();closeApplicationMenus()})
+  window.caderactUserPreferences.subscribe(syncWindowPanels)
   document.addEventListener("pointerdown",event=>{if(utility instanceof HTMLElement&&!event.composedPath().includes(utility))closeUtility();if(edit instanceof HTMLElement&&!event.composedPath().includes(edit))closeEdit();if(!applicationMenus.some(menu=>event.composedPath().includes(menu)))closeApplicationMenus()})
   document.addEventListener("focusin",event=>{if(utility instanceof HTMLElement&&!event.composedPath().includes(utility)&&event.target!==utilityTrigger)closeUtility();if(edit instanceof HTMLElement&&!event.composedPath().includes(edit)&&event.target!==editTrigger)closeEdit()})
   document.addEventListener("keydown",event=>{

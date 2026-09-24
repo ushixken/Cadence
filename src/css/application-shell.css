@@ -1,4 +1,5 @@
 .menu-bar{display:flex;min-height:32px;padding:0 6px;gap:4px;align-items:center;overflow:visible}
+.application-menu[data-menu="window"] [role="menuitemcheckbox"]{justify-content:space-between;gap:8px}.application-menu[data-menu="window"] [role="menuitemcheckbox"]::after{content:"";width:12px;flex:0 0 12px;color:var(--accent);font-weight:700;text-align:center}.application-menu[data-menu="window"] [role="menuitemcheckbox"][aria-checked="true"]::after{content:"✓"}
 .shell-brand-symbol{width:22px;height:22px;margin:0 5px 0 1px;color:var(--accent)}
 .menu-items{flex:0 1 auto;min-width:0}.menu-items button{padding:4px 7px}.menu-items button.is-active{color:var(--accent);background:var(--surface-selected)}
 .shell-document-title{display:flex;min-width:80px;max-width:420px;flex:1;margin:0 auto;gap:5px;align-items:center;justify-content:center;overflow:hidden;color:var(--text-secondary);font-size:.7rem;white-space:nowrap}.shell-document-title strong{color:var(--text-primary);font-weight:600}.shell-document-title .document-save-state{min-width:0;padding:0;overflow:hidden;text-overflow:ellipsis}.shell-document-title .document-save-state.is-dirty{color:var(--status-warning)}
