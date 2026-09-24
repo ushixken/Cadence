@@ -1,0 +1,16 @@
+// SEL1: AF1 command adapters over the shared viewport/SelectionManager authority.
+(() => {
+  const planner=Object.freeze({plan:()=>Object.freeze({status:"planned"})})
+  function geometrySession({name,mode,beginProfessionalSelection,finishProfessionalSelection,cancelProfessionalSelection}){const started=beginProfessionalSelection(mode,{commandOwned:true});return Object.freeze({name,activationOutcome:started.status==="selection-mode-started"?undefined:Object.freeze({status:"invalid-input",command:name,reason:started.status}),finish(){const outcome=finishProfessionalSelection();return outcome.status==="selection-mode-completed"?Object.freeze({status:"command-completed",command:name,recordIds:outcome.selectedIds}):Object.freeze({status:"invalid-input",command:name,reason:outcome.reason||outcome.status,message:"Add more selection points."})},cancel(){cancelProfessionalSelection();return Object.freeze({status:"command-cancelled",command:name})},handlePointerLeave(){},get isSelectionPhase(){return true},get prompt(){return "Specify selection points; Enter to finish"}})}
+  function immediateSession(name,outcome){return Object.freeze({name,activationOutcome:Object.freeze({status:"command-completed",command:name,outcome,recordIds:outcome.selectedIds||Object.freeze([])}),finish(){return this.activationOutcome},cancel(){return Object.freeze({status:"command-cancelled",command:name})},get prompt(){return name}})}
+  function querySession({name,query}){return Object.freeze({name,finish:()=>Object.freeze({status:"invalid-input",command:name,reason:"query-required",message:`Enter ${name==="SelectByType"?"an entity type":"a layer name"}.`}),cancel:()=>Object.freeze({status:"command-cancelled",command:name}),handleInput(value){const outcome=query(value);return outcome.status==="invalid-selection-query"?Object.freeze({status:"invalid-input",command:name,reason:outcome.reason,message:"No matching layer."}):Object.freeze({status:"command-completed",command:name,outcome,recordIds:outcome.selectedIds})},get isSelectionPhase(){return true},get prompt(){return name==="SelectByType"?"Enter entity type":"Enter layer name"}})}
+  const registrations=Object.freeze([
+    Object.freeze({name:"Fence",aliases:Object.freeze([]),planner,createSession:services=>geometrySession({...services,name:"Fence",mode:"fence"})}),
+    Object.freeze({name:"WindowPolygon",aliases:Object.freeze(["WP"]),planner,createSession:services=>geometrySession({...services,name:"WindowPolygon",mode:"window-polygon"})}),
+    Object.freeze({name:"CrossingPolygon",aliases:Object.freeze(["CPOLY"]),planner,createSession:services=>geometrySession({...services,name:"CrossingPolygon",mode:"crossing-polygon"})}),
+    Object.freeze({name:"SelectSimilar",aliases:Object.freeze([]),planner,createSession:services=>immediateSession("SelectSimilar",services.selectSimilar())}),
+    Object.freeze({name:"SelectByType",aliases:Object.freeze(["SELTYPE"]),planner,createSession:services=>querySession({name:"SelectByType",query:services.selectByType})}),
+    Object.freeze({name:"SelectByLayer",aliases:Object.freeze(["SELLAYER"]),planner,createSession:services=>querySession({name:"SelectByLayer",query:services.selectByLayer})}),
+  ])
+  window.CaderactSelectionCommands=Object.freeze({registrations})
+})()

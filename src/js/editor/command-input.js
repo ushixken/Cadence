@@ -217,6 +217,7 @@ function submitActiveCommandInput() {
   if (!commandRouter.isActive) return false
   if (commandInput.value.trim() !== "") {
     const submittedValue = commandInput.value
+    if(commandRouter.activeSession?.isSelectionPhase){const match=submittedValue.trim().match(/^(F|FENCE|WP|CP)$/i);if(match){const modes={F:"fence",FENCE:"fence",WP:"window-polygon",CP:"crossing-polygon"};window.caderactViewport.beginProfessionalSelection(modes[match[1].toUpperCase()]);commandInput.value="";commandInput.setAttribute("aria-invalid","false");syncCommandInputPresentation();hideSuggestions();commandInput.blur();return true}if(/^SIMILAR$/i.test(submittedValue)){window.caderactViewport.selectSimilar();commandInput.value="";syncCommandInputPresentation();hideSuggestions();return true}const query=submittedValue.match(/^(TYPE|LAYER)\s+(.+)$/i);if(query){const outcome=query[1].toUpperCase()==="TYPE"?window.caderactViewport.selectByType(query[2]):window.caderactViewport.selectByLayer(query[2]);if(outcome.status!=="invalid-selection-query"){commandInput.value="";commandInput.setAttribute("aria-invalid","false");syncCommandInputPresentation();hideSuggestions();return true}}}
     const outcome = commandRouter.submitActiveInput(submittedValue)
     if (outcome.status === "invalid-input") {
       commandInput.value = submittedValue
@@ -323,6 +324,7 @@ commandSuggestions.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.caderactDynamicInputHandled) return
   if (event.caderactSelectionBoxHandled) return
+  if (event.caderactProfessionalSelectionHandled || event.caderactSelectionCycleHandled) return
   const primaryModifier = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey)
   const editableTarget = event.target instanceof HTMLElement && (event.target.matches("input, textarea, select") || event.target.isContentEditable)
   if (primaryModifier && event.key.toLowerCase() === "a" && !editableTarget && !commandRouter.isActive && !window.caderactGrips?.isActive) {

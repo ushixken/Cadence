@@ -210,6 +210,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/ObjectSnapTracking.js');
   load('src/js/editor/SelectionManager.js');
   load('src/js/editor/SelectionBox.js');
+  load('src/js/editor/ProfessionalSelection.js');
   load('src/js/editor/GripManager.js');
   load('src/js/editor/CommandRegistry.js');
   load('src/js/editor/CommandRouter.js');
@@ -219,6 +220,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/DirectCommandExtensions.js');
   load('src/js/editor/ArrayCommands.js');
   load('src/js/editor/DirectEditingCommands.js');
+  load('src/js/editor/SelectionCommands.js');
   load('src/js/viewport/Viewport.js');
   load('src/js/editor/footer-controls.js');
   if (commands) load('src/js/editor/command-input.js');

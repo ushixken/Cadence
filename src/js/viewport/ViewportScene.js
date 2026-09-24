@@ -28,6 +28,8 @@
     getGrips = () => [],
     getGripPreview = () => null,
     getSelectionBox = () => null,
+    getProfessionalSelection = () => null,
+    getSelectionCycle = () => null,
     getPolarGuide = () => null,
     getObjectTrackingState = () => null,
   }) {
@@ -1062,6 +1064,10 @@
         })
       }
 
+      const professional=getProfessionalSelection(),professionalSegments=[]
+      if(professional){const points=[...professional.points];if(professional.current&&(points.length===0||points.at(-1).x!==professional.current.x||points.at(-1).y!==professional.current.y))points.push(professional.current);const target=professional.mode==="window-polygon"?selectionWindow:selectionCrossing;const addProfessional=(a,b)=>{professionalSegments.push(a.x,a.y,b.x,b.y);if(professional.mode==="window-polygon")addSegment(target,a.x,a.y,b.x,b.y);else{const length=Math.hypot(b.x-a.x,b.y-a.y)||1;for(let offset=0;offset<length;offset+=10){const start=offset/length,end=Math.min(length,offset+6)/length;addSegment(target,a.x+(b.x-a.x)*start,a.y+(b.y-a.y)*start,a.x+(b.x-a.x)*end,a.y+(b.y-a.y)*end)}}};for(let index=1;index<points.length;index++)addProfessional(points[index-1],points[index]);if(professional.mode!=="fence"&&points.length>2)addProfessional(points.at(-1),points[0])}
+      const selectionCycle=getSelectionCycle()
+
       // The ordered groups are a renderer input, never authoritative geometry.
       const combinedMajorGrid = viewportSettings.gridVisible === false ? [] : majorGrid.concat(boundary)
       const polarGuide = getPolarGuide()
@@ -1284,6 +1290,8 @@
           selected: Object.freeze(selectedEllipses),
         }),
         selectionBoxOverlay,
+        professionalSelectionOverlay:professional?Object.freeze({kind:"professional-selection",mode:professional.mode,segments:new Float32Array(professionalSegments),points:Object.freeze(professional.points)}):null,
+        selectionCycleOverlay:selectionCycle?Object.freeze({...selectionCycle}):null,
         transformOverlay: moveOverlay,
         moveOverlay,
         polylineOverlay: Object.freeze({

@@ -119,6 +119,10 @@ interface CaderactViewportCommandSurface {
   cancelDynamicInputEdit?(): void;
   cancelGripEdit(): void;
   selectAllCommittedGeometry(): CaderactCommandOutcome;
+  beginProfessionalSelection(mode: string, options?: { modifier?: boolean; commandOwned?: boolean }): CaderactCommandOutcome;
+  selectSimilar(): CaderactCommandOutcome;
+  selectByType(type: string): CaderactCommandOutcome;
+  selectByLayer(layer: string): CaderactCommandOutcome;
   setCommandActive(active: boolean): void;
 }
 
@@ -160,4 +164,6 @@ interface Window {
 interface KeyboardEvent {
   caderactDynamicInputHandled?: boolean;
   caderactSelectionBoxHandled?: boolean;
+  caderactProfessionalSelectionHandled?: boolean;
+  caderactSelectionCycleHandled?: boolean;
 }

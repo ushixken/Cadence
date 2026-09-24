@@ -122,12 +122,32 @@ window.caderactCadCommands = window.CaderactCadCommandExtensions.create({ getSer
   },
   requestRender,
   clearSnap,
+  beginProfessionalSelection,
+  finishProfessionalSelection,
+  cancelProfessionalSelection,
+  selectSimilar,
+  selectByType,
+  selectByLayer,
 }) })
 for (const registration of window.CaderactFilletChamferCommands.registrations) window.caderactCadCommands.register(registration)
 for (const registration of window.CaderactDirectCommandExtensions.registrations) window.caderactCadCommands.register(registration)
 for (const registration of window.CaderactArrayCommands.registrations) window.caderactCadCommands.register(registration)
 for (const registration of window.CaderactDirectEditingCommands.registrations) window.caderactCadCommands.register(registration)
+for (const registration of window.CaderactSelectionCommands.registrations) window.caderactCadCommands.register(registration)
 const selectionBox = window.CaderactSelectionBox.createInteraction()
+let professionalSelection=null,selectionCycle=null
+const professionalSnapshot=()=>professionalSelection?Object.freeze({mode:professionalSelection.mode,points:Object.freeze(professionalSelection.points.map(value=>Object.freeze({...value}))),current:professionalSelection.current?Object.freeze({...professionalSelection.current}):null,modifier:professionalSelection.modifier,commandOwned:professionalSelection.commandOwned}):null
+function beginProfessionalSelection(mode,{modifier=false,commandOwned=false}={}){if(!["fence","window-polygon","crossing-polygon"].includes(mode)||selectionBox.isPending||grips.isActive)return Object.freeze({status:"selection-mode-unavailable"});professionalSelection={mode,points:[],current:null,modifier:Boolean(modifier),commandOwned:Boolean(commandOwned)};selectionCycle=null;requestRender();return Object.freeze({status:"selection-mode-started",mode})}
+function cancelProfessionalSelection(){if(!professionalSelection)return Object.freeze({status:"selection-mode-inactive"});const mode=professionalSelection.mode;professionalSelection=null;requestRender();return Object.freeze({status:"selection-mode-cancelled",mode})}
+function professionalSelectionRecords(){const session=getActiveCommandSession();return session?.isSelectionPhase&&(session.name==="Trim"||session.name==="Extend")?visibleRecords():selectionInteractionRecords(editableRecords())}
+function applyGeometrySelection(mode,points,modifier){const records=professionalSelectionRecords(),ids=window.CaderactProfessionalSelection.queryGeometry({mode,points,records,worldToScreen}),matched=new Set(ids),logical=[];for(const id of ids){const target=groupSelectionTarget(id);if(!target)continue;if(target.kind==="record"||mode!=="window-polygon"||target.recordIds.every(memberId=>matched.has(memberId)))logical.push(id)}return selection.applyRecordIds(logical,{toggle:modifier})}
+function finishProfessionalSelection(){if(!professionalSelection)return Object.freeze({status:"selection-mode-inactive"});const state=professionalSelection,minimum=state.mode==="fence"?2:3;if(state.points.length<minimum)return Object.freeze({status:"invalid-input",reason:"insufficient-selection-points"});const outcome=applyGeometrySelection(state.mode,state.points,state.modifier);professionalSelection=null;requestRender();return Object.freeze({status:"selection-mode-completed",mode:state.mode,selectedIds:selection.selectedIds(),outcome})}
+function selectSimilar(){const seeds=modelReader.editableRecords().filter(record=>selection.has(record.id)),ids=window.CaderactProfessionalSelection.similar(editableRecords(),seeds);return selection.applyRecordIds(ids)}
+function selectByType(type,{toggle=false}={}){return selection.applyRecordIds(window.CaderactProfessionalSelection.queryRecords({records:editableRecords(),type:String(type||"").trim().toLowerCase()}),{toggle})}
+function selectByLayer(layer,{toggle=false}={}){const value=String(layer||"").trim(),target=modelReader.layers().find(item=>item.id===value||item.name.toLowerCase()===value.toLowerCase());return target?selection.applyRecordIds(window.CaderactProfessionalSelection.queryRecords({records:editableRecords(),layerId:target.id}),{toggle}):Object.freeze({status:"invalid-selection-query",reason:"unknown-layer"})}
+function selectionCycleSnapshot(){if(!selectionCycle)return null;return Object.freeze({recordIds:Object.freeze(selectionCycle.candidates.map(item=>item.recordId)),activeIndex:selectionCycle.index,activeRecordId:selectionCycle.candidates[selectionCycle.index].recordId,screenPoint:Object.freeze({...selectionCycle.screenPoint})})}
+function cycleSelection(step=1){if(!selectionCycle)return Object.freeze({status:"selection-cycle-inactive"});selectionCycle.index=(selectionCycle.index+(step<0?-1:1)+selectionCycle.candidates.length)%selectionCycle.candidates.length;selection.selectOnly(selectionCycle.candidates[selectionCycle.index].recordId);requestRender();return Object.freeze({status:"selection-cycle-updated",...selectionCycleSnapshot()})}
+function dismissSelectionCycle(){if(!selectionCycle)return Object.freeze({status:"selection-cycle-inactive"});selectionCycle=null;requestRender();return Object.freeze({status:"selection-cycle-dismissed"})}
 const grips = window.CaderactGrips.createManager({
   getRecords: () => modelReader.editableRecords(), getSelectedIds: () => selection.selectedIds().filter(id=>!modelReader.groupForRecord(id)), worldToScreen,
   replaceRecord: (id, record) => recordGateway.replace(id, record), requestRender,
@@ -231,6 +251,8 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getGrips: () => getActiveCommandSession() ? [] : grips.displayGrips(),
   getGripPreview: grips.previewRecord,
   getSelectionBox: () => selectionBox.snapshot(),
+  getProfessionalSelection: professionalSnapshot,
+  getSelectionCycle: selectionCycleSnapshot,
   getPolarGuide: () => polarGuide,
   getObjectTrackingState: () => objectSnapTracking.getState(),
 })
@@ -1637,6 +1659,8 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds 
 }
 
 function resetForDocumentReplacement() {
+  professionalSelection=null
+  selectionCycle=null
   objectSnapTracking.clear()
   dynamicInput.clear()
   selectionBox.clear()
@@ -1679,7 +1703,7 @@ bindSelectionDocument()
 function setCommandActive(active) {
   if (!active) objectSnapTracking.clear()
   if (!active) dynamicInput.clear()
-  if (active) cancelGripEdit()
+  if (active) {cancelGripEdit();selectionCycle=null}
   interactionVisuals.setMode(active && !getActiveCommandSession()?.isSelectionPhase ? "point" : "select")
 }
 function getInteractionVisualState() { return interactionVisuals.snapshot() }
@@ -1709,7 +1733,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createHatchCommandSession, createRegionCommandSession, createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createRadialDimensionCommandSession, createTextCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setExtensionTrackingEnabled, subscribeExtensionTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get extensionTrackingEnabled(){return extensionTrackingEnabled}, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
+window.caderactViewport = { createHatchCommandSession, createRegionCommandSession, createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createRadialDimensionCommandSession, createTextCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, beginProfessionalSelection,finishProfessionalSelection,cancelProfessionalSelection,getProfessionalSelectionState:professionalSnapshot,selectSimilar,selectByType,selectByLayer,cycleSelection,dismissSelectionCycle,getSelectionCycleState:selectionCycleSnapshot, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setExtensionTrackingEnabled, subscribeExtensionTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get extensionTrackingEnabled(){return extensionTrackingEnabled}, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 window.caderactViewport.createBlockCommandSession=createBlockCommandSession
 window.caderactViewport.createBlockEditCommandSession=createBlockEditCommandSession
 window.caderactViewport.createInsertCommandSession=createInsertCommandSession
@@ -1776,6 +1800,7 @@ function updateSnapAtPointer() {
 
 function onViewportPointerDown(event) {
   const session = getActiveCommandSession()
+  if(professionalSelection){if(event.button===2){event.preventDefault?.();professionalSelection.commandOwned&&window.caderactCommandRouter?.isActive?window.caderactCommandRouter.finishActive():finishProfessionalSelection();return}if(event.button!==0||navigation.isActive())return;const screen=getCanvasPoint(event);if(professionalSelection.points.length===0&&(event.ctrlKey||event.metaKey)&&!(event.ctrlKey&&event.metaKey))professionalSelection.modifier=true;professionalSelection.points.push(Object.freeze({...screen}));professionalSelection.current=Object.freeze({...screen});requestRender();return}
   if (event.button !== 0 || navigation.isActive() || selectionBox.isPending) return
   const point = getCanvasPoint(event)
   lastKnownPointerScreen = point
@@ -1800,8 +1825,12 @@ function onViewportPointerDown(event) {
   const selectionRecords=session?.isSelectionPhase&&(session.name==="Trim"||session.name==="Extend")?visibleRecords():selectionInteractionRecords(editableRecords())
   const hit = window.CaderactSelection.hitTestRecords({screenPoint:point,records:selectionRecords,worldToScreen,screenToWorld})
   const toggle = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey)
-  if (hit.hit) toggle ? selection.toggle(hit.recordId) : selection.selectOnly(hit.recordId)
+  if (hit.hit) {
+    const unique=[],seen=new Set();for(const candidate of hit.candidates||[{recordId:hit.recordId,distancePx:hit.distancePx}]){const target=groupSelectionTarget(candidate.recordId),key=target?`${target.kind}:${target.id}`:`record:${candidate.recordId}`;if(seen.has(key))continue;seen.add(key);unique.push(candidate)}
+    if(unique.length>1){selectionCycle={candidates:unique,index:0,screenPoint:Object.freeze({...point}),modifier:toggle};toggle?selection.toggle(unique[0].recordId):selection.selectOnly(unique[0].recordId)}else{selectionCycle=null;toggle ? selection.toggle(hit.recordId) : selection.selectOnly(hit.recordId)}
+  }
   else {
+    selectionCycle=null
     selectionBox.begin(point,event.pointerId,toggle)
     canvas.setPointerCapture?.(event.pointerId)
   }
@@ -1813,6 +1842,7 @@ function onCommandPointerMove(event) {
   setShiftHeld(event.shiftKey)
   interactionVisuals.setMode(getActiveCommandSession() && !getActiveCommandSession()?.isSelectionPhase ? "point" : "select")
   interactionVisuals.move(getViewportPoint(event))
+  if(professionalSelection){professionalSelection.current=Object.freeze({...point});requestRender();return}
   if(selectionBox.isPending){selectionBox.update(point);requestRender();return}
   const session = getActiveCommandSession()
   if (grips.isActive) {
@@ -1845,6 +1875,7 @@ function onCommandPointerLeave() {
   interactionVisuals.leave()
   clearSnap()
   lastKnownPointerScreen = null
+  if(professionalSelection){professionalSelection.current=null;requestRender()}
   if (grips.isActive) cancelGripEdit()
   else grips.updateHover({ x: Number.POSITIVE_INFINITY, y: Number.POSITIVE_INFINITY })
   getActiveCommandSession()?.handlePointerLeave?.()
@@ -1880,6 +1911,11 @@ function onViewportPointerCancel(event) {
 }
 
 function onDocumentKeyDown(event) {
+  if(professionalSelection&&event.key==="Escape"){const owned=professionalSelection.commandOwned;if(owned&&window.caderactCommandRouter?.isActive)window.caderactCommandRouter.cancelActive();else cancelProfessionalSelection();event.caderactProfessionalSelectionHandled=true;event.preventDefault();return}
+  if(professionalSelection&&event.key==="Enter"){const owned=professionalSelection.commandOwned;if(owned&&window.caderactCommandRouter?.isActive)window.caderactCommandRouter.finishActive();else finishProfessionalSelection();event.caderactProfessionalSelectionHandled=true;event.preventDefault();return}
+  if(selectionCycle&&event.key==="Tab"){cycleSelection(event.shiftKey?-1:1);event.caderactSelectionCycleHandled=true;event.preventDefault();return}
+  if(selectionCycle&&event.key==="Enter"){dismissSelectionCycle();event.caderactSelectionCycleHandled=true;event.preventDefault();return}
+  if(selectionCycle&&event.key==="Escape"){dismissSelectionCycle();event.caderactSelectionCycleHandled=true;event.preventDefault();return}
   if(event.key==="Escape"&&selectionBox.isPending){const pointerId=selectionBox.snapshot().pointerId;selectionBox.clear();releaseGripPointerCapture(pointerId);requestRender();event.caderactSelectionBoxHandled=true;event.preventDefault();return}
   const commandInput=document.querySelector("#command-input"),commandBarOwns=event.target===commandInput||document.activeElement===commandInput
   if(commandBarOwns){cancelDynamicInputEdit();return}

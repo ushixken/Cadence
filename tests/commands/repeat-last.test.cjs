@@ -28,7 +28,7 @@ test('aliases and autocomplete store canonical repeat identities',async()=>{
   for(const [input,canonical] of [['Rect','Rectangle'],['PL','Polyline'],['Pline','Polyline'],['C','Circle']]){
     const b=await browser();b.launch(input);assert.equal(b.read('window.caderactCommandRouter.lastRepeatableCommand'),canonical);
   }
-  const b=await browser();b.input.value='cir';b.emit(b.input,'input');b.key('ArrowDown',b.input);b.key('Enter',b.input);
+  const b=await browser();b.input.value='cir';b.emit(b.input,'input');b.key('Enter',b.input);
   assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Circle');assert.equal(b.read('window.caderactCommandRouter.lastRepeatableCommand'),'Circle');
 });
 

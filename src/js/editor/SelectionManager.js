@@ -24,7 +24,8 @@
       if (Number.isFinite(distancePx) && distancePx <= tolerancePx) hits.push({recordId:record.id,distancePx})
     }
     hits.sort((a,b)=>a.distancePx-b.distancePx||a.recordId.localeCompare(b.recordId))
-    return hits.length ? result("hit",{hit:true,recordId:hits[0].recordId,distancePx:hits[0].distancePx}) : result("miss",{hit:false})
+    const candidates=Object.freeze(hits.map(hit=>Object.freeze({...hit})))
+    return hits.length ? result("hit",{hit:true,recordId:hits[0].recordId,distancePx:hits[0].distancePx,candidates}) : result("miss",{hit:false,candidates})
   }
 
   function hitTestRecords({ screenPoint, records = [], worldToScreen, screenToWorld, tolerancePx = DEFAULT_HIT_TOLERANCE_PX }) {
@@ -89,7 +90,8 @@
       }
     }
     hits.sort((a,b)=>a.distancePx-b.distancePx||a.recordId.localeCompare(b.recordId))
-    return hits.length ? result("hit",{hit:true,recordId:hits[0].recordId,distancePx:hits[0].distancePx}) : result("miss",{hit:false})
+    const candidates=Object.freeze(hits.map(hit=>Object.freeze({...hit})))
+    return hits.length ? result("hit",{hit:true,recordId:hits[0].recordId,distancePx:hits[0].distancePx,candidates}) : result("miss",{hit:false,candidates})
   }
 
   function createSelection({resolveTarget=id=>Object.freeze({kind:"record",id,recordIds:Object.freeze([id])})}={}) {
