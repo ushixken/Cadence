@@ -118,6 +118,7 @@
     <script src="./src/js/editor/FileSafetyUx.js" defer></script>
     <script src="./src/js/editor/file-actions.js" defer></script>
     <script src="./src/js/editor/layers-panel.js" defer></script>
+    <script src="./src/js/editor/groups-panel.js" defer></script>
     <script src="./src/js/editor/properties-panel.js" defer></script>
     <script src="./src/js/editor/ContextMenu.js" defer></script>
     <script src="./src/js/editor/context-menu.js" defer></script>
@@ -569,6 +570,7 @@
             <button id="right-dock-resize" class="right-dock-resize" type="button" role="separator" aria-label="Resize right dock" aria-orientation="vertical" aria-valuemin="230" aria-valuenow="288"></button>
             <div class="sidebar-tabs" role="tablist" aria-label="Editor panels">
               <button id="sidebar-layers-tab" type="button" role="tab" aria-selected="true" aria-controls="layers-panel-view">Layers</button>
+              <button id="sidebar-groups-tab" type="button" role="tab" aria-selected="false" aria-controls="groups-panel-view">Groups</button>
               <button id="sidebar-properties-tab" type="button" role="tab" aria-selected="false" aria-controls="properties-panel-view">Properties</button>
             </div>
             <section id="layers-panel-view" class="sidebar-panel" role="tabpanel" aria-labelledby="sidebar-layers-tab">
@@ -601,6 +603,15 @@
               </button>
             </header>
             <div id="layers-list" class="layers-list" role="list"></div>
+            </section>
+            <section id="groups-panel-view" class="sidebar-panel groups-panel" role="tabpanel" aria-labelledby="sidebar-groups-tab" hidden>
+              <header class="groups-panel-header">
+                <strong>Groups</strong>
+                <button id="group-create" type="button" aria-label="Create group from selection" title="Create group from selection">
+                  <svg aria-hidden="true"><use href="#dock-add"/></svg>
+                </button>
+              </header>
+              <div id="groups-list" class="groups-list" role="list"></div>
             </section>
             <section id="properties-panel-view" class="sidebar-panel properties-panel" role="tabpanel" aria-labelledby="sidebar-properties-tab" hidden>
               <header class="properties-panel-header"><strong>Properties</strong></header>
