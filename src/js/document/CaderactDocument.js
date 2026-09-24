@@ -772,6 +772,7 @@
         if(next&&state.currentLayerId===layerId){replacement=Object.values(state.layers).filter(candidate=>candidate.id!==layerId&&candidate.visible&&!candidate.locked).sort((a,b)=>a.id.localeCompare(b.id));replacement=replacement.find(candidate=>candidate.id===state.defaultLayerId)||replacement[0]||null;if(!replacement)return Object.freeze({status:"no-usable-current-layer",layerId})}
         const transaction=controller.beginTransaction();transaction.replaceIn("layers",layerId,{...layer,locked:next});if(replacement)transaction.replaceIn("settings","currentLayerId",replacement.id);return transaction.publish()
       },
+      setColor(layerId,color){const layer=state.layers[layerId];if(!layer)return Object.freeze({status:"unknown-layer",layerId});if(!window.CaderactObjectProperties.validColor(color))return Object.freeze({status:"invalid-layer-color",layerId});if(layer.color===color)return Object.freeze({status:"no-op",changes:Object.freeze([])});const transaction=controller.beginTransaction();transaction.replaceIn("layers",layerId,{...layer,color});return transaction.publish()},
     })
     const unitGateway = Object.freeze({
       setLengthUnit(unit) {

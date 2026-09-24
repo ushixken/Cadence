@@ -3,7 +3,8 @@
   const list = document.querySelector("#layers-list")
   const createButton = document.querySelector("#layer-create")
   const assignButton = document.querySelector("#layer-assign")
-  if (!list || !createButton || !assignButton || !window.caderactDocumentSession) return
+  const unisolateButton=document.querySelector("#layer-unisolate")
+  if (!list || !createButton || !assignButton || !unisolateButton || !window.caderactDocumentSession) return
 
   let unsubscribeHistory = null
   let editingLayerId = null
@@ -23,6 +24,7 @@
       "target-layer-locked": "Target layer is locked.",
       "selection-not-editable": "Selection contains non-editable objects.",
       "empty-selection": "Select objects to assign to a layer.",
+      "invalid-layer-color": "Choose a valid layer color.",
     }
     const message = messages[outcome.status]
     if (message) window.caderactFeedback?.showTemporary(message, "error")
@@ -49,6 +51,10 @@
   function setCurrent(layerId) { return run(() => session.layerGateway.setCurrent(layerId)) }
   function setVisibility(layerId, visible) { return run(() => session.layerGateway.setVisibility(layerId, visible)) }
   function setLocked(layerId, locked) { return run(() => session.layerGateway.setLocked(layerId, locked)) }
+  function setColor(layerId,color){return run(()=>session.layerGateway.setColor(layerId,color))}
+  function selectObjects(layerId){const blocked=guardActive();if(blocked)return blocked;const layer=session.reader.layer(layerId);if(!layer)return result("unknown-layer",{layerId});const outcome=window.caderactViewport.selectByLayer(layerId);window.caderactFeedback?.showTemporary(`Selected ${outcome.selectedIds?.length||0} object${outcome.selectedIds?.length===1?"":"s"} on ${layer.name}.`);return outcome}
+  function isolate(layerId){const blocked=guardActive();if(blocked)return blocked;const outcome=window.caderactViewport.setLayerIsolation(layerId);if(outcome.status==="layer-isolated"||outcome.status==="no-op")render();else feedbackFor(outcome);return outcome}
+  function unisolate(){const blocked=guardActive();if(blocked)return blocked;const outcome=window.caderactViewport.clearLayerIsolation();render();return outcome}
   function assign(layerId = session.reader.snapshot().currentLayerId) {
     const blocked=guardActive();if(blocked)return blocked
     const selectedIds=window.caderactSelection?.selectedIds?.()||[]
@@ -72,6 +78,7 @@
     const documentState = session.reader.snapshot()
     const blocked = window.caderactCommandRouter.isActive
     createButton.disabled = blocked
+    const isolation=window.caderactViewport.getLayerIsolationState();unisolateButton.hidden=!isolation.active;unisolateButton.disabled=blocked
     const currentLayer=session.reader.layer(documentState.currentLayerId),hasSelection=Boolean(window.caderactSelection?.selectedIds?.().length)
     assignButton.disabled=blocked||!hasSelection||!currentLayer?.visible||currentLayer?.locked
     let editInput = null
@@ -81,6 +88,7 @@
       if (layer.id === documentState.currentLayerId) { row.classList.add("is-current"); row.setAttribute("aria-current", "true") }
       if (!layer.visible) row.classList.add("is-hidden")
       if (layer.locked) row.classList.add("is-locked")
+      if(isolation.active&&isolation.layerId!==layer.id)row.classList.add("is-isolation-muted")
       const visibilityButton=actionButton(layer.visible?"●":"○","layer-visibility",layer.visible?`Hide ${layer.name}`:`Show ${layer.name}`,()=>setVisibility(layer.id,!layer.visible))
       visibilityButton.setAttribute("aria-pressed",String(layer.visible))
       const lockButton=actionButton(layer.locked?"■":"□","layer-lock",layer.locked?`Unlock ${layer.name}`:`Lock ${layer.name}`,()=>setLocked(layer.id,!layer.locked))
@@ -103,7 +111,11 @@
       const renameButton = actionButton("✎", "layer-rename", `Rename ${layer.name}`, () => beginRename(layer.id))
       const deleteButton = actionButton("×", "layer-delete", `Delete ${layer.name}`, () => remove(layer.id))
       deleteButton.disabled = blocked || layer.id === documentState.defaultLayerId
-      row.appendChild(visibilityButton);row.appendChild(lockButton);row.appendChild(select); row.appendChild(badges); row.appendChild(renameButton); row.appendChild(deleteButton)
+      const color=document.createElement("input");color.type="color";color.value=layer.color;color.classList.add("layer-color");color.setAttribute("aria-label",`Color for ${layer.name}`);color.title=`Color for ${layer.name}`;color.disabled=blocked;color.addEventListener("change",()=>setColor(layer.id,color.value))
+      const selectObjectsButton=actionButton("S","layer-select-objects",`Select objects on ${layer.name}`,()=>selectObjects(layer.id))
+      const moveButton=actionButton("→","layer-move-selection",`Move selection to ${layer.name}`,()=>assign(layer.id));moveButton.disabled=blocked||!hasSelection||!layer.visible||layer.locked
+      const isolateButton=actionButton("I","layer-isolate",isolation.layerId===layer.id?`${layer.name} is isolated`:`Isolate ${layer.name}`,()=>isolate(layer.id));isolateButton.setAttribute("aria-pressed",String(isolation.layerId===layer.id))
+      row.appendChild(visibilityButton);row.appendChild(lockButton);row.appendChild(select); row.appendChild(badges); row.appendChild(renameButton); row.appendChild(deleteButton);row.appendChild(color);row.appendChild(selectObjectsButton);row.appendChild(moveButton);row.appendChild(isolateButton)
       return row
     })
     list.replaceChildren(...rows)
@@ -116,9 +128,10 @@
 
   createButton.addEventListener("click", () => create())
   assignButton.addEventListener("click", () => assign())
+  unisolateButton.addEventListener("click",unisolate)
   session.subscribe(bindDocument)
   window.caderactCommandRouter.subscribe(render)
   window.caderactSelection?.subscribe(render)
   bindDocument()
-  window.caderactLayers = Object.freeze({ create, rename, remove, setCurrent, setVisibility, setLocked, assign, beginRename, refresh: render })
+  window.caderactLayers = Object.freeze({ create, rename, remove, setCurrent, setVisibility, setLocked, setColor, selectObjects, assign, isolate, unisolate, beginRename, refresh: render })
 })()

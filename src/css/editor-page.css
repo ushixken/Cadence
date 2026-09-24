@@ -42,7 +42,7 @@
   border-bottom: 1px solid var(--separator);
 }
 .layers-panel-header strong { margin-right: auto; }
-#layer-assign { width: auto; padding: 0 7px; font-size: 0.68rem; }
+#layer-assign, #layer-unisolate { width: auto; padding: 0 6px; font-size: 0.64rem; }
 
 .layers-panel button {
   border: 0;
@@ -76,17 +76,28 @@
 .property-inherited-value { overflow:hidden; color:var(--text-muted); font-size:var(--font-size-xs); text-align:right; text-overflow:ellipsis; white-space:nowrap; }
 .property-row select:disabled, .property-row input:disabled { opacity:.48; cursor:default; }
 .properties-disabled-note { margin:7px 9px 2px; color:var(--status-warning); font-size:.65rem; line-height:1.35; }
-.layer-row { display: grid; min-height: 30px; grid-template-columns: 26px 26px minmax(0, 1fr) auto 26px 26px; align-items: center; border-bottom: 1px solid var(--separator); }
+.layer-row { display:grid; min-height:30px; grid-template-columns:22px 22px 28px minmax(52px,1fr) auto repeat(5,22px); align-items:center; border-bottom:1px solid var(--separator); }
 .layer-row.is-current { color: var(--text-primary); background: var(--surface-selected); }
 .layer-row.is-hidden .layer-select { color: var(--mutedText); }
+.layer-row.is-isolation-muted { opacity:.48; }
 .layer-select { height: 30px; overflow: hidden; padding: 0 8px; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .layer-name-input { box-sizing: border-box; width: calc(100% - 6px); min-width: 0; height: 24px; margin: 3px; padding: 0 6px; border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--surface-control); color: var(--text-primary); font: inherit; }
 .layer-name-input:focus-visible { box-shadow: 0 0 0 2px var(--focus-ring-soft); }
 .layer-row.is-current .layer-select::before { content: "●"; margin-right: 6px; color: var(--activeText); font-size: 0.55rem; }
 .layer-badges { padding-right: 3px; color: var(--text-muted); font-size: 0.6rem; }
-.layer-visibility, .layer-lock, .layer-rename, .layer-delete { width: 26px; height: 26px; border-radius: var(--borderRadius); }
+.layer-visibility, .layer-lock, .layer-rename, .layer-delete, .layer-select-objects, .layer-move-selection, .layer-isolate { width:22px; height:26px; padding:0; border-radius:var(--borderRadius); font-size:.64rem; }
+.layer-color { box-sizing:border-box; width:24px; height:20px; padding:1px; border:1px solid var(--border-default); border-radius:var(--radius-sm); background:var(--surface-control); cursor:pointer; }
+.layer-color:disabled { opacity:.45; cursor:default; }
+.layer-row>.layer-color { grid-column:3; grid-row:1; justify-self:center; }
+.layer-row>.layer-select, .layer-row>.layer-name-input { grid-column:4; grid-row:1; }
+.layer-row>.layer-badges { grid-column:5; grid-row:1; }
+.layer-row>.layer-rename { grid-column:6; grid-row:1; }
+.layer-row>.layer-delete { grid-column:7; grid-row:1; }
+.layer-row>.layer-select-objects { grid-column:8; grid-row:1; }
+.layer-row>.layer-move-selection { grid-column:9; grid-row:1; }
+.layer-row>.layer-isolate { grid-column:10; grid-row:1; }
 
-@media (max-width: 760px) { .layers-panel { width: 170px; flex-basis: 170px; } }
+@media (max-width: 760px) { .layers-panel { width:170px; flex-basis:170px; }.layer-row{grid-template-columns:22px 22px 28px minmax(52px,1fr) auto}.layer-row>.layer-rename,.layer-row>.layer-delete,.layer-row>.layer-select-objects,.layer-row>.layer-move-selection,.layer-row>.layer-isolate{display:none}.layer-row>.layer-badges{grid-column:5} }
 .editor-context-menu { position: fixed; z-index: var(--z-context-menu); min-width: 150px; max-width: min(280px, calc(100vw - 16px)); padding: 4px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-popup); box-shadow: var(--shadow-popup); }
 .editor-context-menu[hidden] { display: none; }
 .context-menu-item { display: block; width: 100%; min-height: 28px; padding: 4px 9px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-primary); font: inherit; font-size: var(--font-size-md); text-align: left; white-space: nowrap; }

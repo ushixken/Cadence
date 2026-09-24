@@ -147,6 +147,9 @@ function finishProfessionalSelection(){if(!professionalSelection)return Object.f
 function selectSimilar(){const seeds=modelReader.editableRecords().filter(record=>selection.has(record.id)),ids=window.CaderactProfessionalSelection.similar(editableRecords(),seeds);return selection.applyRecordIds(ids)}
 function selectByType(type,{toggle=false}={}){return selection.applyRecordIds(window.CaderactProfessionalSelection.queryRecords({records:editableRecords(),type:String(type||"").trim().toLowerCase()}),{toggle})}
 function selectByLayer(layer,{toggle=false}={}){const value=String(layer||"").trim(),target=modelReader.layers().find(item=>item.id===value||item.name.toLowerCase()===value.toLowerCase());return target?selection.applyRecordIds(window.CaderactProfessionalSelection.queryRecords({records:editableRecords(),layerId:target.id}),{toggle}):Object.freeze({status:"invalid-selection-query",reason:"unknown-layer"})}
+function setLayerIsolation(layerId){const layer=modelReader.layer(layerId);if(!layer)return Object.freeze({status:"unknown-layer",layerId});if(isolatedLayerId===layerId)return Object.freeze({status:"no-op",layerId});isolatedLayerId=layerId;selection.pruneAgainstDocument(editableRecords());objectSnapTracking.clear();clearSnap();grips.reconcile();requestRender();return Object.freeze({status:"layer-isolated",layerId})}
+function clearLayerIsolation(){if(isolatedLayerId===null)return Object.freeze({status:"no-op"});const layerId=isolatedLayerId;isolatedLayerId=null;objectSnapTracking.clear();clearSnap();grips.reconcile();requestRender();return Object.freeze({status:"layer-unisolated",layerId})}
+function getLayerIsolationState(){return Object.freeze({active:isolatedLayerId!==null,layerId:isolatedLayerId})}
 function selectionCycleSnapshot(){if(!selectionCycle)return null;return Object.freeze({recordIds:Object.freeze(selectionCycle.candidates.map(item=>item.recordId)),activeIndex:selectionCycle.index,activeRecordId:selectionCycle.candidates[selectionCycle.index].recordId,screenPoint:Object.freeze({...selectionCycle.screenPoint})})}
 function cycleSelection(step=1){if(!selectionCycle)return Object.freeze({status:"selection-cycle-inactive"});selectionCycle.index=(selectionCycle.index+(step<0?-1:1)+selectionCycle.candidates.length)%selectionCycle.candidates.length;selection.selectOnly(selectionCycle.candidates[selectionCycle.index].recordId);requestRender();return Object.freeze({status:"selection-cycle-updated",...selectionCycleSnapshot()})}
 function dismissSelectionCycle(){if(!selectionCycle)return Object.freeze({status:"selection-cycle-inactive"});selectionCycle=null;requestRender();return Object.freeze({status:"selection-cycle-dismissed"})}
@@ -158,15 +161,17 @@ let selectionHistoryUnsubscribe = null
 window.caderactSelection = selection
 window.caderactGrips = grips
 
+let isolatedLayerId=null
 function getActiveCommandSession() {
   return window.caderactCommandRouter?.activeSession || null
 }
-function visibleRecords(){return modelReader.visibleRecords()}
-function editableRecords(){return modelReader.editableRecords()}
+function inLayerIsolation(record){return isolatedLayerId===null||record.layerId===isolatedLayerId}
+function visibleRecords(){return Object.freeze(modelReader.visibleRecords().filter(inLayerIsolation))}
+function editableRecords(){return Object.freeze(modelReader.editableRecords().filter(inLayerIsolation))}
 function expandedVisibleRecords(){
   if(getActiveCommandSession()?.name==="BlockEdit"&&getActiveCommandSession()?.phase==="edit")return Object.freeze([])
   const snapshot=modelReader.snapshot(),definitions=snapshot.blockDefinitions||{},records=[]
-  for(const record of modelReader.visibleRecords()){
+  for(const record of visibleRecords()){
     if(record.type!=="block-instance"){records.push(record);continue}
     records.push(record)
     try{for(const entry of window.CaderactBlockTraversal.traverse({blockDefinitions:definitions},record).entries){if(modelReader.layer(entry.record.layerId)?.visible===false)continue;const transformed=window.CaderactGeometryTransform.similarityRecord(entry.record,entry.transform),runtimeReference=Object.freeze({kind:"block-semantic",outerRecordId:record.id,instancePath:entry.instancePath,definitionId:entry.definitionId,memberRecordId:entry.recordId,semanticId:entry.semanticId});records.push(Object.freeze({...transformed,id:entry.semanticId,runtimeReference}))}}catch{}
@@ -1663,6 +1668,7 @@ function resolvePointerSnap(point, { excludedFeatureIds = [], excludedRecordIds 
 function resetForDocumentReplacement() {
   professionalSelection=null
   selectionCycle=null
+  isolatedLayerId=null
   objectSnapTracking.clear()
   dynamicInput.clear()
   selectionBox.clear()
@@ -1676,6 +1682,7 @@ function resetForDocumentReplacement() {
 }
 
 documentSession.subscribe(({ store }) => {
+  isolatedLayerId=null
   modelReader = store.reader
   recordGateway = store.recordGateway
   groupGateway = store.groupGateway
@@ -1692,6 +1699,7 @@ documentSession.subscribe(({ store }) => {
 function bindSelectionDocument() {
   selectionHistoryUnsubscribe?.()
   selectionHistoryUnsubscribe = documentController.subscribeHistory(() => {
+    if(isolatedLayerId!==null&&!modelReader.layer(isolatedLayerId))isolatedLayerId=null
     const capturedPointerId = grips.active?.pointerId
     selection.pruneAgainstDocument(editableRecords())
     objectSnapTracking.reconcileReferences(reference=>{const ids=reference?.recordIds||[reference?.recordId];return ids.length>0&&ids.every(id=>typeof id==="string"&&modelReader.isRecordVisible(id))})
@@ -1735,7 +1743,7 @@ function cancelGripEdit() {
   return outcome
 }
 
-window.caderactViewport = { createHatchCommandSession, createRegionCommandSession, createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createRadialDimensionCommandSession, createTextCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, beginProfessionalSelection,finishProfessionalSelection,cancelProfessionalSelection,getProfessionalSelectionState:professionalSnapshot,selectSimilar,selectByType,selectByLayer,cycleSelection,dismissSelectionCycle,getSelectionCycleState:selectionCycleSnapshot, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setExtensionTrackingEnabled, subscribeExtensionTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get extensionTrackingEnabled(){return extensionTrackingEnabled}, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
+window.caderactViewport = { createHatchCommandSession, createRegionCommandSession, createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createRadialDimensionCommandSession, createTextCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, beginProfessionalSelection,finishProfessionalSelection,cancelProfessionalSelection,getProfessionalSelectionState:professionalSnapshot,selectSimilar,selectByType,selectByLayer,setLayerIsolation,clearLayerIsolation,getLayerIsolationState,cycleSelection,dismissSelectionCycle,getSelectionCycleState:selectionCycleSnapshot, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setExtensionTrackingEnabled, subscribeExtensionTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get extensionTrackingEnabled(){return extensionTrackingEnabled}, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 window.caderactViewport.createBlockCommandSession=createBlockCommandSession
 window.caderactViewport.createBlockEditCommandSession=createBlockEditCommandSession
 window.caderactViewport.createInsertCommandSession=createInsertCommandSession

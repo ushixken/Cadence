@@ -45,4 +45,4 @@ Properties aggregation performs one selected-record lookup pass plus the documen
 
 ## Deferred
 
-Transparency, fills, materials, custom linetypes, Match Properties, nested layers, layer groups and filters, layer isolation, drag reorder, saved or per-viewport layer states, plot styles, print lineweight behavior, advanced geometry editing, and full UI V2 remain deferred.
+Transparency, fills, materials, custom linetypes, Match Properties, nested layers, layer groups and filters, drag reorder, saved or per-viewport layer states, plot styles, print lineweight behavior, advanced geometry editing, and full UI V2 remain deferred. UX9A adds temporary workspace-owned layer isolation without changing this document/persistence contract.
