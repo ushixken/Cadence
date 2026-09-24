@@ -221,6 +221,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/ArrayCommands.js');
   load('src/js/editor/DirectEditingCommands.js');
   load('src/js/editor/SelectionCommands.js');
+  load('src/js/editor/AnnotationCommands.js');
   load('src/js/viewport/Viewport.js');
   load('src/js/editor/footer-controls.js');
   if (commands) load('src/js/editor/command-input.js');

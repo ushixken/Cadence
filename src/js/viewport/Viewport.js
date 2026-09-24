@@ -134,6 +134,7 @@ for (const registration of window.CaderactDirectCommandExtensions.registrations)
 for (const registration of window.CaderactArrayCommands.registrations) window.caderactCadCommands.register(registration)
 for (const registration of window.CaderactDirectEditingCommands.registrations) window.caderactCadCommands.register(registration)
 for (const registration of window.CaderactSelectionCommands.registrations) window.caderactCadCommands.register(registration)
+for (const registration of window.CaderactAnnotationCommands.registrations) window.caderactCadCommands.register(registration)
 const selectionBox = window.CaderactSelectionBox.createInteraction()
 let professionalSelection=null,selectionCycle=null
 const professionalSnapshot=()=>professionalSelection?Object.freeze({mode:professionalSelection.mode,points:Object.freeze(professionalSelection.points.map(value=>Object.freeze({...value}))),current:professionalSelection.current?Object.freeze({...professionalSelection.current}):null,modifier:professionalSelection.modifier,commandOwned:professionalSelection.commandOwned}):null
@@ -439,7 +440,7 @@ function createLineCommandSession({ setPrompt = () => {} } = {}) {
 }
 
 function createBlockCommandSession({setPrompt=()=>{}}={}){
-  const eligible=new Set(["line","circle","arc","ellipse","polyline","region","hatch","text","dimension-linear","dimension-angular","dimension-radial","block-instance"])
+  const eligible=new Set(["line","circle","arc","ellipse","polyline","region","hatch","text","dimension-linear","dimension-angular","dimension-radial","dimension-ordinate","dimension-arc-length","dimension-center-mark","dimension-center-line","block-instance"])
   let phase=selection.selectedIds().length?"name":"selection",selectedRecordIds=phase==="name"?selection.selectedIds():Object.freeze([]),name=null
   let promptPresentation=createCommandPrompt("Block",phase==="selection"?"Select objects, then press Enter":"Enter block name, or press Enter for default")
   function update(text){promptPresentation=createCommandPrompt("Block",text);setPrompt(promptPresentation.text,promptPresentation);requestRender()}
@@ -1709,7 +1710,7 @@ function setCommandActive(active) {
 function getInteractionVisualState() { return interactionVisuals.snapshot() }
 function selectAllCommittedGeometry() {
   if (selectionBox.isPending || grips.isActive || getActiveCommandSession()) return Object.freeze({ status: "selection-busy" })
-  const selectableTypes = new Set(["line", "circle", "arc", "ellipse", "polyline", "region", "hatch", "text", "dimension-linear", "dimension-angular", "dimension-radial", "block-instance"])
+  const selectableTypes = new Set(["line", "circle", "arc", "ellipse", "polyline", "region", "hatch", "text", "dimension-linear", "dimension-angular", "dimension-radial", "dimension-ordinate", "dimension-arc-length", "dimension-center-mark", "dimension-center-line", "block-instance"])
   return selection.applyRecordIds(editableRecords().filter(record => selectableTypes.has(record.type)).map(record => record.id))
 }
 function isLayerAssignmentBusy(){return Boolean(getActiveCommandSession()||grips.isActive||selectionBox.isPending)}

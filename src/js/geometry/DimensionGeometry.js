@@ -14,6 +14,8 @@
       const radius=Math.hypot(record.dimensionPoint.x-record.centerPoint.x,record.dimensionPoint.y-record.centerPoint.y)
       return Object.freeze({kind:"linear",value:record.mode==="diameter"?radius*2:radius,radialMode:record.mode})
     }
+    if(record.type==="dimension-ordinate")return Object.freeze({kind:"linear",value:Math.abs(record.featurePoint[record.axis]-record.datumPoint[record.axis]),ordinateAxis:record.axis})
+    if(record.type==="dimension-arc-length"){const radius=Math.hypot(record.startPoint.x-record.centerPoint.x,record.startPoint.y-record.centerPoint.y);return Object.freeze({kind:"linear",value:radius*Math.abs(record.sweep),arcLength:true})}
     return null
   }
   function arrow(tip, toward, size) {
@@ -52,10 +54,20 @@
     const grips=Object.freeze(["centerPoint","dimensionPoint","leaderPoint"].map(kind=>Object.freeze({kind,point:point(record[kind]),featureId:record[kind].featureId||null})))
     return Object.freeze({supported:true,measurement,lines,arcs:Object.freeze([]),triangles,text:Object.freeze({point:textPoint,rotation:readableRotation(Math.atan2(leaderDirection.y,leaderDirection.x)),value:window.CaderactDimensionFormatter.format(measurement,style,units,record.textOverride),height:style.textHeight}),hitPrimitives:Object.freeze({lines,arcs:Object.freeze([])}),bounds:Object.freeze({minX:Math.min(center.x,tip.x,leader.x,opposite.x),minY:Math.min(center.y,tip.y,leader.y,opposite.y),maxX:Math.max(center.x,tip.x,leader.x,opposite.x),maxY:Math.max(center.y,tip.y,leader.y,opposite.y)}),grips})
   }
+  function result({measurement=null,lines=[],arcs=[],triangles=[],text=null,grips=[]}){const points=[...lines.flat(),...triangles.flat(),...arcs.flatMap(arc=>[arc.start,{x:arc.center.x+Math.cos(arc.startAngle+arc.sweep)*arc.radius,y:arc.center.y+Math.sin(arc.startAngle+arc.sweep)*arc.radius}]),...grips.map(grip=>grip.point)];return Object.freeze({supported:true,measurement,lines:Object.freeze(lines),arcs:Object.freeze(arcs),triangles:Object.freeze(triangles),text,hitPrimitives:Object.freeze({lines:Object.freeze(lines),arcs:Object.freeze(arcs)}),bounds:Object.freeze({minX:Math.min(...points.map(value=>value.x)),minY:Math.min(...points.map(value=>value.y)),maxX:Math.max(...points.map(value=>value.x)),maxY:Math.max(...points.map(value=>value.y))}),grips:Object.freeze(grips)})}
+  const grip=(record,key)=>Object.freeze({kind:key,point:point(record[key]),featureId:record[key].featureId||null})
+  function ordinate(record,style,units){const a=record.featurePoint,l=record.leaderPoint,vertical=record.axis==="x",elbow=vertical?{x:l.x,y:a.y}:{x:a.x,y:l.y},lines=[[point(a),point(elbow)],[point(elbow),point(l)]],measurement=measure(record);return result({measurement,lines,text:Object.freeze({point:point(l),rotation:0,value:window.CaderactDimensionFormatter.format(measurement,style,units,record.textOverride),height:style.textHeight}),grips:[grip(record,"datumPoint"),grip(record,"featurePoint"),grip(record,"leaderPoint")]})}
+  function arcLength(record,style,units){const center=record.centerPoint,r=Math.hypot(record.dimensionArcPoint.x-center.x,record.dimensionArcPoint.y-center.y);if(!(r>0))return Object.freeze({supported:false,measurement:measure(record),reason:"degenerate-arc-length-geometry"});const startAngle=Math.atan2(record.startPoint.y-center.y,record.startPoint.x-center.x),arc=Object.freeze({center:point(center),start:point({x:center.x+Math.cos(startAngle)*r,y:center.y+Math.sin(startAngle)*r}),radius:r,startAngle,sweep:record.sweep}),mid=startAngle+record.sweep/2,measurement=measure(record);return result({measurement,arcs:[arc],text:Object.freeze({point:point({x:center.x+Math.cos(mid)*(r+style.textGap),y:center.y+Math.sin(mid)*(r+style.textGap)}),rotation:readableRotation(mid+Math.PI/2),value:"⌒"+window.CaderactDimensionFormatter.format(measurement,style,units,record.textOverride),height:style.textHeight}),grips:[grip(record,"centerPoint"),grip(record,"startPoint"),grip(record,"endPoint"),grip(record,"dimensionArcPoint")]})}
+  function centerMark(record,style){const c=record.centerPoint,s=record.sizePoint,r=Math.hypot(s.x-c.x,s.y-c.y);if(!(r>0))return Object.freeze({supported:false,reason:"degenerate-center-mark"});return result({lines:[[point({x:c.x-r,y:c.y}),point({x:c.x+r,y:c.y})],[point({x:c.x,y:c.y-r}),point({x:c.x,y:c.y+r})]],text:Object.freeze({point:point(c),rotation:0,value:"",height:style.textHeight}),grips:[grip(record,"centerPoint"),grip(record,"sizePoint")]})}
+  function centerLine(record,style){const a=record.firstPoint,b=record.secondPoint,dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);if(!(length>0))return Object.freeze({supported:false,reason:"degenerate-center-line"});const ux=dx/length,uy=dy/length,e=record.extension;return result({lines:[[point({x:a.x-ux*e,y:a.y-uy*e}),point({x:b.x+ux*e,y:b.y+uy*e})]],text:Object.freeze({point:point({x:(a.x+b.x)/2,y:(a.y+b.y)/2}),rotation:0,value:"",height:style.textHeight}),grips:[grip(record,"firstPoint"),grip(record,"secondPoint")]})}
   function derive(record, style, units) {
     if(record.type==="dimension-linear")return linear(record,style,units)
     if(record.type==="dimension-angular")return angular(record,style,units)
     if(record.type==="dimension-radial")return radial(record,style,units)
+    if(record.type==="dimension-ordinate")return ordinate(record,style,units)
+    if(record.type==="dimension-arc-length")return arcLength(record,style,units)
+    if(record.type==="dimension-center-mark")return centerMark(record,style)
+    if(record.type==="dimension-center-line")return centerLine(record,style)
     return Object.freeze({supported:false,measurement:measure(record),reason:"presentation-deferred"})
   }
   window.CaderactDimensionGeometry=Object.freeze({measure,derive})

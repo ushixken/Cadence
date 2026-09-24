@@ -1,0 +1,9 @@
+# AN1 — Professional dimension workflows
+
+AN1 extends the existing native dimension authority. `DIMBASELINE` and `DIMCONTINUE` create ordinary `dimension-linear` records: Baseline retains one datum, while Continue advances its extension origin after every accepted point. A compatible selected Linear/Aligned dimension supplies the initial datum/end. Each accepted dimension is its own atomic history publication; cancel keeps prior accepted dimensions.
+
+The strict native schema now includes `dimension-ordinate`, `dimension-arc-length`, `dimension-center-mark`, and `dimension-center-line`. They share the named dimension-style table, ByLayer properties, renderer-neutral `DimensionGeometry`, selection, semantic grips, transforms, native persistence, and document history. Ordinate stores an explicit X/Y axis and datum. Arc Length stores the selected Arc identity plus a self-contained center/start/end/sweep snapshot, so persistence and undo remain deterministic even if the source is later unavailable. Center Mark stores its Circle/Arc identity and semantic center/size. Center Line conservatively accepts two parallel Lines and stores both source identities plus the derived centerline endpoints.
+
+All point phases consume the viewport's resolved point pipeline. Preview and committed display are derived by the same geometry authority. Degenerate Arc Length geometry, unsupported circular sources, and nonparallel Center Line sources are rejected without preview or history mutation.
+
+DXF export deliberately retains its existing supported-type gate. Baseline/Continue export as standard linear dimensions. The four new semantic types are rejected as unsupported rather than flattened to loose Lines/Text or emitted with lossy semantics; a future DXF interoperability stage can add faithful mappings.
