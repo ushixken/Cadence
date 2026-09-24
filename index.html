@@ -120,6 +120,7 @@
     <script src="./src/js/editor/layers-panel.js" defer></script>
     <script src="./src/js/editor/groups-panel.js" defer></script>
     <script src="./src/js/editor/blocks-panel.js" defer></script>
+    <script src="./src/js/editor/block-edit-context.js" defer></script>
     <script src="./src/js/editor/properties-panel.js" defer></script>
     <script src="./src/js/editor/ContextMenu.js" defer></script>
     <script src="./src/js/editor/context-menu.js" defer></script>
@@ -568,6 +569,12 @@
           <div class="viewport">
             <canvas></canvas>
           </div>
+          <section id="block-edit-context" class="block-edit-context" aria-label="Block editing context" hidden>
+            <svg aria-hidden="true"><use href="#dock-block"/></svg>
+            <strong>Editing Block: <span id="block-edit-name"></span></strong>
+            <button id="block-edit-save" type="button">Save Changes / Close Block</button>
+            <button id="block-edit-discard" type="button">Discard Changes</button>
+          </section>
           <aside class="layers-panel editor-sidebar" aria-label="Editor panels">
             <button id="right-dock-resize" class="right-dock-resize" type="button" role="separator" aria-label="Resize right dock" aria-orientation="vertical" aria-valuemin="230" aria-valuenow="288"></button>
             <div class="sidebar-tabs" role="tablist" aria-label="Editor panels">
