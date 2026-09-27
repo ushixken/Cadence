@@ -60,6 +60,7 @@
     <script src="./src/js/io/dxf/DxfImport.js" defer></script>
     <script src="./src/js/io/dxf/DxfExport.js" defer></script>
     <script src="./src/js/editor/DocumentSession.js" defer></script>
+    <script src="./src/js/editor/LayoutContext.js" defer></script>
     <script src="./src/js/editor/UserPreferences.js" defer></script>
     <script src="./src/js/editor/WorkspacePreferences.js" defer></script>
     <script src="./src/js/viewport/ViewportCamera.js" defer></script>
@@ -111,6 +112,7 @@
     <script src="./src/js/editor/footer-controls.js" defer></script>
     <script src="./src/js/editor/settings-panel.js" defer></script>
     <script src="./src/js/editor/command-input.js" defer></script>
+    <script src="./src/js/editor/layout-tabs.js" defer></script>
     <script src="./src/js/editor/application-shell.js" defer></script>
     <script src="./src/js/editor/measure-menu.js" defer></script>
     <script src="./src/js/editor/history-actions.js" defer></script>
@@ -725,7 +727,7 @@
           </aside>
           <section class="command-history-region" aria-label="Command history"><div class="command-history" id="command-history" aria-live="polite"></div></section>
         </div>
-        <nav class="model-strip" aria-label="Model space"><button type="button" aria-current="page">Model</button><span>Model space</span></nav>
+        <nav class="model-strip" aria-label="Model and Layout workspaces"><div id="layout-tabs" class="layout-tabs" role="tablist" aria-label="Drawing workspaces"></div><button id="layout-add" class="layout-add" type="button" aria-label="Add Layout" title="Add Layout">+</button></nav>
         <footer class="editor-footer" aria-label="Editor status bar">
           <div class="command-area">
             <span class="command-label">Command:</span>

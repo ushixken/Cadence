@@ -194,6 +194,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/io/dxf/DxfImport.js');
   load('src/js/io/dxf/DxfExport.js');
   load('src/js/editor/DocumentSession.js');
+  load('src/js/editor/LayoutContext.js');
   load('src/js/editor/UserPreferences.js');
   load('src/js/editor/WorkspacePreferences.js');
   load('src/js/viewport/ViewportCamera.js');

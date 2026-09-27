@@ -1,0 +1,14 @@
+// PS1 compact Model/Layout navigation and Layout document operations.
+(() => {
+  const strip=document.querySelector(".model-strip"),tabs=document.querySelector("#layout-tabs"),add=document.querySelector("#layout-add")
+  const session=window.caderactDocumentSession,context=window.caderactLayoutContext
+  if(!strip||!tabs||!add||!session||!context)return
+  let dragged=null,unsubscribeHistory=null
+  const activate=id=>{const outcome=id==="model"?context.switchToModel():context.switchToLayout(id);if(outcome.status==="context-switched"){window.caderactSelection?.clear?.();window.caderactViewport?.refreshDocumentView?.()}return outcome}
+  function tab(label,id){const button=document.createElement("button");button.type="button";button.classList.add("layout-tab");button.textContent=label;button.dataset.layoutId=id;button.setAttribute("role","tab");button.setAttribute("aria-selected","false");button.draggable=id!=="model";button.addEventListener("click",()=>activate(id));if(id!=="model"){button.title="Double-click to rename; right-click to delete";button.addEventListener("dblclick",()=>{const name=window.prompt?.("Rename Layout",label);if(name!==null&&name!==undefined)session.layoutGateway.rename(id,name)});button.addEventListener("contextmenu",event=>{event.preventDefault();if(window.confirm?.(`Delete ${label}?`)!==false)session.layoutGateway.remove(id)});button.addEventListener("dragstart",()=>{dragged=id});button.addEventListener("dragover",event=>event.preventDefault());button.addEventListener("drop",event=>{event.preventDefault();const target=session.reader.layouts().findIndex(layout=>layout.id===id);if(dragged)session.layoutGateway.reorder(dragged,target);dragged=null})}return button}
+  function render(){const current=context.snapshot();tabs.replaceChildren(tab("Model","model"),...session.reader.layouts().map(layout=>tab(layout.name,layout.id)));for(const button of tabs.children){const active=current.kind==="model"?button.dataset.layoutId==="model":button.dataset.layoutId===current.layoutId;button.classList.toggle("is-active",active);button.setAttribute("aria-selected",String(active));if(active)button.setAttribute("aria-current","page");else button.removeAttribute("aria-current")}}
+  function bind(){unsubscribeHistory?.();unsubscribeHistory=session.controller.subscribeHistory(render);render()}
+  add.addEventListener("click",()=>{const outcome=session.layoutGateway.create();if(outcome.layout)activate(outcome.layout.id)})
+  context.subscribe(render);session.subscribe(bind);bind()
+  window.caderactLayouts=Object.freeze({create:name=>session.layoutGateway.create(name),rename:(id,name)=>session.layoutGateway.rename(id,name),remove:id=>session.layoutGateway.remove(id),reorder:(id,index)=>session.layoutGateway.reorder(id,index),activate,get context(){return context.snapshot()}})
+})()

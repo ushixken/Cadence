@@ -34,6 +34,7 @@ let renderer = null, isInitialized = false, isRenderScheduled = false
 let rendererStatus = "initializing", rendererError = null, recoveryPromise = null
 let navigation = null, resizeObserver = null
 let activeSnapResult = null
+window.caderactLayoutContext = window.CaderactLayoutContext.create({session:documentSession,onChange:()=>{window.caderactSelection?.clear?.();requestRender()}})
 function resolveTypedPrecisionPoint(input, anchor = null) {
   const candidate = activeSnapResult?.point
   const direction = anchor && candidate ? { x: candidate.x - anchor.x, y: candidate.y - anchor.y } : null
@@ -178,8 +179,8 @@ function getActiveCommandSession() {
   return window.caderactCommandRouter?.activeSession || null
 }
 function inLayerIsolation(record){return isolatedLayerId===null||record.layerId===isolatedLayerId}
-function visibleRecords(){return Object.freeze(modelReader.visibleRecords().filter(inLayerIsolation))}
-function editableRecords(){return Object.freeze(modelReader.editableRecords().filter(inLayerIsolation))}
+function visibleRecords(){return window.caderactLayoutContext?.isModel===false?Object.freeze([]):Object.freeze(modelReader.visibleRecords().filter(inLayerIsolation))}
+function editableRecords(){return window.caderactLayoutContext?.isModel===false?Object.freeze([]):Object.freeze(modelReader.editableRecords().filter(inLayerIsolation))}
 function expandedVisibleRecords(){
   if(getActiveCommandSession()?.name==="BlockEdit"&&getActiveCommandSession()?.phase==="edit")return Object.freeze([])
   const snapshot=modelReader.snapshot(),definitions=snapshot.blockDefinitions||{},records=[]

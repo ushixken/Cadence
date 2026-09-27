@@ -85,7 +85,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   ...window.caderactCadCommands.definitions(),
 ])
 commandRouter = window.CaderactCommandRouter.createRouter({ registry: commandRegistry, setPrompt: setCommandHint,
-  getPreselectionIds: () => window.caderactSelection?.selectedIds?.() || [] })
+  getPreselectionIds: () => window.caderactSelection?.selectedIds?.() || [], canActivate: () => window.caderactLayoutContext?.isModel !== false })
 window.caderactCommandRegistry = commandRegistry
 window.caderactCommandRouter = commandRouter
 

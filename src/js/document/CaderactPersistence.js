@@ -14,6 +14,7 @@
   }
   const canonicalGroup=group=>({id:group.id,name:group.name,memberIds:Array.from(group.memberIds)})
   const canonicalDefinition=definition=>({id:definition.id,name:definition.name,basePoint:{x:definition.basePoint.x,y:definition.basePoint.y},records:definition.recordOrder.map(id=>canonicalRecord(definition.records[id])),recordOrder:Array.from(definition.recordOrder)})
+  const canonicalLayout=layout=>({id:layout.id,name:layout.name,paper:{width:layout.paper.width,height:layout.paper.height,units:layout.paper.units}})
   const properties=record=>window.CaderactObjectProperties.recordProperties(record)
   const dimensionControls=record=>({prefixOverride:record.prefixOverride??null,suffixOverride:record.suffixOverride??null,toleranceMode:record.toleranceMode??"none",toleranceUpper:record.toleranceUpper??0,toleranceLower:record.toleranceLower??0,textPositionMode:record.textPositionMode??"automatic",manualTextPosition:record.textPositionMode==="manual"&&record.manualTextPosition?{x:record.manualTextPosition.x,y:record.manualTextPosition.y,featureId:record.manualTextPosition.featureId}:null})
   function canonicalRecord(record) {
@@ -70,7 +71,7 @@
         layerOrder: Array.from(document.layerOrder),
         layers: sortById(Object.values(document.layers)).map(canonicalLayer),
         records: sortById(Object.values(document.geometry.objects)).map(canonicalRecord),
-        groups:sortById(Object.values(document.groups)).map(canonicalGroup),nextGroupNumber:document.nextGroupNumber,blockDefinitions:sortById(Object.values(document.blockDefinitions)).map(canonicalDefinition),
+        groups:sortById(Object.values(document.groups)).map(canonicalGroup),nextGroupNumber:document.nextGroupNumber,blockDefinitions:sortById(Object.values(document.blockDefinitions)).map(canonicalDefinition),layouts:document.layoutOrder.map(id=>canonicalLayout(document.layouts[id])),layoutOrder:Array.from(document.layoutOrder),
       },
     }
   }
@@ -97,6 +98,7 @@
     if (!Array.isArray(source.records)) invalid("records must be an array")
     if(!legacy&&!version2&&source.groups!==undefined&&!Array.isArray(source.groups))invalid("groups must be an array")
     if(!legacy&&!version2&&source.blockDefinitions!==undefined&&!Array.isArray(source.blockDefinitions))invalid("blockDefinitions must be an array")
+    if(!legacy&&!version2&&source.layouts!==undefined&&!Array.isArray(source.layouts))invalid("layouts must be an array")
 
     function tableFrom(items, label, canonicalize) {
       const entries = [], ids = new Set()
@@ -166,6 +168,7 @@
     const groups=legacy||version2||source.groups===undefined?{}:tableFrom(source.groups,"group",group=>{rejectUnknown(group,fields.group,"Group entry");if(!Array.isArray(group.memberIds))invalid("Group memberIds must be an array");return canonicalGroup(group)})
     const blockDefinitions={}
     if(!legacy&&!version2)for(const definition of source.blockDefinitions||[]){if(!isRecord(definition))invalid("Block Definition entry must be an object");rejectUnknown(definition,fields.blockDefinition,"Block Definition entry");if(!isRecord(definition.basePoint))invalid("Block Definition basePoint must be an object");rejectUnknown(definition.basePoint,fields.coordinate,"Block Definition basePoint");if(!Array.isArray(definition.records)||!Array.isArray(definition.recordOrder))invalid("Block Definition records/order must be arrays");if(blockDefinitions[definition.id])invalid(`duplicate Block Definition ID ${definition.id}`);const records=tableFrom(definition.records,"definition record",canonicalRecord);blockDefinitions[definition.id]={id:definition.id,name:definition.name,basePoint:{x:definition.basePoint.x,y:definition.basePoint.y},records,recordOrder:Array.from(definition.recordOrder)}}
+    const layouts={};if(!legacy&&!version2)for(const layout of source.layouts||[]){if(!isRecord(layout))invalid("Layout entry must be an object");rejectUnknown(layout,fields.layout,"Layout entry");if(!isRecord(layout.paper))invalid("Layout paper must be an object");rejectUnknown(layout.paper,fields.layoutPaper,"Layout paper");if(layouts[layout.id])invalid(`duplicate Layout ID ${layout.id}`);layouts[layout.id]={id:layout.id,name:layout.name,paper:{width:layout.paper.width,height:layout.paper.height,units:layout.paper.units}}}if(!Object.keys(layouts).length){const id=`layout_${source.id}_1`;layouts[id]={id,name:"Layout1",paper:{width:297,height:210,units:"mm"}}}
     let styleId,dimensionStyles,dimensionStyleOrder,currentDimensionStyleId
     if(legacy||version2){styleId=`ds_${source.id}_standard`;dimensionStyles={[styleId]:{id:styleId,name:"Standard",...(version2?source.dimensionStyle:window.CaderactDocument.DEFAULT_DIMENSION_STYLE)}};dimensionStyleOrder=[styleId];currentDimensionStyleId=styleId;for(const record of Object.values(objects))if(record.type.startsWith("dimension-"))record.dimensionStyleId=styleId}
     else {dimensionStyles=tableFrom(source.dimensionStyles,"dimension style",style=>({...style}));dimensionStyleOrder=source.dimensionStyles.map(style=>style.id);currentDimensionStyleId=source.currentDimensionStyleId}
@@ -176,7 +179,7 @@
       units: { length: source.units?.length },
       dimensionStyles,dimensionStyleOrder,currentDimensionStyleId,
       geometry: { objects },
-      groups,nextGroupNumber:legacy||version2||source.nextGroupNumber===undefined?1:source.nextGroupNumber,blockDefinitions,
+      groups,nextGroupNumber:legacy||version2||source.nextGroupNumber===undefined?1:source.nextGroupNumber,blockDefinitions,layouts,layoutOrder:Array.isArray(source.layoutOrder)&&source.layoutOrder.length?Array.from(source.layoutOrder):Object.keys(layouts),
       layers,layerOrder:Array.isArray(source.layerOrder)?Array.from(source.layerOrder):Object.keys(layers).sort(),
       defaultLayerId: source.defaultLayerId,
       currentLayerId: source.currentLayerId,
