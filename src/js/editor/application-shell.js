@@ -1,6 +1,6 @@
 // ASTRA-1G shell adapter: presentation state only; CAD commands remain owned by CommandRouter.
 (() => {
-  const root = document.querySelector(".editor-page"), registry = window.caderactCommandRegistry, router = window.caderactCommandRouter
+  const root = document.querySelector(".editor-page"), registry = window.caderactCommandRegistry, router = window.caderactCommandRouter, workspacePreferences=window.caderactWorkspacePreferences
   if (!(root instanceof HTMLElement) || !registry || !router) return
   const categoryTools = document.querySelector("#category-tools"), categoryName = document.querySelector("#active-category-name")
   const utility = document.querySelector(".utility-menu"), utilityTrigger = document.querySelector("#utility-menu-trigger"), utilityMenu = document.querySelector("#utility-menu-actions")
@@ -27,7 +27,7 @@
     svg.setAttribute("aria-hidden","true");use.setAttribute("href",`#cad-${icons[name]||"line"}`);svg.appendChild(use);return svg
   }
   function showCategory(name) {
-    const category=categories[name]||collection()
+    const category=categories[name]||categories.Draw
     if (!(categoryTools instanceof HTMLElement) || !(categoryName instanceof HTMLElement)) return
     categoryName.textContent=name
     const commandButtons=category.commands.filter(command=>registry.resolve(command)).map(command=>{
@@ -38,6 +38,7 @@
     categoryTools.replaceChildren(...commandButtons,...actionButtons)
     if (!categoryTools.childElementCount) { const empty=document.createElement("span");empty.className="category-empty";empty.textContent=`${name} commands remain available through menus and command input.`;categoryTools.appendChild(empty) }
     root.querySelectorAll(".cad-tool-tabs [data-shell-category]").forEach(button=>{const active=button.getAttribute("data-shell-category")===name;button.classList.toggle("is-active",active);button.setAttribute("aria-selected",String(active));button.tabIndex=active?0:-1})
+    workspacePreferences.set({activeToolCollection:name})
     syncCommandLaunchers()
   }
   const categoryTabs=Array.from(root.querySelectorAll(".cad-tool-tabs [data-shell-category]"))
@@ -81,9 +82,9 @@
   window.caderactUserPreferences.subscribe(syncGridAction)
   const windowPanelPreferences=Object.freeze({layers:"rightDockLayersVisible",groups:"rightDockGroupsVisible",blocks:"rightDockBlocksVisible",properties:"rightDockPropertiesVisible"})
   const windowPanelActions=Array.from(root.querySelectorAll("[data-window-panel]"))
-  function syncWindowPanels(){for(const action of windowPanelActions){const preference=windowPanelPreferences[action.dataset.windowPanel];if(preference)action.setAttribute("aria-checked",String(window.caderactUserPreferences.value[preference]))}}
-  for(const action of windowPanelActions)action.addEventListener("click",()=>{const panel=action.dataset.windowPanel;if(window.caderactPropertiesPanel?.togglePanel)window.caderactPropertiesPanel.togglePanel(panel);else{const preference=windowPanelPreferences[panel];if(preference)window.caderactUserPreferences.set({[preference]:!window.caderactUserPreferences.value[preference]})}syncWindowPanels();closeApplicationMenus()})
-  window.caderactUserPreferences.subscribe(syncWindowPanels)
+  function syncWindowPanels(){for(const action of windowPanelActions){const preference=windowPanelPreferences[action.dataset.windowPanel];if(preference)action.setAttribute("aria-checked",String(workspacePreferences.value[preference]))}}
+  for(const action of windowPanelActions)action.addEventListener("click",()=>{const panel=action.dataset.windowPanel;if(window.caderactPropertiesPanel?.togglePanel)window.caderactPropertiesPanel.togglePanel(panel);else{const preference=windowPanelPreferences[panel];if(preference)workspacePreferences.set({[preference]:!workspacePreferences.value[preference]})}syncWindowPanels();closeApplicationMenus()})
+  workspacePreferences.subscribe(syncWindowPanels)
   document.addEventListener("pointerdown",event=>{if(rail instanceof HTMLElement&&!event.composedPath().includes(rail)&&!railMenus.some(menu=>event.composedPath().includes(menu)))closeRailFlyouts();if(utility instanceof HTMLElement&&!event.composedPath().includes(utility))closeUtility();if(edit instanceof HTMLElement&&!event.composedPath().includes(edit))closeEdit();if(!applicationMenus.some(menu=>event.composedPath().includes(menu)))closeApplicationMenus()})
   document.addEventListener("focusin",event=>{if(rail instanceof HTMLElement&&!event.composedPath().includes(rail)&&!railMenus.some(menu=>event.composedPath().includes(menu)))closeRailFlyouts();if(utility instanceof HTMLElement&&!event.composedPath().includes(utility)&&event.target!==utilityTrigger)closeUtility();if(edit instanceof HTMLElement&&!event.composedPath().includes(edit)&&event.target!==editTrigger)closeEdit()})
   document.addEventListener("keydown",event=>{
@@ -92,6 +93,6 @@
     else if(event.key==="Escape"&&!editMenu?.hidden){event.preventDefault();closeEdit({focus:true})}
     else if(event.key==="Escape")closeApplicationMenus(null,{focus:true})
   })
-  showCategory("Draw")
+  showCategory(workspacePreferences.value.activeToolCollection)
   window.caderactApplicationShell=Object.freeze({launch,showCategory,closeUtility,closeRailFlyouts,syncCommandLaunchers})
 })()

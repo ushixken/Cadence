@@ -21,5 +21,5 @@
   window.CaderactRightDock=Object.freeze({MIN,DEFAULT,MAX_FRACTION,create})
   const dock=document.querySelector(".layers-panel"),handle=document.querySelector("#right-dock-resize"),workspace=document.querySelector(".editor-workspace")
   // Production canvas sizing is owned solely by Viewport's ResizeObserver.
-  if(dock&&handle&&workspace&&window.caderactUserPreferences)window.caderactRightDock=create({dock,handle,workspace,preferences:window.caderactUserPreferences})
+  if(dock&&handle&&workspace&&window.caderactWorkspacePreferences)window.caderactRightDock=create({dock,handle,workspace,preferences:window.caderactWorkspacePreferences})
 })()
