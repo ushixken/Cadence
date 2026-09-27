@@ -31,10 +31,11 @@ let { reader: modelReader, recordGateway, groupGateway, blockDefinitionGateway, 
 
 let viewportWidth = 0, viewportHeight = 0, viewportDeviceScale = 0
 let renderer = null, isInitialized = false, isRenderScheduled = false
+let invalidateWorldScene=()=>{}
 let rendererStatus = "initializing", rendererError = null, recoveryPromise = null
 let navigation = null, resizeObserver = null
 let activeSnapResult = null
-window.caderactLayoutContext = window.CaderactLayoutContext.create({session:documentSession,onChange:context=>{window.caderactSelection?.clear?.();if(context.kind==="layout"){const page=window.CaderactPaperSpace.derive(modelReader.layout(context.layoutId));if(page.valid&&viewportWidth>0&&viewportHeight>0){camera.zoom=Math.max(.01,Math.min((viewportWidth-48)/page.sheet.width,(viewportHeight-48)/page.sheet.height));camera.panX=(viewportWidth-page.sheet.width*camera.zoom)/2;camera.panY=(viewportHeight+page.sheet.height*camera.zoom)/2}}requestRender()}})
+window.caderactLayoutContext = window.CaderactLayoutContext.create({session:documentSession,onChange:context=>{invalidateWorldScene();window.caderactSelection?.clear?.();if(context.kind==="layout"){const page=window.CaderactPaperSpace.derive(modelReader.layout(context.layoutId));if(page.valid&&viewportWidth>0&&viewportHeight>0){camera.zoom=Math.max(.01,Math.min((viewportWidth-48)/page.sheet.width,(viewportHeight-48)/page.sheet.height));camera.panX=(viewportWidth-page.sheet.width*camera.zoom)/2;camera.panY=(viewportHeight+page.sheet.height*camera.zoom)/2}}requestRender()}})
 function resolveTypedPrecisionPoint(input, anchor = null) {
   const candidate = activeSnapResult?.point
   const direction = anchor && candidate ? { x: candidate.x - anchor.x, y: candidate.y - anchor.y } : null
@@ -65,7 +66,7 @@ let polarGuide = null
 const viewportHost = canvas.parentElement || canvas.parent
 function canvasAlpha(hex,alpha){const value=Number.parseInt(hex.slice(1),16);return`rgba(${value>>16&255}, ${value>>8&255}, ${value&255}, ${alpha})`}
 function customCanvasPalette(colors){return Object.freeze({backgroundColor:colors.background,geometryColor:colors.geometry,previewColor:canvasAlpha(colors.geometry,.65),snapMarkerColor:colors.osnap,selectionColor:colors.selection,trackingGuideColor:canvasAlpha(colors.tracking,.66),trackingMarkerColor:colors.tracking,gripColor:colors.grip,gripHoverColor:colors.gripHover,gripActiveColor:colors.selection,selectionWindowColor:colors.selection,selectionCrossingColor:colors.tracking,draftPointColor:colors.geometry,acceptedDraftColor:colors.geometry,moveSourceGhostColor:canvasAlpha(colors.geometry,.35),moveGuideColor:canvasAlpha(colors.osnap,.72),rotateCenterMarkerColor:colors.osnap,rotateReferenceMarkerColor:colors.tracking,rotateTargetMarkerColor:colors.selection})}
-function applyCanvasTheme(value=workspacePreferences?.value){const name=["light","custom"].includes(value?.canvasTheme)?value.canvasTheme:"dark",palette=name==="custom"?customCanvasPalette(value.customCanvasColors):canvasThemePalettes[name];Object.assign(viewportSettings,palette);if(name==="custom")applyCustomGridColors(value.customCanvasColors);else applyGridAppearance(userPreferences.value);if(viewportHost?.dataset)viewportHost.dataset.canvasTheme=name;requestRender?.()}
+function applyCanvasTheme(value=workspacePreferences?.value){const name=["light","custom"].includes(value?.canvasTheme)?value.canvasTheme:"dark",palette=name==="custom"?customCanvasPalette(value.customCanvasColors):canvasThemePalettes[name];Object.assign(viewportSettings,palette);if(name==="custom")applyCustomGridColors(value.customCanvasColors);else applyGridAppearance(userPreferences.value);if(viewportHost?.dataset)viewportHost.dataset.canvasTheme=name;invalidateWorldScene();requestRender?.()}
 applyCanvasTheme()
 workspacePreferences?.subscribe(applyCanvasTheme)
 const interactionVisuals = window.CaderactInteractionVisuals.createController({ host: viewportHost })
@@ -160,8 +161,8 @@ function finishProfessionalSelection(){if(!professionalSelection)return Object.f
 function selectSimilar(){const seeds=modelReader.editableRecords().filter(record=>selection.has(record.id)),ids=window.CaderactProfessionalSelection.similar(editableRecords(),seeds);return selection.applyRecordIds(ids)}
 function selectByType(type,{toggle=false}={}){return selection.applyRecordIds(window.CaderactProfessionalSelection.queryRecords({records:editableRecords(),type:String(type||"").trim().toLowerCase()}),{toggle})}
 function selectByLayer(layer,{toggle=false}={}){const value=String(layer||"").trim(),target=modelReader.layers().find(item=>item.id===value||item.name.toLowerCase()===value.toLowerCase());return target?selection.applyRecordIds(window.CaderactProfessionalSelection.queryRecords({records:editableRecords(),layerId:target.id}),{toggle}):Object.freeze({status:"invalid-selection-query",reason:"unknown-layer"})}
-function setLayerIsolation(layerId){const layer=modelReader.layer(layerId);if(!layer)return Object.freeze({status:"unknown-layer",layerId});if(isolatedLayerId===layerId)return Object.freeze({status:"no-op",layerId});isolatedLayerId=layerId;selection.pruneAgainstDocument(editableRecords());objectSnapTracking.clear();clearSnap();grips.reconcile();requestRender();return Object.freeze({status:"layer-isolated",layerId})}
-function clearLayerIsolation(){if(isolatedLayerId===null)return Object.freeze({status:"no-op"});const layerId=isolatedLayerId;isolatedLayerId=null;objectSnapTracking.clear();clearSnap();grips.reconcile();requestRender();return Object.freeze({status:"layer-unisolated",layerId})}
+function setLayerIsolation(layerId){const layer=modelReader.layer(layerId);if(!layer)return Object.freeze({status:"unknown-layer",layerId});if(isolatedLayerId===layerId)return Object.freeze({status:"no-op",layerId});isolatedLayerId=layerId;invalidateWorldScene();selection.pruneAgainstDocument(editableRecords());objectSnapTracking.clear();clearSnap();grips.reconcile();requestRender();return Object.freeze({status:"layer-isolated",layerId})}
+function clearLayerIsolation(){if(isolatedLayerId===null)return Object.freeze({status:"no-op"});const layerId=isolatedLayerId;isolatedLayerId=null;invalidateWorldScene();objectSnapTracking.clear();clearSnap();grips.reconcile();requestRender();return Object.freeze({status:"layer-unisolated",layerId})}
 function getLayerIsolationState(){return Object.freeze({active:isolatedLayerId!==null,layerId:isolatedLayerId})}
 function selectionCycleSnapshot(){if(!selectionCycle)return null;return Object.freeze({recordIds:Object.freeze(selectionCycle.candidates.map(item=>item.recordId)),activeIndex:selectionCycle.index,activeRecordId:selectionCycle.candidates[selectionCycle.index].recordId,screenPoint:Object.freeze({...selectionCycle.screenPoint})})}
 function cycleSelection(step=1){if(!selectionCycle)return Object.freeze({status:"selection-cycle-inactive"});selectionCycle.index=(selectionCycle.index+(step<0?-1:1)+selectionCycle.candidates.length)%selectionCycle.candidates.length;selection.selectOnly(selectionCycle.candidates[selectionCycle.index].recordId);requestRender();return Object.freeze({status:"selection-cycle-updated",...selectionCycleSnapshot()})}
@@ -279,6 +280,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getLayoutViewports:()=>{const context=window.caderactLayoutContext?.snapshot(),layout=context?.kind==="layout"?modelReader.layout(context.layoutId):null;return layout?layout.viewportOrder.map(id=>layout.viewports[id]):[]},
   getModelRecords:()=>modelReader.visibleRecords(),
 })
+invalidateWorldScene=()=>sceneBuilder.invalidateWorldGeometry()
 
 function createScene() {
   const scene=sceneBuilder.createScene();annotationOverlay.render(scene.annotationOverlay?.items||[]);return scene
@@ -287,7 +289,7 @@ function createScene() {
 function renderNow() {
   const activeRenderer=renderer
   if(!activeRenderer||viewportWidth<=0||viewportHeight<=0)return
-  try { activeRenderer.render(createScene()) }
+  try { const reuseWorld=activeRenderer.supportsWorldGeometry===true&&!getActiveCommandSession()&&!grips.isActive&&selection.selectedIds().length===0,scene=sceneBuilder.createRenderScene({reuseWorld});annotationOverlay.render(scene.annotationOverlay?.items||[]);activeRenderer.render(scene) }
   catch (error) {
     if (rendererStatus === "fallback-active" || activeRenderer.kind === "canvas2d") {
       console.warn("Caderact Canvas2D fallback failed; rendering disabled", error)
@@ -1700,6 +1702,7 @@ function resetForDocumentReplacement() {
 }
 
 documentSession.subscribe(({ store }) => {
+  invalidateWorldScene()
   isolatedLayerId=null
   modelReader = store.reader
   recordGateway = store.recordGateway
@@ -1717,6 +1720,7 @@ documentSession.subscribe(({ store }) => {
 function bindSelectionDocument() {
   selectionHistoryUnsubscribe?.()
   selectionHistoryUnsubscribe = documentController.subscribeHistory(() => {
+    invalidateWorldScene()
     if(isolatedLayerId!==null&&!modelReader.layer(isolatedLayerId))isolatedLayerId=null
     const capturedPointerId = grips.active?.pointerId
     selection.pruneAgainstDocument(editableRecords())

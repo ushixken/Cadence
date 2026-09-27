@@ -127,7 +127,7 @@
       }
     }
 
-    function createScene() {
+    function createScene({recordsOverride=null}={}) {
       const { width: viewportWidth, height: viewportHeight } = getViewportSize()
       const paperSpace=getPaperSpace()
       const scale = window.devicePixelRatio || 1
@@ -319,7 +319,7 @@
 
       // A6 persistent projection: query the authoritative document read-side on
       // every scene build. Unknown record types are skipped deterministically.
-      const records = getRecords(),
+      const records = recordsOverride===null?getRecords():recordsOverride,
         selectedIds = new Set(getSelectedIds()),
         gripPreview = getGripPreview(),
         movePreview = getMovePreview() || getOffsetPreview()
@@ -1346,8 +1346,30 @@
       }
     }
 
+    let worldGeometryCache=null
+    function invalidateWorldGeometry(){worldGeometryCache=null}
+    function createWorldGeometry(records){
+      const source=Array.from(records),reusable=worldGeometryCache&&worldGeometryCache.source.length===source.length&&source.every((record,index)=>record===worldGeometryCache.source[index])
+      if(reusable)return worldGeometryCache.scene
+      // Stable presentation coordinates retain the renderer's conventional
+      // downward Y axis while omitting camera scale and translation.
+      const worldSettings={...viewportSettings,gridVisible:false,gridExtent:0},identityCamera={state:{zoom:1},worldToScreen:(x,y)=>({x,y:-y}),screenToWorld:(x,y)=>({x,y:-y})}
+      const builder=createSceneBuilder({viewportSettings:worldSettings,camera:identityCamera,getViewportSize:()=>({width:1,height:1}),getDocumentUnit,getDimensionStyle,getRecords:()=>source,getLayer,getModelRecords:()=>[]})
+      const projected=builder.createScene(),baseGroup=Object.freeze({lineGroup:projected.lineGroups[4],circleGroup:projected.circleGroups[4],arcGroup:projected.arcGroups[4],ellipseGroup:projected.ellipseGroups[4]}),triangles=projected.triangleGroups.filter(group=>group.role==="solid-hatch"||group.role==="annotation").map(group=>Object.freeze({role:group.role,triangles:Object.freeze(group.triangles.filter(triangle=>!triangle.preview&&!triangle.selected))}))
+      const scene=Object.freeze({drawGroups:Object.freeze([baseGroup,...projected.propertyDrawGroups]),triangleGroups:Object.freeze(triangles),annotations:Object.freeze(projected.annotationOverlay.items.filter(item=>!item.preview)),recordCount:source.length})
+      worldGeometryCache={source,scene}
+      return scene
+    }
+    function createRenderScene({reuseWorld=true}={}){
+      if(!reuseWorld||getPaperSpace()?.valid)return createScene()
+      const worldGeometry=worldGeometryCache?.scene||createWorldGeometry(getRecords()),overlay=createScene({recordsOverride:Object.freeze([])}),cameraTransform=Object.freeze({zoom:camera.state.zoom,panX:camera.state.panX,panY:camera.state.panY}),annotations=worldGeometry.annotations.map(item=>Object.freeze({...item,x:camera.state.panX+item.x*camera.state.zoom,y:camera.state.panY+item.y*camera.state.zoom,fontSize:item.fontSize*camera.state.zoom}))
+      return Object.freeze({...overlay,worldGeometry,cameraTransform,annotationOverlay:Object.freeze({items:Object.freeze(annotations)})})
+    }
     return Object.freeze({
       createScene,
+      createRenderScene,
+      invalidateWorldGeometry,
+      getWorldGeometryState:()=>Object.freeze({cached:Boolean(worldGeometryCache),recordCount:worldGeometryCache?.scene.recordCount||0,scene:worldGeometryCache?.scene||null}),
       getAdaptiveGridSpacing,
       GRID_STEPS,
       MAJOR_MULTIPLE,

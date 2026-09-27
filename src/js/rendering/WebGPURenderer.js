@@ -3,12 +3,14 @@ class WebGPURenderer extends window.CaderactRenderer {
     super()
     this.canvas = canvas
     this.kind = "webgpu"
+    this.supportsWorldGeometry = true
     this.adapter = adapter
     this.device = device
     this.context = context
     this.format = format
     this.vertexBuffer = null
     this.vertexCapacity = 0
+    this.worldGeometryCache = null
     this.uniformBuffer = device.createBuffer({
       size: 16,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -90,10 +92,50 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
         batches.push({segments,color:ellipseGroup.colorData});vertexCount+=(segments.length/4)*2
       }
     }
-    const hatchTriangles=(scene.triangleGroups||[]).filter(group=>group.role==="solid-hatch"||group.role==="paper").flatMap(group=>group.triangles||[]),overlayTriangles=(scene.triangleGroups||[]).filter(group=>group.role!=="solid-hatch"&&group.role!=="paper").flatMap(group=>group.triangles||[]),hatchVertexCount=hatchTriangles.length*3,overlayTriangleVertexCount=overlayTriangles.length*3,triangleVertexCount=hatchVertexCount+overlayTriangleVertexCount
+    let worldBatches=[],worldTriangles=[]
+    if(scene.worldGeometry){
+      if(this.worldGeometryCache?.scene!==scene.worldGeometry){
+        this.worldGeometryCache={
+          scene:scene.worldGeometry,
+          drawGroups:scene.worldGeometry.drawGroups||[],
+          triangles:(scene.worldGeometry.triangleGroups||[]).flatMap(group=>group.triangles||[]),
+        }
+      }
+      const transform=scene.cameraTransform
+      const projectPoint=point=>({x:transform.panX+point.x*transform.zoom,y:transform.panY+point.y*transform.zoom})
+      const projectSegments=segments=>{
+        const values=new Float32Array(segments.length)
+        for(let i=0;i<segments.length;i+=4){
+          values[i]=transform.panX+segments[i]*transform.zoom
+          values[i+1]=transform.panY+segments[i+1]*transform.zoom
+          values[i+2]=transform.panX+segments[i+2]*transform.zoom
+          values[i+3]=transform.panY+segments[i+3]*transform.zoom
+        }
+        return values
+      }
+      for(const {lineGroup,circleGroup,arcGroup,ellipseGroup} of this.worldGeometryCache.drawGroups){
+        const prepare=segments=>window.CaderactStrokeStyle.expandSegments(window.CaderactStrokeStyle.dashSegments(segments,lineGroup.dashPattern),lineGroup.lineWidth||1)
+        worldBatches.push({segments:prepare(projectSegments(lineGroup.segments)),color:lineGroup.colorData})
+        for(const circle of circleGroup?.circles||[]){
+          worldBatches.push({segments:prepare(window.CaderactCircleTessellation.createSegments({...circle,center:projectPoint(circle.center),radius:circle.radius*transform.zoom})),color:circleGroup.colorData})
+        }
+        for(const arc of arcGroup?.arcs||[]){
+          worldBatches.push({segments:prepare(window.CaderactCircleTessellation.createArcSegments({...arc,center:projectPoint(arc.center),radius:arc.radius*transform.zoom})),color:arcGroup.colorData})
+        }
+        for(const ellipse of ellipseGroup?.ellipses||[]){
+          worldBatches.push({segments:prepare(window.CaderactEllipseTessellation.createSegments({...ellipse,center:projectPoint(ellipse.center),radiusX:ellipse.radiusX*transform.zoom,radiusY:ellipse.radiusY*transform.zoom})),color:ellipseGroup.colorData})
+        }
+      }
+      worldTriangles=this.worldGeometryCache.triangles
+    }
+    const worldVertexCount=worldBatches.reduce((sum,batch)=>sum+(batch.segments.length/4)*2,0),hatchTriangles=(scene.triangleGroups||[]).filter(group=>group.role==="solid-hatch"||group.role==="paper").flatMap(group=>group.triangles||[]),overlayTriangles=(scene.triangleGroups||[]).filter(group=>group.role!=="solid-hatch"&&group.role!=="paper").flatMap(group=>group.triangles||[]),hatchVertexCount=(worldTriangles.length+hatchTriangles.length)*3,overlayTriangleVertexCount=overlayTriangles.length*3,triangleVertexCount=hatchVertexCount+overlayTriangleVertexCount
+    vertexCount+=worldVertexCount
     const data = new Float32Array((vertexCount+triangleVertexCount) * 6)
     let offset = 0
+    const worldPoint=point=>({x:scene.cameraTransform.panX+point.x*scene.cameraTransform.zoom,y:scene.cameraTransform.panY+point.y*scene.cameraTransform.zoom})
+    for(const triangle of worldTriangles)for(const source of triangle.points){const point=worldPoint(source);data.set([point.x,point.y,...triangle.colorData],offset);offset+=6}
     for(const triangle of hatchTriangles)for(const point of triangle.points){data.set([point.x,point.y,...triangle.colorData],offset);offset+=6}
+    for(const batch of worldBatches)for(let index=0;index<batch.segments.length;index+=4){data.set([batch.segments[index],batch.segments[index+1],...batch.color,batch.segments[index+2],batch.segments[index+3],...batch.color],offset);offset+=12}
     for (const batch of batches) {
       for (let index = 0; index < batch.segments.length; index += 4) {
         data.set([batch.segments[index], batch.segments[index + 1], ...batch.color,
