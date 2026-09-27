@@ -276,6 +276,8 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getPolarGuide: () => polarGuide,
   getObjectTrackingState: () => objectSnapTracking.getState(),
   getPaperSpace:()=>{const context=window.caderactLayoutContext?.snapshot();return context?.kind==="layout"?window.CaderactPaperSpace.derive(modelReader.layout(context.layoutId)):null},
+  getLayoutViewports:()=>{const context=window.caderactLayoutContext?.snapshot(),layout=context?.kind==="layout"?modelReader.layout(context.layoutId):null;return layout?layout.viewportOrder.map(id=>layout.viewports[id]):[]},
+  getModelRecords:()=>modelReader.visibleRecords(),
 })
 
 function createScene() {
@@ -1844,6 +1846,7 @@ function onViewportPointerDown(event) {
     return
   }
   if (!session) {
+    if(window.caderactLayoutContext?.isModel===false){const paper=screenToWorld(point.x,point.y),context=window.caderactLayoutContext.snapshot(),layout=modelReader.layout(context.layoutId),hit=[...(layout?.viewportOrder||[])].reverse().find(id=>{const f=layout.viewports[id].frame,tolerance=4/camera.zoom,onX=paper.x>=f.x-tolerance&&paper.x<=f.x+f.width+tolerance&&(Math.abs(paper.y-f.y)<=tolerance||Math.abs(paper.y-f.y-f.height)<=tolerance),onY=paper.y>=f.y-tolerance&&paper.y<=f.y+f.height+tolerance&&(Math.abs(paper.x-f.x)<=tolerance||Math.abs(paper.x-f.x-f.width)<=tolerance);return onX||onY});window.caderactLayouts?.selectViewport?.(hit||null);requestRender();return}
     const gripOutcome = grips.begin(point, event.pointerId)
     if (gripOutcome.status === "grip-edit-started") {
       canvas.setPointerCapture?.(event.pointerId)
