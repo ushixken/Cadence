@@ -23,7 +23,7 @@ test('TH1 applies all four UI and canvas combinations independently and immediat
 test('TH1 Preferences Appearance controls update the workspace authority live',async()=>{
   const b=await browser();b.emit(b.preferencesTrigger,'click');assert.deepEqual(b.read('window.caderactDraftingSettings.getState()'),{open:true,activeSection:'appearance'})
   b.settingsControls['ui-theme'].value='dark';b.emit(b.settingsControls['ui-theme'],'change');b.settingsControls['canvas-theme'].value='light';b.emit(b.settingsControls['canvas-theme'],'change');b.flush()
-  assert.deepEqual(b.read('window.caderactThemes.getState()'),{uiTheme:'dark',canvasTheme:'light'});assert.equal(b.renders.at(-1).backgroundColor,'#f4f6f7')
+  assert.deepEqual(b.read('({uiTheme:window.caderactThemes.getState().uiTheme,canvasTheme:window.caderactThemes.getState().canvasTheme})'),{uiTheme:'dark',canvasTheme:'light'});assert.equal(b.renders.at(-1).backgroundColor,'#f4f6f7')
 })
 
 test('TH1 persists both themes across workspace recreation',async()=>{

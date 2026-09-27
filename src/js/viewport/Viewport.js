@@ -43,8 +43,10 @@ function resolveTypedPrecisionPoint(input, anchor = null) {
 }
 const userPreferences = window.CaderactUserPreferences.create()
 window.caderactUserPreferences = userPreferences
+const workspacePreferences=window.caderactWorkspacePreferences
 function preferenceColor(hex, opacity) { if (opacity === 1) return hex; const value = Number.parseInt(hex.slice(1), 16); return `rgba(${value >> 16 & 255}, ${value >> 8 & 255}, ${value & 255}, ${opacity})` }
-function applyGridAppearance(value) { viewportSettings.gridVisible=value.gridVisible; viewportSettings.gridColor=preferenceColor(value.gridColor,value.gridOpacity); viewportSettings.majorGridColor=preferenceColor(value.majorGridColor,value.majorGridOpacity); viewportSettings.xAxisColor=preferenceColor(value.xAxisColor,value.xAxisOpacity); viewportSettings.yAxisColor=preferenceColor(value.yAxisColor,value.yAxisOpacity); viewportSettings.majorGridInterval=value.majorGridInterval; requestRender?.() }
+function applyCustomGridColors(colors){viewportSettings.gridColor=colors.gridMinor;viewportSettings.majorGridColor=colors.gridMajor;viewportSettings.gridBoundaryColor=colors.gridMajor;viewportSettings.xAxisColor=colors.axisX;viewportSettings.yAxisColor=colors.axisY}
+function applyGridAppearance(value) { viewportSettings.gridVisible=value.gridVisible; viewportSettings.gridColor=preferenceColor(value.gridColor,value.gridOpacity); viewportSettings.majorGridColor=preferenceColor(value.majorGridColor,value.majorGridOpacity);viewportSettings.gridBoundaryColor=viewportSettings.majorGridColor;viewportSettings.xAxisColor=preferenceColor(value.xAxisColor,value.xAxisOpacity); viewportSettings.yAxisColor=preferenceColor(value.yAxisColor,value.yAxisOpacity);viewportSettings.majorGridInterval=value.majorGridInterval;if(workspacePreferences?.value?.canvasTheme==="custom")applyCustomGridColors(workspacePreferences.value.customCanvasColors);requestRender?.() }
 applyGridAppearance(userPreferences.value)
 userPreferences.subscribe(applyGridAppearance)
 let snapModes = Object.freeze({ object: userPreferences.value.objectSnapEnabled, endpoint: userPreferences.value.endpointSnapEnabled, midpoint: userPreferences.value.midpointSnapEnabled, center: userPreferences.value.centerSnapEnabled, intersection: userPreferences.value.intersectionSnapEnabled, quadrant: userPreferences.value.quadrantSnapEnabled, nearest: userPreferences.value.nearestSnapEnabled, perpendicular: userPreferences.value.perpendicularSnapEnabled, tangent: userPreferences.value.tangentSnapEnabled, vertex: userPreferences.value.vertexSnapEnabled, insertion: userPreferences.value.insertionSnapEnabled, grid: userPreferences.value.gridSnapEnabled })
@@ -60,8 +62,9 @@ const polarListeners = new Set()
 const effectivePolarListeners = new Set()
 let polarGuide = null
 const viewportHost = canvas.parentElement || canvas.parent
-const workspacePreferences=window.caderactWorkspacePreferences
-function applyCanvasTheme(value=workspacePreferences?.value){const name=value?.canvasTheme==="light"?"light":"dark";Object.assign(viewportSettings,canvasThemePalettes[name]);if(viewportHost?.dataset)viewportHost.dataset.canvasTheme=name;requestRender?.()}
+function canvasAlpha(hex,alpha){const value=Number.parseInt(hex.slice(1),16);return`rgba(${value>>16&255}, ${value>>8&255}, ${value&255}, ${alpha})`}
+function customCanvasPalette(colors){return Object.freeze({backgroundColor:colors.background,geometryColor:colors.geometry,previewColor:canvasAlpha(colors.geometry,.65),snapMarkerColor:colors.osnap,selectionColor:colors.selection,trackingGuideColor:canvasAlpha(colors.tracking,.66),trackingMarkerColor:colors.tracking,gripColor:colors.grip,gripHoverColor:colors.gripHover,gripActiveColor:colors.selection,selectionWindowColor:colors.selection,selectionCrossingColor:colors.tracking,draftPointColor:colors.geometry,acceptedDraftColor:colors.geometry,moveSourceGhostColor:canvasAlpha(colors.geometry,.35),moveGuideColor:canvasAlpha(colors.osnap,.72),rotateCenterMarkerColor:colors.osnap,rotateReferenceMarkerColor:colors.tracking,rotateTargetMarkerColor:colors.selection})}
+function applyCanvasTheme(value=workspacePreferences?.value){const name=["light","custom"].includes(value?.canvasTheme)?value.canvasTheme:"dark",palette=name==="custom"?customCanvasPalette(value.customCanvasColors):canvasThemePalettes[name];Object.assign(viewportSettings,palette);if(name==="custom")applyCustomGridColors(value.customCanvasColors);else applyGridAppearance(userPreferences.value);if(viewportHost?.dataset)viewportHost.dataset.canvasTheme=name;requestRender?.()}
 applyCanvasTheme()
 workspacePreferences?.subscribe(applyCanvasTheme)
 const interactionVisuals = window.CaderactInteractionVisuals.createController({ host: viewportHost })
