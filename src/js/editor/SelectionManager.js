@@ -13,7 +13,9 @@
       return result("invalid-hit-test")
     }
     const hits = []
-    for (const record of Array.from(records).filter(record => record?.type === "line").sort((a, b) => a.id.localeCompare(b.id))) {
+    const source=Array.from(records).filter(record => record?.type === "line")
+    const candidateRecords=window.CaderactSpatialQuery?window.CaderactSpatialQuery.createScreenIndex(source,worldToScreen).queryPoint(screenPoint,tolerancePx):source
+    for (const record of candidateRecords.slice().sort((a, b) => a.id.localeCompare(b.id))) {
       const start = worldToScreen(record.start.x, record.start.y), end = worldToScreen(record.end.x, record.end.y)
       if (![start.x,start.y,end.x,end.y].every(Number.isFinite)) continue
       const dx = end.x-start.x, dy = end.y-start.y, lengthSquared = dx*dx+dy*dy
@@ -33,7 +35,9 @@
       return result("invalid-hit-test")
     }
     const hits = []
-    for (const record of Array.from(records).sort((a, b) => a.id.localeCompare(b.id))) {
+    const source=Array.from(records)
+    const candidateRecords=window.CaderactSpatialQuery?window.CaderactSpatialQuery.createScreenIndex(source,worldToScreen).queryPoint(screenPoint,tolerancePx):source
+    for (const record of candidateRecords.slice().sort((a, b) => a.id.localeCompare(b.id))) {
       if (record?.type === "line") {
         const hit = hitTestLines({ screenPoint, records: [record], worldToScreen, tolerancePx })
         if (hit.hit) hits.push({ recordId: record.id, distancePx: hit.distancePx })
@@ -133,8 +137,14 @@
       else{const current=snapshot();if(current.length===sorted.length&&current.every((id,index)=>id===sorted[index]))return result("selection-unchanged",{selectedIds:current});selected.clear();for(const id of ids)selected.add(id)}
       return publish(toggle?"selection-toggled":"selection-replaced")
     }
+    function replaceResolvedRecordIds(recordIds){
+      const ids=Array.from(new Set(Array.from(recordIds||[]).filter(id=>typeof id==="string"&&id))),sorted=Object.freeze(ids.slice().sort()),current=snapshot()
+      if(current.length===sorted.length&&current.every((id,index)=>id===sorted[index]))return result("selection-unchanged",{selectedIds:current})
+      selected.clear();for(const id of ids)selected.add(id)
+      return publish("selection-replaced")
+    }
     function subscribe(listener){if(typeof listener!=="function")throw new Error("Selection listener must be a function");listeners.add(listener);return()=>listeners.delete(listener)}
-    return Object.freeze({selectOnly,toggle,clear,applyRecordIds,has:id=>selected.has(id),selectedIds:snapshot,selectedTargets:targetSnapshot,orderedIds:()=>Object.freeze(Array.from(selected)),pruneAgainstDocument,subscribe})
+    return Object.freeze({selectOnly,toggle,clear,applyRecordIds,replaceResolvedRecordIds,has:id=>selected.has(id),selectedIds:snapshot,selectedTargets:targetSnapshot,orderedIds:()=>Object.freeze(Array.from(selected)),pruneAgainstDocument,subscribe})
   }
   window.CaderactSelection=Object.freeze({createSelection,hitTestLines,hitTestRecords,DEFAULT_HIT_TOLERANCE_PX})
 })()

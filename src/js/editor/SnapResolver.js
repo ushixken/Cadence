@@ -9,6 +9,16 @@
   const nearestGridIndex = value => Math.floor(value + 0.5)
 
   function createResolver({ tolerancePx = DEFAULT_TOLERANCE_PX, priorityWindowPx = PRIORITY_WINDOW_PX } = {}) {
+    let recordIndexCache=null
+    const eligibleRecord=record=>record?.type === "line" || record?.type === "circle" || record?.type === "arc" || record?.type === "ellipse" || record?.type === "polyline" || record?.type === "text" || record?.type === "block-instance"
+    function indexedRecords(records,worldToScreen){
+      const source=Array.from(records),origin=worldToScreen(0,0),unitX=worldToScreen(1,0),unitY=worldToScreen(0,1),transformKey=`${origin.x}|${origin.y}|${unitX.x}|${unitX.y}|${unitY.x}|${unitY.y}`
+      const reusable=recordIndexCache&&recordIndexCache.transformKey===transformKey&&recordIndexCache.source.length===source.length&&source.every((record,index)=>record===recordIndexCache.source[index])
+      if(reusable)return recordIndexCache
+      const ordered=source.filter(eligibleRecord).sort((a,b)=>a.id.localeCompare(b.id)),index=window.CaderactSpatialQuery?.createScreenIndex(ordered,worldToScreen)||null
+      recordIndexCache={source,ordered,index,transformKey}
+      return recordIndexCache
+    }
     function resolve({ rawWorldPoint, worldToScreen, records = [], transientCandidates = [], draftPoints = [], gridSpacing, enabled = {}, excludedFeatureIds = [], excludedRecordIds = [], referencePoint = null }) {
       const rawPoint = freezePoint(rawWorldPoint)
       if (!Number.isFinite(rawPoint.x) || !Number.isFinite(rawPoint.y) || typeof worldToScreen !== "function") {
@@ -41,7 +51,11 @@
         if (!Number.isFinite(distancePx)) return
         candidates.push({ kind: "grid", point: freezePoint(point), distancePx, stableKey: "grid", reference: null })
       }
-      const ordered = Array.from(records).filter(record => !excludedRecords.has(record?.id) && (record?.type === "line" || record?.type === "circle" || record?.type === "arc" || record?.type === "ellipse" || record?.type === "polyline" || record?.type === "text" || record?.type === "block-instance")).sort((a, b) => a.id.localeCompare(b.id))
+      const indexed=indexedRecords(records,worldToScreen),allOrdered=indexed.ordered
+      // Object snaps are aperture-based. A record whose conservative projected
+      // bounds do not meet that aperture cannot contribute a winning feature.
+      // The same narrowed set also prevents document-wide intersection pairing.
+      const ordered = (indexed.index?indexed.index.queryPoint(rawScreen,tolerancePx):allOrdered).filter(record=>!excludedRecords.has(record.id)).slice().sort((a,b)=>a.id.localeCompare(b.id))
       for (const record of ordered) {
         if(record.type==="text"||record.type==="block-instance"){add("insertion",record.insertionPoint,`insertion:${record.id}:${record.insertionPoint.featureId||"point"}`,record.insertionPoint.featureId?window.CaderactReferences.createEndpointReference(record.id,record.insertionPoint.featureId):window.CaderactReferences.createObjectReference(record.id));continue}
         if(record.type==="circle"||record.type==="arc"||record.type==="ellipse") add("center",record.center,`center:${record.id}`)
@@ -106,7 +120,8 @@
         if(existing){const mergeSemantic=isSemantic(candidate.kind)&&!(candidate.kind==="nearest"&&objectTier(existing.kind)<objectTier(candidate.kind));if(mergeSemantic&&!existing.kinds.includes(candidate.kind)){existing.kinds.push(candidate.kind);existing.kinds.sort((a,b)=>priorities[a]-priorities[b])}const reference=candidate.reference||candidate.sourceReference;if(mergeSemantic&&reference)existing.references.push(reference)}
         else {const reference=candidate.reference||candidate.sourceReference;deduplicated.push({...candidate,kinds:isSemantic(candidate.kind)?[candidate.kind]:[],references:isSemantic(candidate.kind)&&reference?[reference]:[]})}
       }
-      candidates.length=0;candidates.push(...deduplicated)
+      candidates.length=0
+      for(const candidate of deduplicated)candidates.push(candidate)
       candidates.sort((a, b) => a.distancePx - b.distancePx
         || priorities[a.kind] - priorities[b.kind]
         || a.stableKey.localeCompare(b.stableKey))

@@ -1,6 +1,7 @@
 // D3A: pure screen-space Window/Crossing geometry queries and transient drag state.
 (() => {
   const DRAG_THRESHOLD_PX = 4, EPSILON = 1e-5, CURVE_ERROR_PX = 0.25
+  let spatialCache=null
   const normalizeRect = (a,b) => Object.freeze({ left:Math.min(a.x,b.x), right:Math.max(a.x,b.x),
     top:Math.min(a.y,b.y), bottom:Math.max(a.y,b.y) })
   const pointInRect = (point,rect) => point.x>=rect.left-EPSILON&&point.x<=rect.right+EPSILON&&point.y>=rect.top-EPSILON&&point.y<=rect.bottom+EPSILON
@@ -76,8 +77,22 @@
   }
   function query({start,current,records=[],worldToScreen}){
     const rect=normalizeRect(start,current),mode=current.x>=start.x?"window":"crossing"
-    const grouped=new Map();for(const record of records){const matches=recordMatches(record,rect,mode,worldToScreen),state=grouped.get(record.id)||{all:true,any:false};state.all=state.all&&matches;state.any=state.any||matches;grouped.set(record.id,state)}
-    const recordIds=Array.from(grouped).filter(([,state])=>mode==="window"?state.all:state.any).map(([id])=>id).sort()
+    const source=Array.from(records),uniqueIds=new Set(source.map(record=>record.id)).size===source.length
+    // Expanded Block instances intentionally share one outer record ID. Their
+    // aggregate all/any semantics require the complete proxy set; ordinary
+    // records can be narrowed conservatively before exact geometry testing.
+    let candidates=source
+    if(uniqueIds&&window.CaderactSpatialQuery){
+      const origin=worldToScreen(0,0),unitX=worldToScreen(1,0),unitY=worldToScreen(0,1),transformKey=`${origin.x}|${origin.y}|${unitX.x}|${unitX.y}|${unitY.x}|${unitY.y}`,reusable=spatialCache&&spatialCache.transformKey===transformKey&&spatialCache.source.length===source.length&&source.every((record,index)=>record===spatialCache.source[index])
+      if(!reusable)spatialCache={source,transformKey,index:window.CaderactSpatialQuery.createScreenIndex(source,worldToScreen)}
+      const extent=spatialCache.index.extent,extentArea=extent?Math.max(1,(extent.right-extent.left)*(extent.bottom-extent.top)):0,queryArea=Math.max(0,(rect.right-rect.left)*(rect.bottom-rect.top))
+      // A broad box cannot exclude enough records to repay Set/bucket work.
+      // Keep the exact linear pass for that case; localized boxes use the index.
+      candidates=extentArea&&queryArea/extentArea<.35?spatialCache.index.queryRect(rect,{mode}):source
+    }
+    let recordIds
+    if(uniqueIds)recordIds=candidates.filter(record=>recordMatches(record,rect,mode,worldToScreen)).map(record=>record.id).sort()
+    else{const grouped=new Map();for(const record of candidates){const matches=recordMatches(record,rect,mode,worldToScreen),state=grouped.get(record.id)||{all:true,any:false};state.all=state.all&&matches;state.any=state.any||matches;grouped.set(record.id,state)}recordIds=Array.from(grouped).filter(([,state])=>mode==="window"?state.all:state.any).map(([id])=>id).sort()}
     return Object.freeze({mode,rect,recordIds:Object.freeze(recordIds)})
   }
   function createInteraction(){

@@ -40,6 +40,18 @@
     const MAJOR_MULTIPLE = 5
     const MAX_GRID_LINES_PER_AXIS = 512
     const GRID_EPSILON_MULTIPLIER = 8
+    // Records are immutable. Cache expensive world-space Hatch presentation by
+    // record identity; camera-only scene builds only re-project the cached data.
+    // A document edit publishes a new record object and therefore invalidates
+    // the relevant entry naturally without revision bookkeeping.
+    const hatchPresentationCache=new WeakMap()
+    function hatchPresentation(record){
+      const cached=hatchPresentationCache.get(record)
+      if(cached)return cached
+      const derived=record.pattern.kind==="named"?window.CaderactHatchGeometry.generatePattern(record):window.CaderactHatchGeometry.triangulate(record)
+      hatchPresentationCache.set(record,derived)
+      return derived
+    }
 
     function nearlyEqual(a, b) {
       return (
@@ -163,7 +175,7 @@
         else if(record.type==="arc")bucket.arcs.push(projectArc(record))
         else if(record.type==="ellipse")bucket.ellipses.push(projectEllipse(record))
         else if(record.type==="region"){for(const loop of record.loops)for(const edge of loop.edges){if(edge.kind==="line")segment(edge.start,edge.end);else if(edge.kind==="arc")bucket.arcs.push(projectArc({...edge,id:record.id}));else if(edge.kind==="circle"){const center=camera.worldToScreen(edge.center.x,edge.center.y),point=camera.worldToScreen(edge.center.x+edge.radius,edge.center.y);bucket.circles.push(Object.freeze({recordId:record.id,center:Object.freeze(center),radius:Math.hypot(point.x-center.x,point.y-center.y)}))}else if(edge.kind==="ellipse")bucket.ellipses.push(projectEllipse({...edge,id:record.id}))}}
-        else if(record.type==="hatch"){const derived=record.pattern.kind==="named"?window.CaderactHatchGeometry.generatePattern(record):window.CaderactHatchGeometry.triangulate(record);if(derived.valid){if(record.pattern.kind==="named")for(const value of derived.segments)segment(value.start,value.end);else for(const triangle of derived.triangles)hatchTriangles.push(Object.freeze({preview:true,recordId:record.id,points:Object.freeze(triangle.map(value=>Object.freeze(camera.worldToScreen(value.x,value.y)))),color,colorData:colorToRgba(color)}))}}
+        else if(record.type==="hatch"){const derived=hatchPresentation(record);if(derived.valid){if(record.pattern.kind==="named")for(const value of derived.segments)segment(value.start,value.end);else for(const triangle of derived.triangles)hatchTriangles.push(Object.freeze({preview:true,recordId:record.id,points:Object.freeze(triangle.map(value=>Object.freeze(camera.worldToScreen(value.x,value.y)))),color,colorData:colorToRgba(color)}))}}
         else if(record.type==="text")appendTextAnnotation(record,color,{preview:true})
         else if(record.type?.startsWith("dimension-")){const presentation=window.CaderactDimensionGeometry.derive(record,getDimensionStyle(record),{length:getDocumentUnit()});if(presentation.supported){for(const [start,end] of presentation.lines)segment(start,end);for(const arc of presentation.arcs||[])bucket.arcs.push(projectArc({...arc,id:record.id}));for(const triangle of presentation.triangles)dimensionTriangles.push(Object.freeze({preview:true,points:Object.freeze(triangle.map(value=>Object.freeze(camera.worldToScreen(value.x,value.y)))),color,colorData:colorToRgba(color)}));const anchor=camera.worldToScreen(presentation.text.point.x,presentation.text.point.y);dimensionAnnotations.push(Object.freeze({preview:true,recordId:record.id,text:presentation.text.value,x:anchor.x,y:anchor.y,rotation:-presentation.text.rotation,fontSize:presentation.text.height*camera.state.zoom,color}))}}
       }
@@ -376,7 +388,7 @@
           bucket.ellipses.push(ellipse)
           if (selectedIds.has(record.id)) selectedEllipses.push(ellipse)
         } else if(record?.type==="hatch"){
-          const derived=record.pattern.kind==="named"?window.CaderactHatchGeometry.generatePattern(record):window.CaderactHatchGeometry.triangulate(record),selected=selectedIds.has(record.id)
+          const derived=hatchPresentation(record),selected=selectedIds.has(record.id)
           if(derived.valid){if(record.pattern.kind==="named")for(const segment of derived.segments){const a=camera.worldToScreen(segment.start.x,segment.start.y),b=camera.worldToScreen(segment.end.x,segment.end.y);addSegment(bucket.segments,a.x,a.y,b.x,b.y)}else for(const triangle of derived.triangles){const points=Object.freeze(triangle.map(value=>Object.freeze(camera.worldToScreen(value.x,value.y))));hatchTriangles.push(Object.freeze({recordId:record.id,points,color:bucket.style.color,colorData:colorToRgba(bucket.style.color)}))}}
           if(selected)for(const loop of record.loops)for(const edge of loop.edges){const points=window.CaderactRegionGeometry.sampleEdge(edge).map(value=>camera.worldToScreen(value.x,value.y));for(let i=1;i<points.length;i++)addSegment(selection,points[i-1].x,points[i-1].y,points[i].x,points[i].y)}
         } else if(record?.type==="region"){
@@ -385,7 +397,7 @@
         }
       }
       const defaultStyleKey=`${viewportSettings.geometryColor}|continuous|0.25`,propertyDrawGroups=[]
-      for(const [key,bucket] of propertyBuckets){const style=bucket.style;if(key===defaultStyleKey){geometry.push(...bucket.segments);committedCircles.push(...bucket.circles);committedArcs.push(...bucket.arcs);committedEllipses.push(...bucket.ellipses);continue}const styledLine=lineGroup(style.color,bucket.segments,style);propertyDrawGroups.push(Object.freeze({style,recordIds:Object.freeze(bucket.recordIds.slice().sort()),lineGroup:styledLine,circleGroup:Object.freeze({...styledLine,circles:Object.freeze(bucket.circles)}),arcGroup:Object.freeze({...styledLine,arcs:Object.freeze(bucket.arcs)}),ellipseGroup:Object.freeze({...styledLine,ellipses:Object.freeze(bucket.ellipses)})}))}
+      for(const [key,bucket] of propertyBuckets){const style=bucket.style;if(key===defaultStyleKey){for(const value of bucket.segments)geometry.push(value);for(const value of bucket.circles)committedCircles.push(value);for(const value of bucket.arcs)committedArcs.push(value);for(const value of bucket.ellipses)committedEllipses.push(value);continue}const styledLine=lineGroup(style.color,bucket.segments,style);propertyDrawGroups.push(Object.freeze({style,recordIds:Object.freeze(bucket.recordIds.slice().sort()),lineGroup:styledLine,circleGroup:Object.freeze({...styledLine,circles:Object.freeze(bucket.circles)}),arcGroup:Object.freeze({...styledLine,arcs:Object.freeze(bucket.arcs)}),ellipseGroup:Object.freeze({...styledLine,ellipses:Object.freeze(bucket.ellipses)})}))}
       const dimensionPreview=getDimensionPreview()
       if(dimensionPreview){const presentation=window.CaderactDimensionGeometry.derive(dimensionPreview,getDimensionStyle(dimensionPreview),{length:getDocumentUnit()}),color=viewportSettings.previewColor;if(presentation.supported){for(const [start,end] of presentation.lines){const a=camera.worldToScreen(start.x,start.y),b=camera.worldToScreen(end.x,end.y);addSegment(nextPreview,a.x,a.y,b.x,b.y)}for(const arc of presentation.arcs||[])previewArcs.push(projectArc({...arc,id:null}));for(const triangle of presentation.triangles)dimensionTriangles.push(Object.freeze({preview:true,points:Object.freeze(triangle.map(value=>Object.freeze(camera.worldToScreen(value.x,value.y)))),color,colorData:colorToRgba(color)}));const anchor=camera.worldToScreen(presentation.text.point.x,presentation.text.point.y);dimensionAnnotations.push(Object.freeze({preview:true,text:presentation.text.value,x:anchor.x,y:anchor.y,rotation:-presentation.text.rotation,fontSize:presentation.text.height*camera.state.zoom,color}))}}
       const textPreview=getTextPreview();if(textPreview)appendTextAnnotation(textPreview,viewportSettings.previewColor,{preview:true})

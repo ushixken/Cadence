@@ -1738,7 +1738,10 @@ function getInteractionVisualState() { return interactionVisuals.snapshot() }
 function selectAllCommittedGeometry() {
   if (selectionBox.isPending || grips.isActive || getActiveCommandSession()) return Object.freeze({ status: "selection-busy" })
   const selectableTypes = new Set(["line", "circle", "arc", "ellipse", "polyline", "region", "hatch", "text", "dimension-linear", "dimension-angular", "dimension-radial", "dimension-ordinate", "dimension-arc-length", "dimension-center-mark", "dimension-center-line", "dimension-leader", "dimension-multileader", "block-instance"])
-  return selection.applyRecordIds(editableRecords().filter(record => selectableTypes.has(record.type)).map(record => record.id))
+  // The authoritative editable record list already contains every member that
+  // group-aware expansion would produce. Avoid resolving every ID through the
+  // group authority again during this intentionally O(n) operation.
+  return selection.replaceResolvedRecordIds(editableRecords().filter(record => selectableTypes.has(record.type)).map(record => record.id))
 }
 function isLayerAssignmentBusy(){return Boolean(getActiveCommandSession()||grips.isActive||selectionBox.isPending)}
 function prepareContextSelection(screenPoint){

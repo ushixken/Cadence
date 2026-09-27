@@ -225,6 +225,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/DynamicInput.js');
   load('src/js/editor/OrthoConstraint.js');
   load('src/js/editor/PolarConstraint.js');
+  load('src/js/editor/SpatialQuery.js');
   load('src/js/editor/SnapResolver.js');
   load('src/js/editor/ObjectSnapTracking.js');
   load('src/js/editor/SelectionManager.js');
