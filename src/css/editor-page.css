@@ -184,6 +184,7 @@ canvas.is-navigating {
 .settings-panel-header span { display:block; margin-top:1px; color:var(--text-muted); font-size:.63rem; letter-spacing:.09em; text-transform:uppercase; }
 .settings-panel-body { overflow-y:auto; padding:2px 16px 10px; }
 .drafting-settings-tabs { display:flex; flex:none; min-height:32px; padding:0 10px; overflow-x:auto; border-bottom:1px solid var(--separator); scrollbar-width:thin; }
+.drafting-settings-tabs[hidden]{display:none}
 .drafting-settings-tabs button { min-height:31px; padding:0 8px; flex:none; color:var(--text-muted); background:transparent; border:0; border-bottom:2px solid transparent; font:inherit; font-size:var(--font-size-sm); white-space:nowrap; }
 .drafting-settings-tabs button:hover { color:var(--text-primary); background:var(--surface-control-hover); }
 .drafting-settings-tabs button[aria-selected="true"] { color:var(--text-primary); border-bottom-color:var(--accent); }
@@ -221,6 +222,7 @@ canvas.is-navigating {
 .layer-actions-menu,.group-actions-menu,.block-actions-menu{background:var(--surface-popup)}
 .settings-template-control{display:flex;gap:6px;align-items:center;justify-content:flex-end}.settings-template-control select{width:128px!important}.settings-template-control button{min-height:26px;padding:3px 8px;color:var(--text-secondary);background:var(--surface-control);border:1px solid var(--border-default);border-radius:var(--radius-sm);font:inherit;font-size:var(--font-size-sm)}.settings-template-control button:hover{color:var(--text-primary);background:var(--surface-control-hover)}
 .settings-contrast-warning{grid-column:1/-1;min-height:18px;margin:4px 0 0;color:var(--status-warning);font-size:var(--font-size-sm);text-align:right}.settings-contrast-warning:empty{min-height:0;margin:0}
+.settings-scoped-actions{display:flex;justify-content:flex-end;padding:10px 0 2px}.settings-scoped-actions button{min-height:28px;padding:4px 9px;color:var(--text-secondary);background:var(--surface-control);border:1px solid var(--border-default);border-radius:var(--radius-sm);font:inherit;font-size:var(--font-size-sm)}.settings-scoped-actions button:hover{color:var(--text-primary);background:var(--surface-control-hover)}.settings-boundary-note,.settings-empty-note{margin:10px 0 2px;color:var(--text-muted);font-size:var(--font-size-sm);line-height:1.45}.settings-empty-note{max-width:430px}
 #settings-close { flex:none; width:26px; height:26px; border:0; border-radius:var(--radius-sm); color:var(--text-muted); background:transparent; font-size:1.1rem; line-height:1; cursor:pointer; }
 #settings-close:hover { color:var(--text-primary); background:var(--surface-control-hover); }
 .settings-panel-footer { display:flex; flex:none; justify-content:flex-end; padding:10px 16px 13px; border-top:1px solid var(--separator); }
