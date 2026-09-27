@@ -5,15 +5,21 @@
   const categoryTools = document.querySelector("#category-tools"), categoryName = document.querySelector("#active-category-name")
   const utility = document.querySelector(".utility-menu"), utilityTrigger = document.querySelector("#utility-menu-trigger"), utilityMenu = document.querySelector("#utility-menu-actions")
   const edit = document.querySelector(".edit-menu"), editTrigger = document.querySelector(".edit-menu-trigger"), editMenu = document.querySelector("#edit-menu-actions")
+  const collection=(commands=[],actions=[])=>Object.freeze({commands:Object.freeze(commands),actions:Object.freeze(actions)})
   const categories = Object.freeze({
-    Draw: ["Line", "Polyline", "Rectangle", "Circle", "Arc", "Ellipse", "Polygon", "Text", "Hatch", "Region"],
-    Modify: ["Move", "Copy", "Rotate", "Scale", "Mirror", "Offset", "Trim", "Extend", "Explode"], Annotate: ["Linear", "Aligned", "Angular", "DimRadius", "DimDiameter", "Text"],
-    Layers: [], Blocks: ["Block", "Insert", "BlockEdit", "Explode"], Measure: ["Distance", "Length", "Radius", "Diameter", "Area", "Perimeter", "Angle", "DistanceObject", "MinDist", "DistanceSum"], Drafting: [], Custom: [],
+    Draw: collection(["Line","Polyline","Rectangle","Polygon","Circle","Arc","Ellipse","Hatch","Region"]),
+    Modify: collection(["Move","Copy","Rotate","Scale","Mirror","Trim","Extend","Offset","Fillet","Chamfer","Join","Break","Split","Stretch","Lengthen","Align","RectangularArray","PolarArray","PathArray","Explode","Delete"]),
+    Annotate: collection(["Text","Linear","Aligned","Angular","DimRadius","DimDiameter","DimBaseline","DimContinue","Ordinate","ArcLength","CenterMark","CenterLine","Leader","MLeader"]),
+    Layers: collection([],[Object.freeze({id:"layers",label:"Open Layers",icon:"Layers",run:()=>window.caderactPropertiesPanel?.showLayers?.()})]),
+    Blocks: collection(["Block","Insert","BlockEdit","Explode"]),
+    Measure: collection(["Distance","Length","Radius","Diameter","Area","Perimeter","Angle","DistanceObject","MinDist","DistanceSum"]),
+    Drafting: collection([],[Object.freeze({id:"drafting-settings",label:"Drafting Settings",icon:"Drafting",run:button=>window.caderactDraftingSettings?.open?.("grid",button)})]),
+    Custom: collection(),
   })
   const icons = Object.freeze({
     Delete:"delete",Copy:"copy",Line:"line",Polyline:"polyline",Rectangle:"rectangle",Circle:"circle",Arc:"arc",Ellipse:"ellipse",Polygon:"polygon",Text:"text",Hatch:"hatch",Region:"region",
-    Move:"move",Rotate:"rotate",Scale:"scale",Mirror:"mirror",Offset:"offset",Trim:"trim",Extend:"extend",Fillet:"fillet",Chamfer:"chamfer",Explode:"explode",Linear:"dimension",Aligned:"dimension",Angular:"dimension",DimRadius:"dimension",DimDiameter:"dimension",
-    Block:"block",Insert:"insert",BlockEdit:"block",Distance:"measure",Length:"measure",Radius:"measure",Diameter:"measure",Area:"measure",Perimeter:"measure",Angle:"measure",DistanceObject:"measure",MinDist:"measure",DistanceSum:"measure",
+    Move:"move",Rotate:"rotate",Scale:"scale",Mirror:"mirror",Offset:"offset",Trim:"trim",Extend:"extend",Fillet:"fillet",Chamfer:"chamfer",Join:"polyline",Break:"trim",Split:"trim",Stretch:"scale",Lengthen:"extend",Align:"move",RectangularArray:"copy",PolarArray:"copy",PathArray:"copy",Explode:"explode",Linear:"dimension",Aligned:"dimension",Angular:"dimension",DimRadius:"dimension",DimDiameter:"dimension",DimBaseline:"dimension",DimContinue:"dimension",Ordinate:"dimension",ArcLength:"dimension",CenterMark:"dimension",CenterLine:"dimension",Leader:"dimension",MLeader:"dimension",
+    Block:"block",Insert:"insert",BlockEdit:"block",Distance:"measure",Length:"measure",Radius:"measure",Diameter:"measure",Area:"measure",Perimeter:"measure",Angle:"measure",DistanceObject:"measure",MinDist:"measure",DistanceSum:"measure",Layers:"layers",Drafting:"drafting",
   })
   function launch(name) { if (!registry.resolve(name)) return false; router.execute(name); return true }
   function icon(name) {
@@ -21,18 +27,21 @@
     svg.setAttribute("aria-hidden","true");use.setAttribute("href",`#cad-${icons[name]||"line"}`);svg.appendChild(use);return svg
   }
   function showCategory(name) {
-    const commands=categories[name]||[]
+    const category=categories[name]||collection()
     if (!(categoryTools instanceof HTMLElement) || !(categoryName instanceof HTMLElement)) return
     categoryName.textContent=name
-    categoryTools.replaceChildren(...commands.filter(command=>registry.resolve(command)).map(command=>{
+    const commandButtons=category.commands.filter(command=>registry.resolve(command)).map(command=>{
       const button=document.createElement("button"),label=document.createElement("span")
       const definition=registry.resolve(command),shortcut=definition?.aliases?.[0]
       button.type="button";button.dataset.shellCommand=command;button.title=shortcut?`${command} · ${shortcut}`:command;button.setAttribute("aria-label",shortcut?`${command}, shortcut ${shortcut}`:command);label.textContent=command;button.append(icon(command),label);button.addEventListener("click",()=>launch(command));return button
-    }))
+    }),actionButtons=category.actions.map(action=>{const button=document.createElement("button"),label=document.createElement("span");button.type="button";button.dataset.collectionAction=action.id;button.title=action.label;button.setAttribute("aria-label",action.label);label.textContent=action.label;button.append(icon(action.icon),label);button.addEventListener("click",()=>action.run(button));return button})
+    categoryTools.replaceChildren(...commandButtons,...actionButtons)
     if (!categoryTools.childElementCount) { const empty=document.createElement("span");empty.className="category-empty";empty.textContent=`${name} commands remain available through menus and command input.`;categoryTools.appendChild(empty) }
-    root.querySelectorAll(".cad-tool-tabs [data-shell-category]").forEach(button=>{const active=button.getAttribute("data-shell-category")===name;button.classList.toggle("is-active",active);button.setAttribute("aria-selected",String(active))})
+    root.querySelectorAll(".cad-tool-tabs [data-shell-category]").forEach(button=>{const active=button.getAttribute("data-shell-category")===name;button.classList.toggle("is-active",active);button.setAttribute("aria-selected",String(active));button.tabIndex=active?0:-1})
+    syncCommandLaunchers()
   }
-  root.querySelectorAll(".cad-tool-tabs [data-shell-category]").forEach(button=>button.addEventListener("click",()=>showCategory(button.getAttribute("data-shell-category")||"Draw")))
+  const categoryTabs=Array.from(root.querySelectorAll(".cad-tool-tabs [data-shell-category]"))
+  for(const button of categoryTabs){button.addEventListener("click",()=>showCategory(button.getAttribute("data-shell-category")||"Draw"));button.addEventListener("keydown",event=>{if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;event.preventDefault();const current=Math.max(0,categoryTabs.indexOf(button)),next=event.key==="Home"?0:event.key==="End"?categoryTabs.length-1:(current+(event.key==="ArrowRight"?1:-1)+categoryTabs.length)%categoryTabs.length,target=categoryTabs[next];showCategory(target.getAttribute("data-shell-category")||"Draw");target.focus()})}
   const rail=root.querySelector(".quick-tools-rail"),railButtons=Array.from(root.querySelectorAll(".quick-tools-rail [data-shell-command]")),railTriggers=Array.from(root.querySelectorAll(".rail-flyout-trigger")),railMenus=Array.from(root.querySelectorAll(".rail-flyout"))
   function commandLabel(definition){const alias=definition?.aliases?.[0];return alias?`${definition.name} (${alias})`:definition?.name||""}
   function closeRailFlyouts({focus=false}={}){for(const trigger of railTriggers){const menu=root.querySelector(`[data-rail-menu="${trigger.dataset.railFlyout}"]`),wasOpen=menu instanceof HTMLElement&&!menu.hidden;if(menu instanceof HTMLElement)menu.hidden=true;trigger.setAttribute("aria-expanded","false");if(focus&&wasOpen)trigger.focus()}}

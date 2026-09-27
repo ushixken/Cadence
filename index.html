@@ -506,15 +506,15 @@
             <footer><button id="unsaved-discard" type="button">Discard</button><button id="unsaved-save" type="button">Save</button><button id="unsaved-cancel" type="button" autofocus>Cancel</button></footer>
           </section>
         </nav>
-        <nav class="cad-tool-tabs" aria-label="CAD tool collections">
-          <button type="button" data-shell-category="Draw" aria-selected="true">Draw</button>
-          <button type="button" data-shell-category="Modify" aria-selected="false">Modify</button>
-          <button type="button" data-shell-category="Annotate" aria-selected="false">Annotate</button>
-          <button type="button" data-shell-category="Layers" aria-selected="false">Layers</button>
-          <button type="button" data-shell-category="Blocks" aria-selected="false">Blocks</button>
-          <button type="button" data-shell-category="Measure" aria-selected="false">Measure</button>
-          <button type="button" data-shell-category="Drafting" aria-selected="false">Drafting</button>
-          <button type="button" data-shell-category="Custom" aria-selected="false">Custom</button>
+        <nav class="cad-tool-tabs" role="tablist" aria-label="CAD tool collections">
+          <button type="button" role="tab" data-shell-category="Draw" aria-selected="true" aria-controls="category-tools" tabindex="0">Draw</button>
+          <button type="button" role="tab" data-shell-category="Modify" aria-selected="false" aria-controls="category-tools" tabindex="-1">Modify</button>
+          <button type="button" role="tab" data-shell-category="Annotate" aria-selected="false" aria-controls="category-tools" tabindex="-1">Annotate</button>
+          <button type="button" role="tab" data-shell-category="Layers" aria-selected="false" aria-controls="category-tools" tabindex="-1">Layers</button>
+          <button type="button" role="tab" data-shell-category="Blocks" aria-selected="false" aria-controls="category-tools" tabindex="-1">Blocks</button>
+          <button type="button" role="tab" data-shell-category="Measure" aria-selected="false" aria-controls="category-tools" tabindex="-1">Measure</button>
+          <button type="button" role="tab" data-shell-category="Drafting" aria-selected="false" aria-controls="category-tools" tabindex="-1">Drafting</button>
+          <button type="button" role="tab" data-shell-category="Custom" aria-selected="false" aria-controls="category-tools" tabindex="-1">Custom</button>
         </nav>
         <section class="category-tool-area" aria-label="Active CAD tool collection">
           <div class="category-heading"><span id="active-category-name">Draw</span><small>TOOLS</small></div>
@@ -547,6 +547,8 @@
             <symbol id="cad-block" viewBox="0 0 24 24"><path d="M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10"/></symbol>
             <symbol id="cad-insert" viewBox="0 0 24 24"><path d="M5 5h10v10H5zM9 9h10v10H9M14 12h5M16.5 9.5v5"/></symbol>
             <symbol id="cad-measure" viewBox="0 0 24 24"><path d="M4 16L16 4l4 4L8 20zM9 13l2 2M12 10l2 2M15 7l2 2"/></symbol>
+            <symbol id="cad-layers" viewBox="0 0 24 24"><path d="m12 4 8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4"/></symbol>
+            <symbol id="cad-drafting" viewBox="0 0 24 24"><path d="M5 18 15 8l3 3L8 21H5zM13 6l2-2 5 5-2 2M5 5h5M5 5v5"/></symbol>
             <symbol id="cad-fillet" viewBox="0 0 24 24"><path d="M5 19v-5a9 9 0 0 1 9-9h5M5 14h4M14 5v4"/></symbol>
             <symbol id="cad-chamfer" viewBox="0 0 24 24"><path d="M5 19v-6l8-8h6M5 13h5M13 5v5"/></symbol>
             <symbol id="dock-current" viewBox="0 0 16 16"><path d="M8 2.5 13.5 8 8 13.5 2.5 8Z"/><path d="M8 5.5 10.5 8 8 10.5 5.5 8Z" fill="currentColor"/></symbol>
