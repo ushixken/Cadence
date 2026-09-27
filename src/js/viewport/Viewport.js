@@ -16,6 +16,10 @@ const viewportSettings = {
   moveSourceGhostColor: "rgba(160, 177, 193, 0.35)", moveGuideColor: "rgba(242, 207, 114, 0.72)",
   rotateCenterMarkerColor: "#f2cf72", rotateReferenceMarkerColor: "rgba(157, 200, 239, 0.90)", rotateTargetMarkerColor: "#63b7e6",
 }
+const canvasThemePalettes=Object.freeze({
+  dark:Object.freeze({backgroundColor:"#182633",geometryColor:"#e8edf4",previewColor:"rgba(232, 237, 244, 0.65)",snapMarkerColor:"#f2cf72",selectionColor:"#63b7e6",trackingGuideColor:"rgba(111, 190, 210, 0.62)",trackingMarkerColor:"rgba(137, 218, 232, 0.96)",gripColor:"#e8edf4",gripHoverColor:"#f2cf72",gripActiveColor:"#63b7e6",selectionWindowColor:"#63b7e6",selectionCrossingColor:"#70c58b",draftPointColor:"#e8edf4",acceptedDraftColor:"#e8edf4",moveSourceGhostColor:"rgba(160, 177, 193, 0.35)",moveGuideColor:"rgba(242, 207, 114, 0.72)",rotateCenterMarkerColor:"#f2cf72",rotateReferenceMarkerColor:"rgba(157, 200, 239, 0.90)",rotateTargetMarkerColor:"#63b7e6"}),
+  light:Object.freeze({backgroundColor:"#f4f6f7",geometryColor:"#263442",previewColor:"rgba(38, 52, 66, 0.62)",snapMarkerColor:"#9a5c00",selectionColor:"#0878bb",trackingGuideColor:"rgba(0, 112, 135, 0.66)",trackingMarkerColor:"#007e99",gripColor:"#263442",gripHoverColor:"#9a5c00",gripActiveColor:"#0878bb",selectionWindowColor:"#0878bb",selectionCrossingColor:"#26834a",draftPointColor:"#263442",acceptedDraftColor:"#263442",moveSourceGhostColor:"rgba(74, 88, 102, 0.30)",moveGuideColor:"rgba(154, 92, 0, 0.72)",rotateCenterMarkerColor:"#9a5c00",rotateReferenceMarkerColor:"rgba(30, 103, 158, 0.88)",rotateTargetMarkerColor:"#0878bb"}),
+})
 
 const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettings.initialZoom)
 const camera = viewportCamera.state
@@ -56,6 +60,10 @@ const polarListeners = new Set()
 const effectivePolarListeners = new Set()
 let polarGuide = null
 const viewportHost = canvas.parentElement || canvas.parent
+const workspacePreferences=window.caderactWorkspacePreferences
+function applyCanvasTheme(value=workspacePreferences?.value){const name=value?.canvasTheme==="light"?"light":"dark";Object.assign(viewportSettings,canvasThemePalettes[name]);if(viewportHost?.dataset)viewportHost.dataset.canvasTheme=name;requestRender?.()}
+applyCanvasTheme()
+workspacePreferences?.subscribe(applyCanvasTheme)
 const interactionVisuals = window.CaderactInteractionVisuals.createController({ host: viewportHost })
 const annotationOverlay = window.CaderactAnnotationOverlay.create({host:viewportHost})
 const dynamicInputView = window.CaderactDynamicInput.createView({ host: viewportHost })

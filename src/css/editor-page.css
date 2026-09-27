@@ -217,6 +217,8 @@ canvas.is-navigating {
 #settings-panel input[type="color"]::-moz-color-swatch { border:0; border-radius:2px; }
 #settings-panel input[type="checkbox"] { width:16px; height:16px; margin:0; accent-color:var(--activeText); }
 #settings-panel select { box-sizing:border-box; width:72px; height:26px; padding:3px 7px; color:var(--text-primary); background:var(--surface-control); border:1px solid var(--border-default); border-radius:var(--radius-sm); }
+#settings-ui-theme,#settings-canvas-theme{width:88px}
+.layer-actions-menu,.group-actions-menu,.block-actions-menu{background:var(--surface-popup)}
 #settings-close { flex:none; width:26px; height:26px; border:0; border-radius:var(--radius-sm); color:var(--text-muted); background:transparent; font-size:1.1rem; line-height:1; cursor:pointer; }
 #settings-close:hover { color:var(--text-primary); background:var(--surface-control-hover); }
 .settings-panel-footer { display:flex; flex:none; justify-content:flex-end; padding:10px 16px 13px; border-top:1px solid var(--separator); }

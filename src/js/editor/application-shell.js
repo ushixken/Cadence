@@ -62,6 +62,7 @@
   editTrigger?.addEventListener("click",toggleEdit)
   editMenu?.addEventListener("keydown",event=>{const items=Array.from(editMenu.querySelectorAll('button:not(:disabled)')),current=Math.max(0,items.indexOf(document.activeElement));if(event.key==="Escape"){event.preventDefault();closeEdit({focus:true})}else if(["ArrowDown","ArrowUp","Home","End"].includes(event.key)){event.preventDefault();const next=event.key==="Home"?0:event.key==="End"?items.length-1:(current+(event.key==="ArrowDown"?1:-1)+items.length)%items.length;items[next]?.focus()}})
   editMenu?.querySelectorAll("[data-edit-command]").forEach(button=>button.addEventListener("click",()=>{launch(button.getAttribute("data-edit-command")||"");closeEdit()}))
+  editMenu?.querySelector("#preferences-trigger")?.addEventListener("click",()=>closeEdit())
   const selectAll=editMenu?.querySelector('[data-edit-action="select-all"]')
   selectAll?.addEventListener("click",()=>{if(!router.isActive)window.caderactViewport.selectAllCommittedGeometry();closeEdit()})
   const refreshEditSafety=()=>{if(selectAll instanceof HTMLButtonElement)selectAll.disabled=router.isActive}

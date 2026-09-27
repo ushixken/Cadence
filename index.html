@@ -105,6 +105,7 @@
     <script src="./src/js/editor/AnnotationCommands.js" defer></script>
     <script src="./src/js/editor/LeaderCommands.js" defer></script>
     <script src="./src/js/viewport/Viewport.js" defer></script>
+    <script src="./src/js/editor/ThemeController.js" defer></script>
     <script src="./src/js/editor/RightDock.js" defer></script>
     <script src="./src/js/editor/ColorPopover.js" defer></script>
     <script src="./src/js/editor/footer-controls.js" defer></script>
@@ -451,10 +452,12 @@
                 <button type="button" role="menuitem" data-edit-command="Copy">Copy</button>
                 <button type="button" role="menuitem" data-edit-command="Delete">Delete</button>
                 <button type="button" role="menuitem" data-edit-action="select-all">Select All <span>Ctrl+A</span></button>
+                <div class="menu-divider" role="separator"></div>
+                <button id="preferences-trigger" type="button" role="menuitem" data-open-drafting-settings="appearance">Preferences…</button>
               </div>
             </li>
             <li class="application-menu" data-menu="view"><button type="button" aria-expanded="false" aria-controls="view-menu-actions">View</button><div class="application-menu-dropdown" id="view-menu-actions" role="menu" hidden><button type="button" role="menuitemcheckbox" data-view-action="grid" aria-checked="true">Show Grid</button></div></li>
-            <li class="application-menu" data-menu="tools"><button type="button" aria-expanded="false" aria-controls="tools-menu-actions">Tools</button><div class="application-menu-dropdown" id="tools-menu-actions" role="menu" hidden><button id="drafting-settings-trigger" type="button" role="menuitem">Drafting Settings…</button></div></li>
+            <li class="application-menu" data-menu="tools"><button type="button" aria-expanded="false" aria-controls="tools-menu-actions">Tools</button><div class="application-menu-dropdown" id="tools-menu-actions" role="menu" hidden><button id="drafting-settings-trigger" type="button" role="menuitem" data-open-drafting-settings="grid">Drafting Settings…</button></div></li>
             <li class="application-menu" data-menu="window"><button type="button" aria-expanded="false" aria-controls="window-menu-actions">Window</button><div class="application-menu-dropdown" id="window-menu-actions" role="menu" hidden><button type="button" role="menuitemcheckbox" data-window-panel="layers" aria-checked="true">Layers</button><button type="button" role="menuitemcheckbox" data-window-panel="groups" aria-checked="true">Groups</button><button type="button" role="menuitemcheckbox" data-window-panel="blocks" aria-checked="true">Blocks</button><button type="button" role="menuitemcheckbox" data-window-panel="properties" aria-checked="true">Properties</button></div></li>
             <li class="application-menu" data-menu="help"><button type="button" aria-expanded="false" aria-controls="help-menu-actions">Help</button><div class="application-menu-dropdown" id="help-menu-actions" role="menu" hidden><a href="./help/index.html" role="menuitem">Caderact Help</a></div></li>
           </ul>
@@ -463,16 +466,20 @@
             <button id="utility-menu-trigger" class="utility-menu-trigger" type="button" aria-label="Application menu" aria-expanded="false" aria-controls="utility-menu-actions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
             <div id="utility-menu-actions" class="utility-menu-dropdown" role="menu" hidden>
               <button type="button" role="menuitem" data-shell-category="Help">Help</button>
-              <button id="settings-trigger" type="button" role="menuitem">Settings</button>
+              <button id="settings-trigger" type="button" role="menuitem" data-open-drafting-settings="appearance">Settings</button>
             </div>
           </div>
           <section id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
-            <header class="settings-panel-header"><div><h2 id="settings-title">Drafting Settings</h2><span>User preferences</span></div><button id="settings-close" type="button" aria-label="Close Drafting Settings">×</button></header>
-            <nav class="drafting-settings-tabs" role="tablist" aria-label="Drafting Settings sections">
-              <button type="button" role="tab" data-settings-tab="grid" aria-selected="true" aria-controls="drafting-settings-grid">Grid &amp; Snap</button><button type="button" role="tab" data-settings-tab="polar" aria-selected="false" aria-controls="drafting-settings-polar">Polar</button><button type="button" role="tab" data-settings-tab="osnap" aria-selected="false" aria-controls="drafting-settings-osnap">Object Snap</button><button type="button" role="tab" data-settings-tab="tracking" aria-selected="false" aria-controls="drafting-settings-tracking">Tracking</button><button type="button" role="tab" data-settings-tab="dynamic" aria-selected="false" aria-controls="drafting-settings-dynamic">Dynamic Input</button>
+            <header class="settings-panel-header"><div><h2 id="settings-title">Preferences</h2><span>Application and drafting</span></div><button id="settings-close" type="button" aria-label="Close Preferences">×</button></header>
+            <nav class="drafting-settings-tabs" role="tablist" aria-label="Preferences sections">
+              <button type="button" role="tab" data-settings-tab="appearance" aria-selected="true" aria-controls="settings-appearance">Appearance</button><button type="button" role="tab" data-settings-tab="grid" aria-selected="false" aria-controls="drafting-settings-grid">Grid &amp; Snap</button><button type="button" role="tab" data-settings-tab="polar" aria-selected="false" aria-controls="drafting-settings-polar">Polar</button><button type="button" role="tab" data-settings-tab="osnap" aria-selected="false" aria-controls="drafting-settings-osnap">Object Snap</button><button type="button" role="tab" data-settings-tab="tracking" aria-selected="false" aria-controls="drafting-settings-tracking">Tracking</button><button type="button" role="tab" data-settings-tab="dynamic" aria-selected="false" aria-controls="drafting-settings-dynamic">Dynamic Input</button>
             </nav>
             <div class="settings-panel-body drafting-settings-body">
-              <section id="drafting-settings-grid" class="drafting-settings-page" role="tabpanel" data-settings-page="grid"><div class="settings-section"><h3 id="settings-grid-heading">Grid &amp; Snap</h3><div class="settings-form">
+              <section id="settings-appearance" class="drafting-settings-page" role="tabpanel" data-settings-page="appearance"><div class="settings-section"><h3>Appearance</h3><div class="settings-form">
+                <div class="settings-row"><label for="settings-ui-theme">UI Theme</label><div class="settings-control settings-control-compact"><select id="settings-ui-theme"><option value="light">Light</option><option value="dark">Dark</option></select></div></div>
+                <div class="settings-row"><label for="settings-canvas-theme">Canvas</label><div class="settings-control settings-control-compact"><select id="settings-canvas-theme"><option value="light">Light</option><option value="dark">Dark</option></select></div></div>
+              </div></div></section>
+              <section id="drafting-settings-grid" class="drafting-settings-page" role="tabpanel" data-settings-page="grid" hidden><div class="settings-section"><h3 id="settings-grid-heading">Grid &amp; Snap</h3><div class="settings-form">
                 <div class="settings-row"><label for="settings-grid-visible">Show Grid</label><div class="settings-control settings-control-compact"><input id="settings-grid-visible" type="checkbox"></div></div>
                 <div class="settings-row"><label for="settings-grid-snap">Grid Snap</label><div class="settings-control settings-control-compact"><input id="settings-grid-snap" type="checkbox"></div></div>
                 <div class="settings-row"><label for="settings-grid-color">Grid Color</label><div class="settings-control settings-control-compact"><input id="settings-grid-color" type="color"></div></div>

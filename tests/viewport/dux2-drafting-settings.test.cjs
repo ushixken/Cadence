@@ -8,9 +8,9 @@ const documentState=b=>b.read('({revision:documentController.currentRevision,his
 const setting=(b,name)=>b.settingsControls[name]
 const snap=(b,name)=>b.settingsSnapOptions.find(option=>option.dataset.settingsSnapMode===name)
 
-test('DUX2 Tools entry opens the one Drafting Settings dialog with five sections',async()=>{
-  const b=await browser();b.emit(b.draftingSettingsTrigger,'click');assert.equal(b.settingsPanel.hidden,false);assert.deepEqual(b.read('window.caderactDraftingSettings.getState()'),{open:true,activeSection:'grid'});assert.equal(b.document.activeElement,b.settingsTabs[0]);assert.deepEqual(b.settingsTabs.map(tab=>tab.dataset.settingsTab),['grid','polar','osnap','tracking','dynamic'])
-  for(const [index,name] of ['grid','polar','osnap','tracking','dynamic'].entries()){b.emit(b.settingsTabs[index],'click');assert.equal(b.read('window.caderactDraftingSettings.getState().activeSection'),name);assert.equal(b.settingsPages[index].hidden,false)}
+test('DUX2 Tools entry opens the shared Preferences dialog at Drafting with six sections',async()=>{
+  const b=await browser();b.emit(b.draftingSettingsTrigger,'click');assert.equal(b.settingsPanel.hidden,false);assert.deepEqual(b.read('window.caderactDraftingSettings.getState()'),{open:true,activeSection:'grid'});assert.equal(b.document.activeElement,b.settingsTabs[1]);assert.deepEqual(b.settingsTabs.map(tab=>tab.dataset.settingsTab),['appearance','grid','polar','osnap','tracking','dynamic'])
+  for(const [index,name] of ['appearance','grid','polar','osnap','tracking','dynamic'].entries()){b.emit(b.settingsTabs[index],'click');assert.equal(b.read('window.caderactDraftingSettings.getState().activeSection'),name);assert.equal(b.settingsPages[index].hidden,false)}
 })
 
 test('DUX2 Grid and Grid Snap bind independently and synchronize DUX1 immediately',async()=>{
@@ -19,7 +19,7 @@ test('DUX2 Grid and Grid Snap bind independently and synchronize DUX1 immediatel
 })
 
 test('DUX2 Object Snap modes support Select All Clear All and Insertion without changing resolver policy',async()=>{
-  const b=await browser(),before=documentState(b);b.emit(b.draftingSettingsTrigger,'click');b.emit(b.settingsTabs[2],'click');b.emit(b.settingsClearAll,'click');assert.equal(b.settingsSnapOptions.every(option=>!option.checked),true);assert.equal(b.read('window.caderactViewport.snapModes.insertion'),false);assert.equal(b.read('window.caderactViewport.snapModes.endpoint'),false)
+  const b=await browser(),before=documentState(b);b.emit(b.draftingSettingsTrigger,'click');b.emit(b.settingsTabs[3],'click');b.emit(b.settingsClearAll,'click');assert.equal(b.settingsSnapOptions.every(option=>!option.checked),true);assert.equal(b.read('window.caderactViewport.snapModes.insertion'),false);assert.equal(b.read('window.caderactViewport.snapModes.endpoint'),false)
   b.emit(b.settingsSelectAll,'click');assert.equal(b.settingsSnapOptions.every(option=>option.checked),true);assert.equal(b.read('window.caderactViewport.snapModes.insertion'),true);snap(b,'insertion').checked=false;b.emit(snap(b,'insertion'),'change');assert.equal(b.insertionSnapOption.checked,false);assert.equal(b.read('window.caderactViewport.snapModes.object'),true);assert.deepEqual(documentState(b),before)
 })
 
@@ -34,7 +34,7 @@ test('DUX2 settings persist through UserPreferences and never enter native drawi
 })
 
 test('DUX2 keyboard tab navigation Escape focus restoration and modal overflow remain accessible',async()=>{
-  const b=await browser();b.emit(b.draftingSettingsTrigger,'click');b.emit(b.settingsTabs[0],'keydown',{key:'ArrowRight'});assert.equal(b.read('window.caderactDraftingSettings.getState().activeSection'),'polar');assert.equal(b.document.activeElement,b.settingsTabs[1]);b.key('Escape',b.document);assert.equal(b.settingsPanel.hidden,true);assert.equal(b.document.activeElement,b.draftingSettingsTrigger)
+  const b=await browser();b.emit(b.draftingSettingsTrigger,'click');b.emit(b.settingsTabs[1],'keydown',{key:'ArrowRight'});assert.equal(b.read('window.caderactDraftingSettings.getState().activeSection'),'polar');assert.equal(b.document.activeElement,b.settingsTabs[2]);b.key('Escape',b.document);assert.equal(b.settingsPanel.hidden,true);assert.equal(b.document.activeElement,b.draftingSettingsTrigger)
   const css=fs.readFileSync('src/css/editor-page.css','utf8');assert.match(css,/#settings-panel\s*\{[^}]*max-height:\s*calc\(100vh - 32px\)[^}]*overflow:\s*hidden/s);assert.match(css,/\.settings-panel-body\s*\{[^}]*overflow-y:auto/s);assert.match(css,/\.drafting-settings-tabs\s*\{[^}]*overflow-x:auto/s)
 })
 

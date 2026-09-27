@@ -102,6 +102,60 @@
   --borderRadius: var(--radius-md);
 }
 
+:root[data-ui-theme="dark"] {
+  color-scheme: dark;
+  --surface-app: #171c22;
+  --surface-chrome: #20262d;
+  --surface-panel: #252c34;
+  --surface-control: #2d353e;
+  --surface-control-hover: #37414c;
+  --surface-control-pressed: #414d59;
+  --surface-popup: #282f37;
+  --surface-selected: #243f59;
+  --surface-disabled: #252c34;
+  --surface-overlay: rgba(5, 9, 13, 0.58);
+  --text-primary: #eef2f6;
+  --text-secondary: #c1cbd5;
+  --text-muted: #94a2af;
+  --text-disabled: #6f7b86;
+  --border-subtle: #343e48;
+  --border-default: #4a5662;
+  --border-strong: #697683;
+  --separator: #343d46;
+  --accent: #62a8df;
+  --accent-hover: #79b8e7;
+  --accent-pressed: #4b91c8;
+  --focus-ring: #79bdf0;
+  --focus-ring-soft: rgba(121, 189, 240, 0.24);
+  --status-success: #63bf89;
+  --status-warning: #e0aa55;
+  --status-error: #ef7881;
+  --status-info: #74b7e8;
+  --shadow-popup: 0 6px 18px rgba(0, 0, 0, 0.34);
+  --shadow-dialog: 0 20px 52px rgba(0, 0, 0, 0.44);
+}
+
+:root[data-canvas-theme="light"] {
+  --surface-viewport: #f4f6f7;
+  --surface-viewport-hud: rgba(248, 250, 252, 0.96);
+  --surface-viewport-field: #ffffff;
+  --surface-viewport-error: #fff0f1;
+  --cad-crosshair: rgba(38, 52, 66, 0.92);
+  --cad-grip: #263442;
+  --cad-grip-hover: #9a5c00;
+  --cad-grip-active: #0878bb;
+  --cad-osnap: #9a5c00;
+  --cad-track: #007e99;
+  --cad-hud-text: #24313e;
+  --cad-hud-muted: #5e6d7b;
+  --cad-feedback-edge: rgba(255, 255, 255, 0.92);
+  --cad-feedback-highlight: rgba(20, 32, 44, 0.42);
+  --cad-hud-border: rgba(74, 92, 108, 0.45);
+  --cad-hud-field-border: rgba(74, 92, 108, 0.30);
+  --cad-hud-active: #0878bb;
+  --cad-hud-tag: #536b7d;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
