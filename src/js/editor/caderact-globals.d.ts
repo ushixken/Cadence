@@ -123,6 +123,14 @@ interface CaderactViewportCommandSurface {
   selectSimilar(): CaderactCommandOutcome;
   selectByType(type: string): CaderactCommandOutcome;
   selectByLayer(layer: string): CaderactCommandOutcome;
+  selectPreviousSelection(): CaderactCommandOutcome;
+  selectLastCreated(): CaderactCommandOutcome;
+  invertSelection(): CaderactCommandOutcome;
+  saveSelectionSet(name: string, options?: { update?: boolean }): CaderactCommandOutcome;
+  deleteSelectionSet(name: string): CaderactCommandOutcome;
+  selectSelectionSet(name: string): CaderactCommandOutcome;
+  listSelectionSets(): readonly unknown[];
+  selectByFilter(criteria: { type?: string; layer?: string; color?: string; block?: string }): CaderactCommandOutcome;
   setCommandActive(active: boolean): void;
 }
 

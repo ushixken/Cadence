@@ -100,10 +100,12 @@
 
   function createSelection({resolveTarget=id=>Object.freeze({kind:"record",id,recordIds:Object.freeze([id])})}={}) {
     const selected = new Set(), listeners = new Set()
+    let previousMeaningful=Object.freeze([])
     const snapshot = () => Object.freeze(Array.from(selected).sort())
     const targetFor=id=>resolveTarget(id)||null
     const idsFor=id=>targetFor(id)?.recordIds||Object.freeze([])
     const targetSnapshot=()=>{const targets=new Map();for(const id of selected){const target=targetFor(id);if(target)targets.set(`${target.kind}:${target.id}`,target)}return Object.freeze(Array.from(targets.values()).sort((a,b)=>a.kind.localeCompare(b.kind)||a.id.localeCompare(b.id)))}
+    function rememberCurrent(){if(selected.size)previousMeaningful=snapshot()}
     function publish(status) {
       const ids=snapshot()
       for(const listener of listeners) try{listener(ids)}catch(error){console.warn("Caderact selection observer failed",error)}
@@ -114,17 +116,17 @@
       if(selected.size===1&&selected.has(recordId))return result("selection-unchanged",{selectedIds:snapshot()})
       const ids=idsFor(recordId);if(!ids.length)return result("selection-unavailable")
       if(selected.size===ids.length&&ids.every(id=>selected.has(id)))return result("selection-unchanged",{selectedIds:snapshot()})
-      selected.clear();for(const id of ids)selected.add(id);return publish("selected")
+      rememberCurrent();selected.clear();for(const id of ids)selected.add(id);return publish("selected")
     }
     function toggle(recordId) {
       if(typeof recordId!=="string"||!recordId)return result("invalid-selection")
       const ids=idsFor(recordId);if(!ids.length)return result("selection-unavailable")
-      const remove=ids.every(id=>selected.has(id));for(const id of ids)remove?selected.delete(id):selected.add(id)
+      rememberCurrent();const remove=ids.every(id=>selected.has(id));for(const id of ids)remove?selected.delete(id):selected.add(id)
       return publish("selection-toggled")
     }
     function clear() {
       if(selected.size===0)return result("selection-unchanged",{selectedIds:snapshot()})
-      selected.clear();return publish("selection-cleared")
+      rememberCurrent();selected.clear();return publish("selection-cleared")
     }
     function pruneAgainstDocument(records) {
       const valid=new Set(Array.from(records,record=>record.id));let changed=false
@@ -133,18 +135,26 @@
     }
     function applyRecordIds(recordIds,{toggle=false}={}){
       const ids=Array.from(new Set(Array.from(recordIds||[]).flatMap(id=>idsFor(id)))).filter(id=>typeof id==="string"&&id),sorted=Object.freeze(ids.slice().sort())
-      if(toggle){if(ids.length===0)return result("selection-unchanged",{selectedIds:snapshot()});for(const id of ids)selected.has(id)?selected.delete(id):selected.add(id)}
-      else{const current=snapshot();if(current.length===sorted.length&&current.every((id,index)=>id===sorted[index]))return result("selection-unchanged",{selectedIds:current});selected.clear();for(const id of ids)selected.add(id)}
+      if(toggle){if(ids.length===0)return result("selection-unchanged",{selectedIds:snapshot()});rememberCurrent();for(const id of ids)selected.has(id)?selected.delete(id):selected.add(id)}
+      else{const current=snapshot();if(current.length===sorted.length&&current.every((id,index)=>id===sorted[index]))return result("selection-unchanged",{selectedIds:current});rememberCurrent();selected.clear();for(const id of ids)selected.add(id)}
       return publish(toggle?"selection-toggled":"selection-replaced")
     }
     function replaceResolvedRecordIds(recordIds){
       const ids=Array.from(new Set(Array.from(recordIds||[]).filter(id=>typeof id==="string"&&id))),sorted=Object.freeze(ids.slice().sort()),current=snapshot()
       if(current.length===sorted.length&&current.every((id,index)=>id===sorted[index]))return result("selection-unchanged",{selectedIds:current})
-      selected.clear();for(const id of ids)selected.add(id)
+      rememberCurrent();selected.clear();for(const id of ids)selected.add(id)
       return publish("selection-replaced")
     }
+    function selectPrevious(validRecordIds=null){
+      const valid=validRecordIds===null?null:new Set(validRecordIds),available=previousMeaningful.filter(id=>(valid===null||valid.has(id))&&targetFor(id)),resolved=Array.from(new Set(available.flatMap(id=>idsFor(id)).filter(id=>valid===null||valid.has(id)))).sort()
+      if(!resolved.length)return result("previous-selection-unavailable",{selectedIds:snapshot()})
+      const current=snapshot();if(current.length===resolved.length&&current.every((id,index)=>id===resolved[index]))return result("selection-unchanged",{selectedIds:current})
+      previousMeaningful=current.length?current:previousMeaningful
+      selected.clear();for(const id of resolved)selected.add(id)
+      return publish("previous-selection-restored")
+    }
     function subscribe(listener){if(typeof listener!=="function")throw new Error("Selection listener must be a function");listeners.add(listener);return()=>listeners.delete(listener)}
-    return Object.freeze({selectOnly,toggle,clear,applyRecordIds,replaceResolvedRecordIds,has:id=>selected.has(id),selectedIds:snapshot,selectedTargets:targetSnapshot,orderedIds:()=>Object.freeze(Array.from(selected)),pruneAgainstDocument,subscribe})
+    return Object.freeze({selectOnly,toggle,clear,applyRecordIds,replaceResolvedRecordIds,selectPrevious,previousSelectionIds:()=>previousMeaningful,has:id=>selected.has(id),selectedIds:snapshot,selectedTargets:targetSnapshot,orderedIds:()=>Object.freeze(Array.from(selected)),pruneAgainstDocument,subscribe})
   }
   window.CaderactSelection=Object.freeze({createSelection,hitTestLines,hitTestRecords,DEFAULT_HIT_TOLERANCE_PX})
 })()
