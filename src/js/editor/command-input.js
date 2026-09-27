@@ -279,6 +279,19 @@ function hasSelection() { return (window.caderactSelection?.selectedIds().length
 
 function clearSelection() { window.caderactSelection?.clear() }
 
+function modalOwnsKeyboard() {
+  const known=["#settings-panel","#recovery-dialog","#unsaved-dialog"].map(selector=>document.querySelector(selector)).filter(Boolean)
+  const dialogs=Array.from(document.querySelectorAll?.('[role="dialog"][aria-modal="true"]')||[])
+  return [...new Set([...known,...dialogs])].some(element=>!element.hidden)
+}
+
+function transientSurfaceOwnsEscape() {
+  const known=["#file-menu-actions","#measure-menu-actions","#snap-menu","#grid-drafting-menu","#polar-drafting-menu","#track-drafting-menu","#dynamic-input-drafting-menu","#editor-context-menu"]
+    .map(selector=>document.querySelector(selector)).filter(Boolean)
+  const overlays=Array.from(document.querySelectorAll?.('[role="menu"],.rail-flyout,.application-menu,.dimension-style-backdrop')||[])
+  return [...new Set([...known,...overlays])].some(element=>!element.hidden)
+}
+
 commandInput.addEventListener("input", () => {
   commandInput.setAttribute("aria-invalid", "false")
   syncCommandInputPresentation()
@@ -322,6 +335,7 @@ commandSuggestions.addEventListener("click", (event) => {
 })
 
 document.addEventListener("keydown", (event) => {
+  if (event.defaultPrevented || modalOwnsKeyboard() || event.key === "Escape" && transientSurfaceOwnsEscape()) return
   if (event.caderactDynamicInputHandled) return
   if (event.caderactSelectionBoxHandled) return
   if (event.caderactProfessionalSelectionHandled || event.caderactSelectionCycleHandled) return
@@ -332,6 +346,7 @@ document.addEventListener("keydown", (event) => {
     if (outcome.status !== "selection-busy") event.preventDefault()
     return
   }
+  if (editableTarget && event.target !== commandInput) return
   if (event.key === "Escape" && window.caderactGrips?.isActive) {
     window.caderactViewport.cancelGripEdit(); event.preventDefault(); return
   }

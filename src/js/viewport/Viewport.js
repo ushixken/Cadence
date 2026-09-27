@@ -1974,15 +1974,20 @@ function onViewportPointerCancel(event) {
 }
 
 function onDocumentKeyDown(event) {
+  if(event.defaultPrevented)return
+  const commandInput=document.querySelector("#command-input"),commandBarOwns=event.target===commandInput||document.activeElement===commandInput
+  const editableTarget=event.target?.matches?.("input,textarea,select,[contenteditable=true]")||event.target?.isContentEditable
+  const modalOpen=Array.from(document.querySelectorAll?.('[role="dialog"][aria-modal="true"]')||[]).some(element=>!element.hidden)||["#settings-panel","#recovery-dialog","#unsaved-dialog"].map(selector=>document.querySelector(selector)).filter(Boolean).some(element=>!element.hidden)
+  const transientOpen=event.key==="Escape"&&([...Array.from(document.querySelectorAll?.('[role="menu"],.rail-flyout,.application-menu,.dimension-style-backdrop')||[]),...["#file-menu-actions","#measure-menu-actions","#snap-menu","#grid-drafting-menu","#polar-drafting-menu","#track-drafting-menu","#dynamic-input-drafting-menu","#editor-context-menu"].map(selector=>document.querySelector(selector)).filter(Boolean)].some(element=>!element.hidden))
+  if(modalOpen||transientOpen)return
+  if(commandBarOwns){cancelDynamicInputEdit();return}
+  if(editableTarget)return
   if(professionalSelection&&event.key==="Escape"){const owned=professionalSelection.commandOwned;if(owned&&window.caderactCommandRouter?.isActive)window.caderactCommandRouter.cancelActive();else cancelProfessionalSelection();event.caderactProfessionalSelectionHandled=true;event.preventDefault();return}
   if(professionalSelection&&event.key==="Enter"){const owned=professionalSelection.commandOwned;if(owned&&window.caderactCommandRouter?.isActive)window.caderactCommandRouter.finishActive();else finishProfessionalSelection();event.caderactProfessionalSelectionHandled=true;event.preventDefault();return}
   if(selectionCycle&&event.key==="Tab"){cycleSelection(event.shiftKey?-1:1);event.caderactSelectionCycleHandled=true;event.preventDefault();return}
   if(selectionCycle&&event.key==="Enter"){dismissSelectionCycle();event.caderactSelectionCycleHandled=true;event.preventDefault();return}
   if(selectionCycle&&event.key==="Escape"){dismissSelectionCycle();event.caderactSelectionCycleHandled=true;event.preventDefault();return}
   if(event.key==="Escape"&&selectionBox.isPending){const pointerId=selectionBox.snapshot().pointerId;selectionBox.clear();releaseGripPointerCapture(pointerId);requestRender();event.caderactSelectionBoxHandled=true;event.preventDefault();return}
-  const commandInput=document.querySelector("#command-input"),commandBarOwns=event.target===commandInput||document.activeElement===commandInput
-  if(commandBarOwns){cancelDynamicInputEdit();return}
-  const editableTarget=event.target?.matches?.("input,textarea,select,[contenteditable=true]")||event.target?.isContentEditable
   if(event.ctrlKey&&event.altKey&&!event.metaKey&&event.key?.toLowerCase()==="t"&&!editableTarget&&window.caderactCommandRouter?.isActive&&!dynamicInput.getState().editing){const semantic=activeSnapResult?.snapped&&window.CaderactObjectSnapTracking.ELIGIBLE.has(activeSnapResult.kind)?activeSnapResult:null;if(semantic){event.preventDefault();objectSnapTracking.toggleAcquire(semantic);requestRender()}return}
   if(!event.ctrlKey&&!event.altKey&&!event.metaKey){
     if(dynamicInput.getState().editing){
