@@ -48,6 +48,7 @@
     <script src="./src/js/document/CaderactUnits.js" defer></script>
     <script src="./src/js/document/PaperSpace.js" defer></script>
     <script src="./src/js/document/PlotScene.js" defer></script>
+    <script src="./src/js/io/pdf/PdfSerializer.js" defer></script>
     <script src="./src/js/document/ObjectProperties.js" defer></script>
     <script src="./src/js/geometry/SimilarityTransform.js" defer></script>
     <script src="./src/js/document/BlockTraversal.js" defer></script>
@@ -116,6 +117,7 @@
     <script src="./src/js/editor/command-input.js" defer></script>
     <script src="./src/js/editor/layout-tabs.js" defer></script>
     <script src="./src/js/editor/plot-preview.js" defer></script>
+    <script src="./src/js/editor/pdf-export.js" defer></script>
     <script src="./src/js/editor/application-shell.js" defer></script>
     <script src="./src/js/editor/measure-menu.js" defer></script>
     <script src="./src/js/editor/history-actions.js" defer></script>
@@ -730,7 +732,7 @@
           </aside>
           <section class="command-history-region" aria-label="Command history"><div class="command-history" id="command-history" aria-live="polite"></div></section>
         </div>
-        <nav class="model-strip" aria-label="Model and Layout workspaces"><div id="layout-tabs" class="layout-tabs" role="tablist" aria-label="Drawing workspaces"></div><button id="layout-add" class="layout-add" type="button" aria-label="Add Layout" title="Add Layout">+</button><div id="layout-viewport-tools" class="layout-viewport-tools" hidden><button id="layout-viewport-create" type="button">Create Viewport</button><select id="layout-viewport-scale" aria-label="Viewport scale"><option value="1">1:1</option><option value="2">1:2</option><option value="5">1:5</option><option value="10">1:10</option><option value="20">1:20</option><option value="50">1:50</option><option value="100">1:100</option></select><button id="layout-viewport-lock" type="button" aria-pressed="false">Lock</button><button id="layout-plot-preview" type="button">Plot Preview</button></div></nav>
+        <nav class="model-strip" aria-label="Model and Layout workspaces"><div id="layout-tabs" class="layout-tabs" role="tablist" aria-label="Drawing workspaces"></div><button id="layout-add" class="layout-add" type="button" aria-label="Add Layout" title="Add Layout">+</button><div id="layout-viewport-tools" class="layout-viewport-tools" hidden><button id="layout-viewport-create" type="button">Create Viewport</button><select id="layout-viewport-scale" aria-label="Viewport scale"><option value="1">1:1</option><option value="2">1:2</option><option value="5">1:5</option><option value="10">1:10</option><option value="20">1:20</option><option value="50">1:50</option><option value="100">1:100</option></select><button id="layout-viewport-lock" type="button" aria-pressed="false">Lock</button><button id="layout-plot-preview" type="button">Plot Preview</button><button id="layout-export-pdf" type="button">Export PDF</button></div></nav>
         <footer class="editor-footer" aria-label="Editor status bar">
           <div class="command-area">
             <span class="command-label">Command:</span>

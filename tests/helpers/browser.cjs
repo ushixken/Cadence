@@ -182,6 +182,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/document/CaderactUnits.js');
   load('src/js/document/PaperSpace.js');
   load('src/js/document/PlotScene.js');
+  load('src/js/io/pdf/PdfSerializer.js');
   load('src/js/document/ObjectProperties.js');
   load('src/js/geometry/SimilarityTransform.js');
   load('src/js/document/BlockTraversal.js');
