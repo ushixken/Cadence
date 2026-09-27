@@ -32,6 +32,7 @@
     getSelectionCycle = () => null,
     getPolarGuide = () => null,
     getObjectTrackingState = () => null,
+    getPaperSpace = () => null,
   }) {
     const GRID_STEPS = Object.freeze([1, 2, 5])
     const MAJOR_MULTIPLE = 5
@@ -114,6 +115,7 @@
 
     function createScene() {
       const { width: viewportWidth, height: viewportHeight } = getViewportSize()
+      const paperSpace=getPaperSpace()
       const scale = window.devicePixelRatio || 1
       const extent = viewportSettings.gridExtent
       const minorGrid = [],
@@ -210,6 +212,7 @@
 
       const spacing = getAdaptiveGridSpacing()
       if (
+        !paperSpace &&
         Number.isFinite(viewportWidth) &&
         Number.isFinite(viewportHeight) &&
         viewportWidth > 0 &&
@@ -1098,13 +1101,13 @@
       const propertyPreviewDrawGroups=[]
       for(const bucket of previewPropertyBuckets.values()){const style=bucket.style,styledLine=lineGroup(style.color,bucket.segments,style);propertyPreviewDrawGroups.push(Object.freeze({style,recordIds:Object.freeze(bucket.recordIds.slice().sort()),lineGroup:styledLine,circleGroup:Object.freeze({...styledLine,circles:Object.freeze(bucket.circles)}),arcGroup:Object.freeze({...styledLine,arcs:Object.freeze(bucket.arcs)}),ellipseGroup:Object.freeze({...styledLine,ellipses:Object.freeze(bucket.ellipses)})}))}
       const lineGroups = [
-        lineGroup(viewportSettings.gridColor, viewportSettings.gridVisible === false ? [] : minorGrid),
+        lineGroup(viewportSettings.gridColor, viewportSettings.gridVisible === false||paperSpace ? [] : minorGrid),
         lineGroup(
           viewportSettings.majorGridColor || viewportSettings.gridBoundaryColor,
-          combinedMajorGrid,
+          paperSpace ? [] : combinedMajorGrid,
         ),
-        lineGroup(viewportSettings.xAxisColor, viewportSettings.gridVisible === false ? [] : xAxis),
-        lineGroup(viewportSettings.yAxisColor, viewportSettings.gridVisible === false ? [] : yAxis),
+        lineGroup(viewportSettings.xAxisColor, viewportSettings.gridVisible === false||paperSpace ? [] : xAxis),
+        lineGroup(viewportSettings.yAxisColor, viewportSettings.gridVisible === false||paperSpace ? [] : yAxis),
         lineGroup(viewportSettings.geometryColor, geometry),
         lineGroup(
           viewportSettings.acceptedDraftColor || viewportSettings.geometryColor,
@@ -1237,6 +1240,8 @@
           ),
         }),
       )
+      let paperSpaceOverlay=null,paperDrawGroup=null,paperTriangles=[]
+      if(paperSpace?.valid){const p=paperSpace,project=value=>camera.worldToScreen(value.x,value.y),a=project({x:p.sheet.left,y:p.sheet.bottom}),b=project({x:p.sheet.right,y:p.sheet.bottom}),c=project({x:p.sheet.right,y:p.sheet.top}),d=project({x:p.sheet.left,y:p.sheet.top}),pa=project({x:p.printable.left,y:p.printable.bottom}),pb=project({x:p.printable.right,y:p.printable.bottom}),pc=project({x:p.printable.right,y:p.printable.top}),pd=project({x:p.printable.left,y:p.printable.top}),segments=[a.x,a.y,b.x,b.y,b.x,b.y,c.x,c.y,c.x,c.y,d.x,d.y,d.x,d.y,a.x,a.y,pa.x,pa.y,pb.x,pb.y,pb.x,pb.y,pc.x,pc.y,pc.x,pc.y,pd.x,pd.y,pd.x,pd.y,pa.x,pa.y],fill="#f7f7f2",stroke="#58636d";paperTriangles=[Object.freeze({points:Object.freeze([a,b,c]),color:fill,colorData:colorToRgba(fill)}),Object.freeze({points:Object.freeze([a,c,d]),color:fill,colorData:colorToRgba(fill)})];const group=lineGroup(stroke,segments,{linetype:"dashed",lineWidth:1});paperDrawGroup=Object.freeze({lineGroup:group,circleGroup:null,arcGroup:null,ellipseGroup:null});paperSpaceOverlay=Object.freeze({unit:"mm",sheet:p.sheet,printable:p.printable,screenSheet:Object.freeze({left:a.x,bottom:a.y,right:c.x,top:c.y}),segments:group.segments,fillColor:fill,boundaryColor:stroke})}
       return {
         width: viewportWidth,
         height: viewportHeight,
@@ -1262,6 +1267,7 @@
         }),
         polarTrackingOverlay: Object.freeze({ segments: new Float32Array(polarGuideSegments) }),
         objectTrackingOverlay,
+        paperSpaceOverlay,
         measurementOverlay,
         selectionOverlay: Object.freeze({
           recordIds: Object.freeze(Array.from(selectedIds).sort()),
@@ -1306,12 +1312,12 @@
         arcGroups,
         ellipseGroups,
         solidFillOverlay:Object.freeze({triangles:Object.freeze(hatchTriangles)}),
-        triangleGroups:Object.freeze([Object.freeze({role:"annotation",triangles:Object.freeze(dimensionTriangles)}),Object.freeze({role:"solid-hatch",triangles:Object.freeze(hatchTriangles)})]),
+        triangleGroups:Object.freeze([Object.freeze({role:"annotation",triangles:Object.freeze(dimensionTriangles)}),Object.freeze({role:"solid-hatch",triangles:Object.freeze(hatchTriangles)}),Object.freeze({role:"paper",triangles:Object.freeze(paperTriangles)})]),
         annotationOverlay:Object.freeze({items:Object.freeze(dimensionAnnotations)}),
         propertyDrawGroups:Object.freeze(propertyDrawGroups),
         propertyPreviewDrawGroups:Object.freeze(propertyPreviewDrawGroups),
         drawGroups: Object.freeze(
-          [...lineGroups.slice(0,5).map((lineGroup, index) =>
+          [...(paperDrawGroup?[paperDrawGroup]:[]),...lineGroups.slice(0,5).map((lineGroup, index) =>
             Object.freeze({
               lineGroup,
               circleGroup: circleGroups[index],

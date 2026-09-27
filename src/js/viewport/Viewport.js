@@ -34,7 +34,7 @@ let renderer = null, isInitialized = false, isRenderScheduled = false
 let rendererStatus = "initializing", rendererError = null, recoveryPromise = null
 let navigation = null, resizeObserver = null
 let activeSnapResult = null
-window.caderactLayoutContext = window.CaderactLayoutContext.create({session:documentSession,onChange:()=>{window.caderactSelection?.clear?.();requestRender()}})
+window.caderactLayoutContext = window.CaderactLayoutContext.create({session:documentSession,onChange:context=>{window.caderactSelection?.clear?.();if(context.kind==="layout"){const page=window.CaderactPaperSpace.derive(modelReader.layout(context.layoutId));if(page.valid&&viewportWidth>0&&viewportHeight>0){camera.zoom=Math.max(.01,Math.min((viewportWidth-48)/page.sheet.width,(viewportHeight-48)/page.sheet.height));camera.panX=(viewportWidth-page.sheet.width*camera.zoom)/2;camera.panY=(viewportHeight+page.sheet.height*camera.zoom)/2}}requestRender()}})
 function resolveTypedPrecisionPoint(input, anchor = null) {
   const candidate = activeSnapResult?.point
   const direction = anchor && candidate ? { x: candidate.x - anchor.x, y: candidate.y - anchor.y } : null
@@ -275,6 +275,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getSelectionCycle: selectionCycleSnapshot,
   getPolarGuide: () => polarGuide,
   getObjectTrackingState: () => objectSnapTracking.getState(),
+  getPaperSpace:()=>{const context=window.caderactLayoutContext?.snapshot();return context?.kind==="layout"?window.CaderactPaperSpace.derive(modelReader.layout(context.layoutId)):null},
 })
 
 function createScene() {

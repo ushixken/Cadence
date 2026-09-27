@@ -90,7 +90,7 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
         batches.push({segments,color:ellipseGroup.colorData});vertexCount+=(segments.length/4)*2
       }
     }
-    const hatchTriangles=(scene.triangleGroups||[]).filter(group=>group.role==="solid-hatch").flatMap(group=>group.triangles||[]),overlayTriangles=(scene.triangleGroups||[]).filter(group=>group.role!=="solid-hatch").flatMap(group=>group.triangles||[]),hatchVertexCount=hatchTriangles.length*3,overlayTriangleVertexCount=overlayTriangles.length*3,triangleVertexCount=hatchVertexCount+overlayTriangleVertexCount
+    const hatchTriangles=(scene.triangleGroups||[]).filter(group=>group.role==="solid-hatch"||group.role==="paper").flatMap(group=>group.triangles||[]),overlayTriangles=(scene.triangleGroups||[]).filter(group=>group.role!=="solid-hatch"&&group.role!=="paper").flatMap(group=>group.triangles||[]),hatchVertexCount=hatchTriangles.length*3,overlayTriangleVertexCount=overlayTriangles.length*3,triangleVertexCount=hatchVertexCount+overlayTriangleVertexCount
     const data = new Float32Array((vertexCount+triangleVertexCount) * 6)
     let offset = 0
     for(const triangle of hatchTriangles)for(const point of triangle.points){data.set([point.x,point.y,...triangle.colorData],offset);offset+=6}
