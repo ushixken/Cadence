@@ -7,6 +7,7 @@ const viewportSettings = {
   backgroundColor: "#182633", gridColor: "rgba(167, 175, 187, 0.28)",
   majorGridColor: "rgba(167, 175, 187, 0.45)", gridBoundaryColor: "rgba(167, 175, 187, 0.55)", xAxisColor: "#984b51",
   yAxisColor: "#3b7658", geometryColor: "#e8edf4", previewColor: "rgba(232, 237, 244, 0.65)", snapMarkerColor: "#f2cf72", selectionColor: "#63b7e6",
+  snapMarkerStrokeWidth: 1.25, trackingGuideColor: "rgba(111, 190, 210, 0.62)", trackingMarkerColor: "rgba(137, 218, 232, 0.96)",
   gripColor: "#e8edf4", gripHoverColor: "#f2cf72", gripActiveColor: "#63b7e6",
   selectionWindowColor: "#63b7e6", selectionCrossingColor: "#70c58b",
   selectionWindowFill: "rgba(75, 155, 210, 0.10)", selectionCrossingFill: "rgba(78, 170, 112, 0.10)",

@@ -72,6 +72,12 @@
   --cad-layer-hidden: #758290;
   --cad-hud-text: #dce5ee;
   --cad-hud-muted: #93a6b9;
+  --cad-feedback-edge: rgba(6, 14, 22, 0.78);
+  --cad-feedback-highlight: rgba(255, 255, 255, 0.72);
+  --cad-hud-border: rgba(137, 166, 192, 0.48);
+  --cad-hud-field-border: rgba(137, 166, 192, 0.3);
+  --cad-hud-active: #70b8ef;
+  --cad-hud-tag: #a8bed0;
 
   --shadow-popup: 0 5px 16px rgba(31, 43, 55, 0.16);
   --shadow-dialog: 0 18px 48px rgba(31, 43, 55, 0.22);

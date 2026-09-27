@@ -909,6 +909,8 @@
           glyph: snap.kind,
           point: Object.freeze({ x: center.x, y: center.y }),
           label,
+          sizePx: size,
+          strokeWidthPx: viewportSettings.snapMarkerStrokeWidth || 1,
           segments: new Float32Array(snapMarker),
         })
       }
@@ -1153,6 +1155,7 @@
         lineGroup(
           viewportSettings.snapMarkerColor || viewportSettings.previewColor,
           snapMarker,
+          {lineWidth:viewportSettings.snapMarkerStrokeWidth || 1},
         ),
         lineGroup(
           viewportSettings.moveSourceGhostColor || "rgba(160, 177, 193, 0.35)",
@@ -1177,8 +1180,8 @@
             viewportSettings.selectionColor,
           rotateTargetMarker,
         ),
-        lineGroup("rgba(111, 190, 210, 0.48)", objectTrackingGuide),
-        lineGroup("rgba(111, 190, 210, 0.82)", objectTrackingMarkers),
+        lineGroup(viewportSettings.trackingGuideColor || "rgba(111, 190, 210, 0.62)", objectTrackingGuide,{linetype:"dashed",lineWidth:1}),
+        lineGroup(viewportSettings.trackingMarkerColor || "rgba(137, 218, 232, 0.96)", objectTrackingMarkers,{lineWidth:1.25}),
       ]
       const circleGroups = lineGroups.map((group, index) =>
         Object.freeze({

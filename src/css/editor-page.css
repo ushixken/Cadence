@@ -236,6 +236,7 @@ canvas.is-navigating {
   position: absolute; z-index: var(--z-cursor); display: none;
   width: 32px; height: 32px; color: var(--cad-crosshair);
   pointer-events: none; transform: translate(-50%, -50%); will-change: left, top;
+  filter: drop-shadow(0 0 1px var(--cad-feedback-edge));
 }
 .cad-cursor-overlay.is-visible { display: block; }
 .cad-cursor-arm { position: absolute; background: currentColor; }
@@ -245,27 +246,27 @@ canvas.is-navigating {
 .cad-cursor-arm.is-bottom { top: 19.5px; left: 15.5px; width: 1px; height: 12.5px; }
 .cad-cursor-pickbox { position: absolute; top: 12.5px; left: 12.5px; box-sizing: border-box; width: 7px; height: 7px; border: 1px solid currentColor; }
 .cad-cursor-center { position: absolute; top: 15.5px; left: 15.5px; width: 1px; height: 1px; border-radius: 50%; background: currentColor; }
-.cad-cursor-overlay.is-point-command { color: #f3f6fa; }
+.cad-cursor-overlay.is-point-command { color: var(--cad-crosshair); }
 .cad-cursor-overlay.is-snap-acquired .cad-cursor-pickbox { border-color: var(--cad-osnap); }
 
 .dynamic-input-hud {
-  position:absolute; z-index:var(--z-hud); box-sizing:border-box; max-width:220px; padding:6px 7px;
-  color:var(--cad-hud-text); background:var(--surface-viewport-hud); border:1px solid rgba(124,151,177,.32);
-  border-radius:5px; box-shadow:0 5px 14px rgba(0,0,0,.28); pointer-events:none;
-  font-size:10px; line-height:1.2; white-space:nowrap; font-variant-numeric:tabular-nums;
+  position:absolute; z-index:var(--z-hud); box-sizing:border-box; max-width:216px; padding:5px 6px;
+  color:var(--cad-hud-text); background:var(--surface-viewport-hud); border:1px solid var(--cad-hud-border);
+  border-radius:var(--radius-sm); box-shadow:0 3px 10px rgba(0,0,0,.24); pointer-events:none;
+  font:10px/1.2 var(--font-ui); white-space:nowrap; font-variant-numeric:tabular-nums;
 }
 .dynamic-input-hud[hidden] { display:none; }
-.dynamic-input-prompt { max-width:204px; overflow:hidden; color:var(--cad-hud-muted); text-overflow:ellipsis; }
-.dynamic-input-fields { display:flex; gap:5px; margin-top:5px; }
+.dynamic-input-prompt { max-width:202px; overflow:hidden; color:var(--cad-hud-muted); text-overflow:ellipsis; }
+.dynamic-input-fields { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(58px,1fr); gap:4px; margin-top:4px; }
 .dynamic-input-fields:empty { display:none; }
-.dynamic-input-tags { display:flex; max-width:204px; margin-top:4px; gap:6px; overflow:hidden; color:#8fa6ba; font-size:9px; text-overflow:ellipsis; }
+.dynamic-input-tags { display:flex; max-width:202px; margin-top:3px; gap:5px; overflow:hidden; color:var(--cad-hud-tag); font-size:9px; text-overflow:ellipsis; }
 .dynamic-input-tags:empty { display:none; }
-.dynamic-input-field { display:flex; min-width:62px; padding:3px 5px; gap:5px; align-items:baseline; justify-content:space-between; background:var(--surface-viewport-field); border:1px solid rgba(122,151,178,.24); border-radius:var(--radius-sm); }
-.dynamic-input-field small { color:#8296aa; font-size:8px; font-weight:500; text-transform:uppercase; }
-.dynamic-input-field strong { color:#edf4fa; font-size:10px; font-weight:500; }
-.dynamic-input-field.is-active { border-color:#64a5df; }
-.dynamic-input-hud.is-editing .dynamic-input-field.is-active strong::after { content:""; display:inline-block; width:1px; height:10px; margin-left:2px; vertical-align:-1px; background:#8fc7f4; animation:dynamic-input-caret 1s steps(1) infinite; }
-.dynamic-input-hud.is-invalid .dynamic-input-field.is-active { border-color:var(--status-error); background:var(--surface-viewport-error); }
+.dynamic-input-field { display:grid; grid-template-columns:auto minmax(0,1fr); min-width:58px; min-height:21px; padding:2px 4px; gap:5px; align-items:baseline; background:var(--surface-viewport-field); border:1px solid var(--cad-hud-field-border); border-radius:2px; }
+.dynamic-input-field small { color:var(--cad-hud-muted); font-size:8px; font-weight:600; letter-spacing:.02em; text-transform:uppercase; }
+.dynamic-input-field strong { overflow:hidden; color:var(--cad-hud-text); font:500 10px/1.2 var(--font-mono); text-align:right; text-overflow:ellipsis; }
+.dynamic-input-field.is-active { border-color:var(--cad-hud-active); box-shadow:inset 0 -1px 0 var(--cad-hud-active); }
+.dynamic-input-hud.is-editing .dynamic-input-field.is-active strong::after { content:""; display:inline-block; width:1px; height:10px; margin-left:2px; vertical-align:-1px; background:var(--cad-hud-active); animation:dynamic-input-caret 1s steps(1) infinite; }
+.dynamic-input-hud.is-invalid .dynamic-input-field.is-active { border-color:var(--status-error); box-shadow:inset 0 -1px 0 var(--status-error); background:var(--surface-viewport-error); }
 @keyframes dynamic-input-caret { 50% { opacity:0; } }
 
 .editor-footer {
