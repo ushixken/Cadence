@@ -547,6 +547,8 @@
             <symbol id="cad-block" viewBox="0 0 24 24"><path d="M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10"/></symbol>
             <symbol id="cad-insert" viewBox="0 0 24 24"><path d="M5 5h10v10H5zM9 9h10v10H9M14 12h5M16.5 9.5v5"/></symbol>
             <symbol id="cad-measure" viewBox="0 0 24 24"><path d="M4 16L16 4l4 4L8 20zM9 13l2 2M12 10l2 2M15 7l2 2"/></symbol>
+            <symbol id="cad-fillet" viewBox="0 0 24 24"><path d="M5 19v-5a9 9 0 0 1 9-9h5M5 14h4M14 5v4"/></symbol>
+            <symbol id="cad-chamfer" viewBox="0 0 24 24"><path d="M5 19v-6l8-8h6M5 13h5M13 5v5"/></symbol>
             <symbol id="dock-current" viewBox="0 0 16 16"><path d="M8 2.5 13.5 8 8 13.5 2.5 8Z"/><path d="M8 5.5 10.5 8 8 10.5 5.5 8Z" fill="currentColor"/></symbol>
             <symbol id="dock-visible" viewBox="0 0 16 16"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z"/><circle cx="8" cy="8" r="2"/></symbol>
             <symbol id="dock-hidden" viewBox="0 0 16 16"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z"/><path d="m2.5 13.5 11-11"/></symbol>
@@ -563,19 +565,53 @@
             <symbol id="dock-delete" viewBox="0 0 16 16"><path d="M3 4.5h10M6 4.5V2.5h4v2M4.5 4.5l.8 9h5.4l.8-9M7 7v4M9 7v4"/></symbol>
           </svg>
           <aside class="quick-tools-rail" aria-label="Quick tools">
-            <button type="button" data-shell-command="Select" data-tooltip="Select · Esc"><svg><use href="#cad-select"/></svg></button>
-            <button type="button" data-shell-command="Line" data-tooltip="Line · L"><svg><use href="#cad-line"/></svg></button>
-            <button type="button" data-shell-command="Polyline" data-tooltip="Polyline · PL"><svg><use href="#cad-polyline"/></svg></button>
-            <button type="button" data-shell-command="Rectangle" data-tooltip="Rectangle · REC"><svg><use href="#cad-rectangle"/></svg></button>
-            <button type="button" data-shell-command="Circle" data-tooltip="Circle · C"><svg><use href="#cad-circle"/></svg></button>
-            <span class="rail-separator"></span>
-            <button type="button" data-shell-command="Move" data-tooltip="Move · M"><svg><use href="#cad-move"/></svg></button>
-            <button type="button" data-shell-command="Copy" data-tooltip="Copy · CP"><svg><use href="#cad-copy"/></svg></button>
-            <button type="button" data-shell-command="Rotate" data-tooltip="Rotate · RO"><svg><use href="#cad-rotate"/></svg></button>
-            <button type="button" data-shell-command="Offset" data-tooltip="Offset · O"><svg><use href="#cad-offset"/></svg></button>
-            <span class="rail-separator"></span>
-            <button type="button" data-shell-command="Text" data-tooltip="Text"><svg><use href="#cad-text"/></svg></button>
-            <button type="button" data-shell-command="Dimension" data-tooltip="Dimension"><svg><use href="#cad-dimension"/></svg></button>
+            <div class="quick-tools-scroll" role="toolbar" aria-orientation="vertical">
+              <button type="button" data-shell-command="Line"><svg aria-hidden="true"><use href="#cad-line"/></svg></button>
+              <button type="button" data-shell-command="Polyline"><svg aria-hidden="true"><use href="#cad-polyline"/></svg></button>
+              <div class="rail-tool-family">
+                <button type="button" data-shell-command="Rectangle"><svg aria-hidden="true"><use href="#cad-rectangle"/></svg></button>
+                <button type="button" class="rail-flyout-trigger" data-rail-flyout="shape" aria-label="Shape variants" aria-expanded="false"><span aria-hidden="true"></span></button>
+                <div class="rail-flyout" data-rail-menu="shape" role="menu" hidden>
+                  <button type="button" role="menuitem" data-shell-command="Rectangle"><svg aria-hidden="true"><use href="#cad-rectangle"/></svg><span>Rectangle</span></button>
+                  <button type="button" role="menuitem" data-shell-command="Polygon"><svg aria-hidden="true"><use href="#cad-polygon"/></svg><span>Polygon</span></button>
+                </div>
+              </div>
+              <button type="button" data-shell-command="Circle"><svg aria-hidden="true"><use href="#cad-circle"/></svg></button>
+              <button type="button" data-shell-command="Arc"><svg aria-hidden="true"><use href="#cad-arc"/></svg></button>
+              <button type="button" data-shell-command="Text"><svg aria-hidden="true"><use href="#cad-text"/></svg></button>
+              <div class="rail-tool-family">
+                <button type="button" data-shell-command="Linear"><svg aria-hidden="true"><use href="#cad-dimension"/></svg></button>
+                <button type="button" class="rail-flyout-trigger" data-rail-flyout="dimension" aria-label="Dimension variants" aria-expanded="false"><span aria-hidden="true"></span></button>
+                <div class="rail-flyout" data-rail-menu="dimension" role="menu" hidden>
+                  <button type="button" role="menuitem" data-shell-command="Linear"><svg aria-hidden="true"><use href="#cad-dimension"/></svg><span>Linear</span></button>
+                  <button type="button" role="menuitem" data-shell-command="Aligned"><svg aria-hidden="true"><use href="#cad-dimension"/></svg><span>Aligned</span></button>
+                  <button type="button" role="menuitem" data-shell-command="Angular"><svg aria-hidden="true"><use href="#cad-dimension"/></svg><span>Angular</span></button>
+                  <button type="button" role="menuitem" data-shell-command="DimRadius"><svg aria-hidden="true"><use href="#cad-dimension"/></svg><span>Radius</span></button>
+                  <button type="button" role="menuitem" data-shell-command="DimDiameter"><svg aria-hidden="true"><use href="#cad-dimension"/></svg><span>Diameter</span></button>
+                </div>
+              </div>
+              <span class="rail-separator" aria-hidden="true"></span>
+              <button type="button" data-shell-command="Move"><svg aria-hidden="true"><use href="#cad-move"/></svg></button>
+              <button type="button" data-shell-command="Copy"><svg aria-hidden="true"><use href="#cad-copy"/></svg></button>
+              <button type="button" data-shell-command="Rotate"><svg aria-hidden="true"><use href="#cad-rotate"/></svg></button>
+              <div class="rail-tool-family">
+                <button type="button" data-shell-command="Trim"><svg aria-hidden="true"><use href="#cad-trim"/></svg></button>
+                <button type="button" class="rail-flyout-trigger" data-rail-flyout="trim" aria-label="Trim variants" aria-expanded="false"><span aria-hidden="true"></span></button>
+                <div class="rail-flyout" data-rail-menu="trim" role="menu" hidden>
+                  <button type="button" role="menuitem" data-shell-command="Trim"><svg aria-hidden="true"><use href="#cad-trim"/></svg><span>Trim</span></button>
+                  <button type="button" role="menuitem" data-shell-command="Extend"><svg aria-hidden="true"><use href="#cad-extend"/></svg><span>Extend</span></button>
+                </div>
+              </div>
+              <button type="button" data-shell-command="Offset"><svg aria-hidden="true"><use href="#cad-offset"/></svg></button>
+              <div class="rail-tool-family">
+                <button type="button" data-shell-command="Fillet"><svg aria-hidden="true"><use href="#cad-fillet"/></svg></button>
+                <button type="button" class="rail-flyout-trigger" data-rail-flyout="corner" aria-label="Corner variants" aria-expanded="false"><span aria-hidden="true"></span></button>
+                <div class="rail-flyout" data-rail-menu="corner" role="menu" hidden>
+                  <button type="button" role="menuitem" data-shell-command="Fillet"><svg aria-hidden="true"><use href="#cad-fillet"/></svg><span>Fillet</span></button>
+                  <button type="button" role="menuitem" data-shell-command="Chamfer"><svg aria-hidden="true"><use href="#cad-chamfer"/></svg><span>Chamfer</span></button>
+                </div>
+              </div>
+            </div>
           </aside>
           <div class="viewport">
             <canvas></canvas>
