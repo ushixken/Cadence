@@ -23,6 +23,35 @@ const canvasThemePalettes=Object.freeze({
 
 const viewportCamera = window.CaderactViewportCamera.createCamera(viewportSettings.initialZoom)
 const camera = viewportCamera.state
+const editorCameraStates = new Map()
+let activeEditorCameraKey = "model"
+const cameraKey = context => context.kind === "layout" ? `layout:${context.layoutId}` : "model"
+const cameraSnapshot = () => Object.freeze({ zoom: camera.zoom, panX: camera.panX, panY: camera.panY })
+function restoreCamera(state) { camera.zoom = state.zoom; camera.panX = state.panX; camera.panY = state.panY }
+function resetModelCamera() { camera.zoom = viewportSettings.initialZoom; camera.panX = viewportWidth / 2; camera.panY = viewportHeight / 2 }
+function fitLayoutCamera(layoutId) {
+  const page = window.CaderactPaperSpace.derive(modelReader.layout(layoutId))
+  if (!page.valid || viewportWidth <= 0 || viewportHeight <= 0) return false
+  camera.zoom = Math.max(.01, Math.min((viewportWidth - 48) / page.sheet.width, (viewportHeight - 48) / page.sheet.height))
+  camera.panX = (viewportWidth - page.sheet.width * camera.zoom) / 2
+  camera.panY = (viewportHeight + page.sheet.height * camera.zoom) / 2
+  return true
+}
+function switchEditorCamera(context, reason) {
+  if (reason === "document-replaced") {
+    editorCameraStates.clear()
+    activeEditorCameraKey = "model"
+    resetModelCamera()
+    return
+  }
+  editorCameraStates.set(activeEditorCameraKey, cameraSnapshot())
+  const nextKey = cameraKey(context), saved = editorCameraStates.get(nextKey)
+  if (saved) restoreCamera(saved)
+  else if (context.kind === "layout") fitLayoutCamera(context.layoutId)
+  else resetModelCamera()
+  activeEditorCameraKey = nextKey
+  editorCameraStates.set(nextKey, cameraSnapshot())
+}
 // The application opens on a pristine blank drawing. Generic stores remain
 // dirty-by-default; only the editor bootstrap establishes this clean baseline.
 const documentSession = window.CaderactDocumentSession.createSession(window.CaderactDocument.createStore({ initiallySaved: true }))
@@ -35,7 +64,7 @@ let invalidateWorldScene=()=>{}
 let rendererStatus = "initializing", rendererError = null, recoveryPromise = null
 let navigation = null, resizeObserver = null
 let activeSnapResult = null
-window.caderactLayoutContext = window.CaderactLayoutContext.create({session:documentSession,onChange:context=>{invalidateWorldScene();window.caderactSelection?.clear?.();if(context.kind==="layout"){const page=window.CaderactPaperSpace.derive(modelReader.layout(context.layoutId));if(page.valid&&viewportWidth>0&&viewportHeight>0){camera.zoom=Math.max(.01,Math.min((viewportWidth-48)/page.sheet.width,(viewportHeight-48)/page.sheet.height));camera.panX=(viewportWidth-page.sheet.width*camera.zoom)/2;camera.panY=(viewportHeight+page.sheet.height*camera.zoom)/2}}requestRender()}})
+window.caderactLayoutContext = window.CaderactLayoutContext.create({session:documentSession,onChange:(context,reason)=>{invalidateWorldScene();window.caderactSelection?.clear?.();switchEditorCamera(context,reason);requestRender()}})
 function resolveTypedPrecisionPoint(input, anchor = null) {
   const candidate = activeSnapResult?.point
   const direction = anchor && candidate ? { x: candidate.x - anchor.x, y: candidate.y - anchor.y } : null
@@ -1716,9 +1745,9 @@ function resetForDocumentReplacement() {
   selectionBox.clear()
   cancelGripEdit()
   interactionVisuals.leave()
-  camera.zoom = viewportSettings.initialZoom
-  camera.panX = viewportWidth / 2
-  camera.panY = viewportHeight / 2
+  editorCameraStates.clear()
+  activeEditorCameraKey = "model"
+  resetModelCamera()
   requestRender()
   return Object.freeze({ status: "viewport-document-reset" })
 }
