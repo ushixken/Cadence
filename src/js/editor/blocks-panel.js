@@ -6,8 +6,9 @@
   popup.classList.add("block-actions-menu");popup.setAttribute("role","menu");popup.hidden=true;(document.body||document).appendChild(popup);window.caderactBlockActionsMenu=popup
   let editingDefinitionId=null,inspectedDefinitionId=null,openMenuDefinitionId=null,menuAnchor=null,unsubscribeHistory=null
   const result=(status,details={})=>Object.freeze({status,...details})
+  const notify=(message,severity="status")=>window.caderactApplicationFeedback?.notify(message,{severity})||window.caderactFeedback?.showTemporary(message,severity)
   const messages={"invalid-name":"Block name cannot be empty.","duplicate-name":"A Block Definition with that name already exists.","missing-definition":"The Block Definition no longer exists.","definition-in-use":"Referenced Block Definitions cannot be deleted.","commit-failed":"The Block Definition could not be changed."}
-  function feedback(outcome){const message=messages[outcome.status];if(message)window.caderactFeedback?.showTemporary(message,"error")}
+  function feedback(outcome){const message=messages[outcome.status];if(message)notify(message,"error")}
   function blocked(){return Boolean(router?.isActive)}
   function modelInstances(definitionId){return session.reader.records().filter(record=>record.type==="block-instance"&&record.definitionId===definitionId)}
   function isReferenced(definitionId){return modelInstances(definitionId).length>0||session.reader.blockDefinitions().some(definition=>Object.values(definition.records).some(record=>record.type==="block-instance"&&record.definitionId===definitionId))}
@@ -19,7 +20,7 @@
   function edit(definitionId){if(blocked())return result("block-action-blocked-active-command");const definition=session.reader.blockDefinition(definitionId);if(!definition)return result("missing-definition",{definitionId});const started=router.execute("BlockEdit");return started.status==="command-started"?router.submitActiveInput(definition.name):started}
   function rename(definitionId,name){return run(()=>session.blockDefinitionGateway.rename(definitionId,name))}
   function remove(definitionId){return run(()=>session.blockDefinitionGateway.remove(definitionId))}
-  function purge(){const outcome=run(()=>session.blockDefinitionGateway.purgeUnused());if(outcome.status==="committed")window.caderactFeedback?.showTemporary(`Purged ${outcome.definitionIds.length} unused Block Definition${outcome.definitionIds.length===1?"":"s"}.`);else if(outcome.status==="no-op")window.caderactFeedback?.showTemporary("No unused Block Definitions.");return outcome}
+  function purge(){const outcome=run(()=>session.blockDefinitionGateway.purgeUnused());if(outcome.status==="committed")notify(`Purged ${outcome.definitionIds.length} unused Block Definition${outcome.definitionIds.length===1?"":"s"}.`,"success");else if(outcome.status==="no-op")notify("No unused Block Definitions.");return outcome}
   function selectInstances(definitionId){const definition=session.reader.blockDefinition(definitionId);if(!definition)return result("missing-definition",{definitionId});return selection.applyRecordIds(modelInstances(definitionId).map(record=>record.id))}
   function inspect(definitionId){if(!session.reader.blockDefinition(definitionId))return result("missing-definition",{definitionId});inspectedDefinitionId=definitionId;render();return result("definition-inspected",{definitionId})}
   function beginRename(definitionId){if(blocked())return result("block-action-blocked-active-command");if(!session.reader.blockDefinition(definitionId))return result("missing-definition",{definitionId});closeMenu();editingDefinitionId=definitionId;inspectedDefinitionId=definitionId;render();return result("rename-started",{definitionId})}

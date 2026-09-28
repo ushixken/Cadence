@@ -94,10 +94,10 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   commandName.classList.add('command-name'); commandInputArea.classList.add('command-input-area');
   commandName.parent=commandWrap; commandInputArea.parent=commandWrap; commandName.owner=document; commandInputArea.owner=document;
   const suggestions = new Element(); const commandPrompt = new Element();
-  const commandHistory = new Element();
+  const commandHistory = new Element(); const applicationFeedback = new Element('aside'); applicationFeedback.hidden = false;
   commandHistory.parent=commandWrap;commandHistory.owner=document;
   for (const el of [input, suggestions, commandPrompt]) { el.parent = commandInputArea; el.owner = document; }
-  for (const el of [undoButton, redoButton, fileMenu, toolsMenu, editMenuTrigger]) { el.parent = document; el.owner = document; }
+  for (const el of [undoButton, redoButton, fileMenu, toolsMenu, editMenuTrigger, applicationFeedback]) { el.parent = document; el.owner = document; }
   fileMenuTrigger.parent = fileMenu; fileMenuDropdown.parent = fileMenu;
   for (const el of [fileNewButton, fileOpenButton, fileSaveButton, fileSaveAsButton, fileImportDxfButton, fileExportDxfButton]) el.parent = fileMenuDropdown;
   for (const el of [fileMenuTrigger, fileMenuDropdown, fileNewButton, fileOpenButton, fileSaveButton, fileSaveAsButton, fileImportDxfButton, fileExportDxfButton]) el.owner = document;
@@ -131,6 +131,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   const baseQuerySelector=document.querySelector,settingsSelectorMap={'#settings-trigger':settingsTrigger,'#preferences-trigger':preferencesTrigger,'#drafting-settings-trigger':draftingSettingsTrigger,'#settings-panel':settingsPanel,'#settings-close':settingsClose,'#settings-reset':settingsReset,'#settings-title':settingsTitle,'#settings-subtitle':settingsSubtitle,'#preferences-tabs':preferencesTabs,'#drafting-settings-tabs':draftingTabs,'#drafting-settings-footer':draftingFooter,'#settings-custom-canvas':customCanvasSection,'#settings-canvas-reset':canvasTemplateReset,'#settings-canvas-contrast':canvasContrast,'#settings-appearance-reset':appearanceReset,'#settings-workspace-reset':workspaceReset,'#settings-active-collection':activeCollection,'#settings-osnap-select-all':settingsSelectAll,'#settings-osnap-clear-all':settingsClearAll};for(const [name,element] of Object.entries(settingsControls))settingsSelectorMap[`#settings-${name}`]=element;document.querySelector=selector=>settingsSelectorMap[selector]||baseQuerySelector(selector);
   document.querySelectorAll = selector => ({ '.menu-items > li > button':[fileMenuTrigger,toolsMenuTrigger,editMenuTrigger], '.snap-dependent input':[insertionSnapOption], '[data-snap-mode]':[snapEnabled,insertionSnapOption], '.footer-tool':[gridVisibleButton,gridSnapButton,orthoButton,polarButton,snapTrigger,trackButton,dynamicInputButton],'.drafting-flyout-trigger':[gridMenuTrigger,polarMenuTrigger,osnapMenuTrigger,trackMenuTrigger,dynamicInputMenuTrigger],'.drafting-menu, #snap-menu':[gridMenu,polarMenu,snapMenu,trackMenu,dynamicInputMenu], '.unit-option':unitOptions })[selector] || [];
   const baseQuerySelectorAll=document.querySelectorAll;document.querySelectorAll=selector=>({"[data-settings-tab]":settingsTabs,"[data-settings-page]":settingsPages,"[data-settings-snap-mode]":settingsSnapOptions,"[data-canvas-color]":canvasColorInputs,"[data-workspace-panel]":workspacePanelInputs,"[data-open-drafting-settings]":[]}[selector]||baseQuerySelectorAll(selector));
+  const feedbackQuerySelector=document.querySelector;document.querySelector=selector=>selector==='#application-feedback'?applicationFeedback:feedbackQuerySelector(selector);
   document.createElement = tag => { const element = new Element(tag); element.owner = document; return element; };
   window.devicePixelRatio = 1;
   const frames = []; const renders = []; const sizes = [];
@@ -235,6 +236,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/CommandRegistry.js');
   load('src/js/editor/CommandRouter.js');
   load('src/js/editor/CommandFeedback.js');
+  load('src/js/editor/ApplicationFeedback.js');
   load('src/js/editor/CadCommandExtensions.js');
   load('src/js/editor/FilletChamferCommands.js');
   load('src/js/editor/DirectCommandExtensions.js');

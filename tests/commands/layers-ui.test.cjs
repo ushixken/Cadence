@@ -13,7 +13,7 @@ test('layer list and current/default indicators derive from authoritative state'
   assert.equal(row.children[0].getAttribute('aria-pressed'),'true');
 });
 
-test('create trims names, uses one transaction, and invalid names provide U5 feedback without mutation',async()=>{
+test('create trims names, uses one transaction, and invalid names provide application feedback without mutation',async()=>{
   const b=await browser();const revision=b.read('documentController.currentRevision');
   assert.equal(b.run(`window.caderactLayers.create(' Details ').status`),'committed');
   assert.equal(b.read('documentController.currentRevision'),revision+1);assert.equal(b.layersList.children.length,2);
@@ -23,7 +23,7 @@ test('create trims names, uses one transaction, and invalid names provide U5 fee
   b.run('window.caderactHistory.redo()');assert.equal(b.read('modelReader.snapshot().currentLayerId'),createdId);
   for(const [name,message] of [[' details ','A layer with that name already exists'],['   ','Layer name cannot be empty']]){
     const before=state(b);assert.notEqual(b.run(`window.caderactLayers.create(${JSON.stringify(name)}).status`),'committed');
-    assert.deepEqual(state(b),before);assert.equal(b.commandPrompt.children[0].textContent,message);assert.equal(b.input.classList.contains('has-command-error'),true);
+    assert.deepEqual(state(b),before);assert.equal(b.read("window.caderactApplicationFeedback.entries.at(-1).message"),message);assert.equal(b.input.classList.contains('has-command-error'),false);
   }
 });
 
@@ -52,7 +52,7 @@ test('rename preserves identity and Undo/Redo restore exact names',async()=>{
 test('delete follows A7 protection and exact history rules',async()=>{
   const b=await browser();const defaultId=b.read('modelReader.snapshot().defaultLayerId');
   assert.equal(b.run(`window.caderactLayers.remove(${JSON.stringify(defaultId)}).status`),'default-layer-required');
-  assert.equal(b.commandPrompt.children[0].textContent,'The default layer cannot be deleted');
+  assert.equal(b.read("window.caderactApplicationFeedback.entries.at(-1).message"),'The default layer cannot be deleted');
   b.run(`window.caderactLayers.create('Temporary')`);const temporary=layerId(b);
   assert.equal(b.run(`window.caderactLayers.remove(${JSON.stringify(temporary)}).status`),'committed');
   assert.equal(b.run(`modelReader.layer(${JSON.stringify(temporary)})`),null);
@@ -65,7 +65,7 @@ test('delete follows A7 protection and exact history rules',async()=>{
   b.run(`window.caderactLayers.create('Objects')`);const objects=layerId(b);
   b.run(`window.caderactLayers.setCurrent(${JSON.stringify(objects)});window.__r=recordGateway.createLine({x:0,y:0},{x:1,y:1});recordGateway.createAll([window.__r])`);
   const before=state(b);assert.equal(b.run(`window.caderactLayers.remove(${JSON.stringify(objects)}).status`),'layer-in-use');
-  assert.deepEqual(state(b),before);assert.equal(b.commandPrompt.children[0].textContent,'Layer is not empty.');
+  assert.deepEqual(state(b),before);assert.equal(b.read("window.caderactApplicationFeedback.entries.at(-1).message"),'Layer is not empty.');
 });
 
 test('inline rename owns focus and Enter commits while Escape cancels',async()=>{

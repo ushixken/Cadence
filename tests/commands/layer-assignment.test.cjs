@@ -21,9 +21,9 @@ test('target and stale source validation is all-or-nothing',async()=>{
   const stale=await browser();seed(stale);const before=snapshot(stale);assert.equal(stale.run('recordGateway.assignLayer([window.__records[0].id,"missing"],window.__target.id).status'),'selection-not-editable');assert.deepEqual(snapshot(stale),before);
 });
 
-test('explicit panel Assign action owns UI feedback and command gating',async()=>{
-  const b=await browser();seed(b);assert.equal(b.layerAssignButton.disabled,true);b.run('window.caderactSelection.applyRecordIds([window.__records[0].id]);layerGateway.setCurrent(window.__target.id)');assert.equal(b.layerAssignButton.disabled,false);b.emit(b.layerAssignButton,'click');assert.equal(b.read('modelReader.records().find(x=>x.id===window.__records[0].id).layerId'),b.read('window.__target.id'));assert.equal(b.commandPrompt.children[0].textContent,'Moved 1 object to Target.');
-  b.emit(b.layerAssignButton,'click');assert.equal(b.commandPrompt.children[0].textContent,'Selection is already on Target.');b.launch('Line');assert.equal(b.layerAssignButton.disabled,true);assert.equal(b.read('window.caderactLayers.assign().status'),'layer-action-blocked-active-command');
+test('explicit panel Assign action owns application feedback and command gating',async()=>{
+  const b=await browser();seed(b);assert.equal(b.layerAssignButton.disabled,true);b.run('window.caderactSelection.applyRecordIds([window.__records[0].id]);layerGateway.setCurrent(window.__target.id)');assert.equal(b.layerAssignButton.disabled,false);b.emit(b.layerAssignButton,'click');assert.equal(b.read('modelReader.records().find(x=>x.id===window.__records[0].id).layerId'),b.read('window.__target.id'));assert.equal(b.read("window.caderactApplicationFeedback.entries.at(-1).message"),'Moved 1 object to Target.');
+  b.emit(b.layerAssignButton,'click');assert.equal(b.read("window.caderactApplicationFeedback.entries.at(-1).message"),'Selection is already on Target.');b.launch('Line');assert.equal(b.layerAssignButton.disabled,true);assert.equal(b.read('window.caderactLayers.assign().status'),'layer-action-blocked-active-command');
 });
 
 test('assigned layer IDs persist exactly through v1 Save/Open representation',async()=>{

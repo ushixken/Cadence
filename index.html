@@ -101,6 +101,7 @@
     <script src="./src/js/editor/CommandRegistry.js" defer></script>
     <script src="./src/js/editor/CommandRouter.js" defer></script>
     <script src="./src/js/editor/CommandFeedback.js" defer></script>
+    <script src="./src/js/editor/ApplicationFeedback.js" defer></script>
     <script src="./src/js/editor/CadCommandExtensions.js" defer></script>
     <script src="./src/js/editor/FilletChamferCommands.js" defer></script>
     <script src="./src/js/editor/DirectCommandExtensions.js" defer></script>
@@ -549,6 +550,7 @@
             <div class="file-safety-dialog-body caderact-dialog-body"><p id="unsaved-message">Save your changes before continuing?</p></div>
             <footer class="caderact-dialog-actions"><button id="unsaved-discard" type="button">Discard</button><button id="unsaved-save" type="button">Save</button><button id="unsaved-cancel" type="button" autofocus>Cancel</button></footer>
           </section>
+          <aside id="application-feedback" class="application-feedback" aria-label="Application notifications" aria-live="polite" aria-relevant="additions text"></aside>
         </nav>
         <nav class="cad-tool-tabs" role="tablist" aria-label="CAD tool collections">
           <button type="button" role="tab" data-shell-category="Draw" aria-selected="true" aria-controls="category-tools" tabindex="0">Draw</button>

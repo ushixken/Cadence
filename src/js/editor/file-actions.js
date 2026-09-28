@@ -74,7 +74,7 @@
     dxfImporter = window.CaderactDxfImport, dxfExporter = window.CaderactDxfExport, adapters = browserAdapters(),
     fileState = window.CaderactDocumentFileState.create({ defaultFilename: DEFAULT_FILENAME }), recovery = null }) {
     let lastResult = result("file-idle")
-    const publish = outcome => { lastResult = outcome; window.caderactFeedback?.presentResult(outcome); window.caderactFileSafetyUx?.presentOutcome(outcome); return outcome }
+    const publish = outcome => { lastResult = outcome; if(outcome?.status?.startsWith("dxf-"))window.caderactApplicationFeedback?.presentResult(outcome);else window.caderactFeedback?.presentResult(outcome); window.caderactFileSafetyUx?.presentOutcome(outcome); return outcome }
     const activeBlocked = operation => commandRouter.isActive
       ? publish(result(`${operation}-blocked-active-command`, { command: commandRouter.activeCommand })) : null
     async function confirmReplacement(operation) {
@@ -176,9 +176,6 @@
       fileState.imported({filename})
       const outcome = publish(result("dxf-open-completed", { filename, documentId: imported.store.reader.snapshot().id,
         importedCount: imported.importedCount, diagnostics: imported.diagnostics, unit: imported.unit }))
-      const warningCount = imported.diagnostics.filter(value => value.severity === "warning")
-        .reduce((count, value) => count + (value.count || 1), 0)
-      if (warningCount) window.caderactFeedback?.showTemporary(`DXF opened with ${warningCount} warning${warningCount === 1 ? "" : "s"}.`, "status")
       return outcome
     }
     async function exportDxf() {

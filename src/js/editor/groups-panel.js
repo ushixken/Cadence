@@ -7,14 +7,15 @@
   window.caderactGroupActionsMenu=popup
   let editingGroupId=null,openMenuGroupId=null,menuAnchor=null,unsubscribeHistory=null
   const result=(status,details={})=>Object.freeze({status,...details})
+  const notify=(message,severity="status")=>window.caderactApplicationFeedback?.notify(message,{severity})||window.caderactFeedback?.showTemporary(message,severity)
   const messages={"insufficient-members":"Select at least two ungrouped objects.","missing-member":"The selection contains an unavailable object.","already-grouped":"An object can belong to only one group.","invalid-name":"Group name cannot be empty.","duplicate-name":"A group with that name already exists.","member-limit":"This group has reached its member limit.","missing-group":"The group no longer exists."}
-  function feedback(outcome){const message=messages[outcome.status];if(message)window.caderactFeedback?.showTemporary(message,"error")}
+  function feedback(outcome){const message=messages[outcome.status];if(message)notify(message,"error")}
   function blocked(){return Boolean(window.caderactCommandRouter?.isActive)}
   function selectedIds(){const records=new Set(session.reader.records().map(record=>record.id));return selection.selectedIds().filter(id=>records.has(id))}
   function closeMenu(){menuAnchor?.setAttribute?.("aria-expanded","false");openMenuGroupId=null;menuAnchor=null;popup.hidden=true;popup.replaceChildren()}
   function cancelRename({renderNow=true}={}){if(!editingGroupId)return false;editingGroupId=null;if(renderNow)render();return true}
   function run(action){if(blocked())return result("group-action-blocked-active-command");const outcome=action();feedback(outcome);return outcome}
-  function create(){const outcome=run(()=>session.groupGateway.createGroup(selectedIds()));if(outcome.group)window.caderactFeedback?.showTemporary(`${outcome.group.name} created.`);return outcome}
+  function create(){const outcome=run(()=>session.groupGateway.createGroup(selectedIds()));if(outcome.group)notify(`${outcome.group.name} created.`,"success");return outcome}
   function rename(groupId,name){return run(()=>session.groupGateway.rename(groupId,name))}
   function addSelection(groupId){return run(()=>session.groupGateway.addMembers(groupId,selectedIds()))}
   function removeSelection(groupId){return run(()=>session.groupGateway.removeMembers(groupId,selectedIds()))}

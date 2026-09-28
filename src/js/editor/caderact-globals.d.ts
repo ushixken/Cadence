@@ -82,6 +82,13 @@ interface CaderactCommandFeedbackController {
   showTemporary(message: string, kind?: string): void;
 }
 
+interface CaderactApplicationFeedbackController {
+  notify(message: string, options?: { severity?: "status" | "success" | "warning" | "error"; duration?: number; action?: { label: string; run(): void } | null }): number | null;
+  dismiss(id: number): boolean;
+  presentResult(outcome: { status?: string; message?: string; diagnostics?: readonly { severity?: string; count?: number }[] }): object;
+  clear(): void;
+}
+
 interface CaderactViewportCommandSurface {
   createAlignedDimensionCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
   createAngularDimensionCommandSession(context: CaderactCommandActivationContext): CaderactCommandSession;
@@ -163,6 +170,8 @@ interface Window {
   caderactCommandRegistry?: CaderactCommandRegistryInstance;
   caderactCommandRouter?: CaderactCommandRouter;
   caderactFeedback?: CaderactCommandFeedbackController;
+  CaderactApplicationFeedback?: { createController(options?: object): CaderactApplicationFeedbackController; bind(root: HTMLElement): CaderactApplicationFeedbackController | null };
+  caderactApplicationFeedback?: CaderactApplicationFeedbackController | null;
   caderactCommandInput?: {
     acceptIdleCommandSuggestion(): boolean;
     submitCurrentInput(): boolean;
