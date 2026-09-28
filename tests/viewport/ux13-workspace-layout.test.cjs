@@ -66,5 +66,5 @@ test('UX13 production structure uses a stable bounded Preferences frame and each
  const html=fs.readFileSync('index.html','utf8'),css=fs.readFileSync('src/css/application-shell.css','utf8'),source=fs.readFileSync('src/js/editor/layout-tabs.js','utf8')
  for(const key of ['background','gridMinor','gridMajor','axisX','axisY','geometry','selection','grip','gripHover','osnap','tracking','crosshair','dynamicSurface','dynamicText'])assert.equal(html.split(`data-canvas-color="${key}"`).length-1,1)
  assert.match(css,/height:min\(540px,calc\(100vh - 24px\)\)/);assert.match(css,/#settings-panel \.settings-panel-body\{flex:1;min-height:0\}/)
- assert.match(source,/CaderactFloatingDialog\.bind\(setupDialog,title\)/)
+ assert.match(source,/CaderactFloatingDialog\.bind\(setupDialog,header\)/)
 })
