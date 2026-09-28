@@ -477,15 +477,15 @@
               <button id="settings-trigger" type="button" role="menuitem" data-open-drafting-settings="appearance">Settings</button>
             </div>
           </div>
-          <section id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
-            <header class="settings-panel-header"><div><h2 id="settings-title">Preferences</h2><span id="settings-subtitle">Application and workspace</span></div><button id="settings-close" type="button" aria-label="Close Preferences">×</button></header>
-            <nav id="preferences-tabs" class="drafting-settings-tabs" role="tablist" aria-label="Preferences sections">
+          <section id="settings-panel" class="caderact-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+            <header class="settings-panel-header caderact-dialog-header"><div><h2 id="settings-title">Preferences</h2><span id="settings-subtitle">Application and workspace</span></div><button id="settings-close" class="caderact-dialog-close" type="button" aria-label="Close Preferences">×</button></header>
+            <nav id="preferences-tabs" class="drafting-settings-tabs caderact-dialog-tabs" role="tablist" aria-label="Preferences sections">
               <button type="button" role="tab" data-settings-group="preferences" data-settings-tab="appearance" aria-selected="true" aria-controls="settings-appearance">Appearance</button><button type="button" role="tab" data-settings-group="preferences" data-settings-tab="workspace" aria-selected="false" aria-controls="settings-workspace">Workspace</button><button type="button" role="tab" data-settings-group="preferences" data-settings-tab="command" aria-selected="false" aria-controls="settings-command">Command</button><button type="button" role="tab" data-settings-group="preferences" data-settings-tab="cursor" aria-selected="false" aria-controls="settings-cursor">Cursor</button>
             </nav>
-            <nav id="drafting-settings-tabs" class="drafting-settings-tabs" role="tablist" aria-label="Drafting Settings sections" hidden>
+            <nav id="drafting-settings-tabs" class="drafting-settings-tabs caderact-dialog-tabs" role="tablist" aria-label="Drafting Settings sections" hidden>
               <button type="button" role="tab" data-settings-group="drafting" data-settings-tab="grid" aria-selected="true" aria-controls="drafting-settings-grid">Grid &amp; Snap</button><button type="button" role="tab" data-settings-group="drafting" data-settings-tab="polar" aria-selected="false" aria-controls="drafting-settings-polar">Polar</button><button type="button" role="tab" data-settings-group="drafting" data-settings-tab="osnap" aria-selected="false" aria-controls="drafting-settings-osnap">Object Snap</button><button type="button" role="tab" data-settings-group="drafting" data-settings-tab="tracking" aria-selected="false" aria-controls="drafting-settings-tracking">Tracking</button><button type="button" role="tab" data-settings-group="drafting" data-settings-tab="dynamic" aria-selected="false" aria-controls="drafting-settings-dynamic">Dynamic Input</button>
             </nav>
-            <div class="settings-panel-body drafting-settings-body">
+            <div class="settings-panel-body drafting-settings-body caderact-dialog-body">
               <section id="settings-appearance" class="drafting-settings-page" role="tabpanel" data-settings-group="preferences" data-settings-page="appearance"><div class="settings-section"><h3>Appearance</h3><div class="settings-form">
                 <div class="settings-row"><label for="settings-ui-theme">UI Theme</label><div class="settings-control settings-control-compact"><select id="settings-ui-theme"><option value="light">Light</option><option value="dark">Dark</option></select></div></div>
                 <div class="settings-row"><label for="settings-canvas-theme">Canvas</label><div class="settings-control settings-control-compact"><select id="settings-canvas-theme"><option value="light">Light</option><option value="dark">Dark</option><option value="custom">Custom</option></select></div></div>
@@ -537,17 +537,17 @@
               <section id="drafting-settings-tracking" class="drafting-settings-page" role="tabpanel" data-settings-group="drafting" data-settings-page="tracking" hidden><div class="settings-section"><h3>Tracking</h3><div class="settings-form"><div class="settings-row"><label for="settings-track-enabled">Object Snap Tracking</label><div class="settings-control settings-control-compact"><input id="settings-track-enabled" type="checkbox"></div></div><div class="settings-row"><label for="settings-extension-enabled">Extension Tracking</label><div class="settings-control settings-control-compact"><input id="settings-extension-enabled" type="checkbox"></div></div></div></div></section>
               <section id="drafting-settings-dynamic" class="drafting-settings-page" role="tabpanel" data-settings-group="drafting" data-settings-page="dynamic" hidden><div class="settings-section"><h3>Dynamic Input</h3><div class="settings-form"><div class="settings-row"><label for="settings-dynamic-enabled">Enable Dynamic Input</label><div class="settings-control settings-control-compact"><input id="settings-dynamic-enabled" type="checkbox"></div></div></div></div></section>
             </div>
-            <footer id="drafting-settings-footer" class="settings-panel-footer" hidden><button id="settings-reset" type="button">Reset Drafting Defaults</button></footer>
+            <footer id="drafting-settings-footer" class="settings-panel-footer caderact-dialog-actions" data-settings-group="drafting" hidden><button id="settings-reset" type="button">Reset Drafting Defaults</button></footer>
           </section>
-          <section id="recovery-dialog" class="file-safety-dialog" role="dialog" aria-modal="true" aria-labelledby="recovery-title" hidden>
-            <header><h2 id="recovery-title">Recovery available</h2></header>
-            <div class="file-safety-dialog-body"><p id="recovery-message"></p><label for="recovery-candidates">Recovered document</label><select id="recovery-candidates"></select><p id="recovery-details"></p></div>
-            <footer><button id="recovery-dismiss" type="button">Dismiss</button><button id="recovery-cancel" type="button">Not now</button><button id="recovery-apply" type="button">Recover</button></footer>
+          <section id="recovery-dialog" class="file-safety-dialog caderact-dialog" role="dialog" aria-modal="true" aria-labelledby="recovery-title" hidden>
+            <header class="caderact-dialog-header"><h2 id="recovery-title">Recovery available</h2></header>
+            <div class="file-safety-dialog-body caderact-dialog-body"><p id="recovery-message"></p><label for="recovery-candidates">Recovered document</label><select id="recovery-candidates"></select><p id="recovery-details"></p></div>
+            <footer class="caderact-dialog-actions"><button id="recovery-dismiss" type="button">Dismiss</button><button id="recovery-cancel" type="button">Not now</button><button id="recovery-apply" type="button">Recover</button></footer>
           </section>
-          <section id="unsaved-dialog" class="file-safety-dialog" role="dialog" aria-modal="true" aria-labelledby="unsaved-title" hidden>
-            <header><h2 id="unsaved-title">Unsaved changes</h2></header>
-            <div class="file-safety-dialog-body"><p id="unsaved-message">Save your changes before continuing?</p></div>
-            <footer><button id="unsaved-discard" type="button">Discard</button><button id="unsaved-save" type="button">Save</button><button id="unsaved-cancel" type="button" autofocus>Cancel</button></footer>
+          <section id="unsaved-dialog" class="file-safety-dialog caderact-dialog" role="dialog" aria-modal="true" aria-labelledby="unsaved-title" hidden>
+            <header class="caderact-dialog-header"><h2 id="unsaved-title">Unsaved changes</h2></header>
+            <div class="file-safety-dialog-body caderact-dialog-body"><p id="unsaved-message">Save your changes before continuing?</p></div>
+            <footer class="caderact-dialog-actions"><button id="unsaved-discard" type="button">Discard</button><button id="unsaved-save" type="button">Save</button><button id="unsaved-cancel" type="button" autofocus>Cancel</button></footer>
           </section>
         </nav>
         <nav class="cad-tool-tabs" role="tablist" aria-label="CAD tool collections">
