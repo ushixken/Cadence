@@ -1,5 +1,12 @@
 // C2: reusable semantic context-menu controller and accessible DOM projection.
 (() => {
+  // UX13-B1: top-left starts at the pointer hotspot; flip/shift only on real overflow.
+  function anchor(x,y,width,height,bounds,margin=8){
+    let left=x,top=y
+    if(left+width>bounds.width-margin)left=x-width
+    if(top+height>bounds.height-margin)top=y-height
+    return {left:Math.max(margin,Math.min(left,bounds.width-width-margin)),top:Math.max(margin,Math.min(top,bounds.height-height-margin))}
+  }
   function create({element,viewport=()=>({width:window.innerWidth||1024,height:window.innerHeight||768}),margin=8}={}){
     if(!element)throw new Error("Context menu element is required")
     let state=Object.freeze({open:false,context:null,actions:Object.freeze([]),x:0,y:0}),returnFocus=null
@@ -11,12 +18,12 @@
       const normalized=Array.from(actions||[]).filter(action=>action&&action.id&&action.label).map(action=>Object.freeze({...action,enabled:action.enabled!==false}))
       for(const action of normalized){if(action.separatorBefore&&element.children.length){const separator=document.createElement("div");separator.classList.add("context-menu-separator");separator.setAttribute("role","separator");element.appendChild(separator)}const item=document.createElement("button");item.type="button";item.classList.add("context-menu-item");item.setAttribute("role","menuitem");item.dataset.actionId=action.id;item.textContent=action.label;item.disabled=!action.enabled;item.addEventListener("click",()=>activate(action));element.appendChild(item)}
       if(!normalized.length)return close({restoreFocus:false})
-      element.hidden=false;const bounds=viewport(),width=Math.min(280,Math.max(150,element.offsetWidth||180)),height=element.offsetHeight||normalized.length*30+8,left=Math.max(margin,Math.min(x,bounds.width-width-margin)),top=Math.max(margin,Math.min(y,bounds.height-height-margin));element.style.left=`${left}px`;element.style.top=`${top}px`;state=Object.freeze({open:true,context,actions:Object.freeze(normalized),x:left,y:top});(enabledItems()[0]||element).focus();return state
+      element.hidden=false;const bounds=viewport(),measured=element.getBoundingClientRect?.()||{},width=measured.width||element.offsetWidth||180,height=measured.height||element.offsetHeight||normalized.length*30+8,{left,top}=anchor(x,y,width,height,bounds,margin);element.style.left=`${left}px`;element.style.top=`${top}px`;state=Object.freeze({open:true,context,actions:Object.freeze(normalized),x:left,y:top});(enabledItems()[0]||element).focus();return state
     }
     element.addEventListener("keydown",event=>{const items=enabledItems(),current=items.indexOf(document.activeElement);if(event.key==="Escape"){event.preventDefault();close();return}if(!items.length)return;let index=null;if(event.key==="ArrowDown")index=(current+1+items.length)%items.length;else if(event.key==="ArrowUp")index=(current-1+items.length)%items.length;else if(event.key==="Home")index=0;else if(event.key==="End")index=items.length-1;else if((event.key==="Enter"||event.key===" ")&&current>=0){event.preventDefault();const action=state.actions.find(value=>value.id===items[current].dataset.actionId);activate(action);return}if(index!==null){event.preventDefault();items[index].focus()}})
     document.addEventListener("pointerdown",event=>{if(state.open&&!element.contains(event.target))close()})
     window.addEventListener("blur",()=>close({restoreFocus:false}))
     return Object.freeze({open,close,getState:()=>state})
   }
-  window.CaderactContextMenu=Object.freeze({create})
+  window.CaderactContextMenu=Object.freeze({create,anchor})
 })()
