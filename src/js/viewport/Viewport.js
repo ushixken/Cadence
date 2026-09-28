@@ -63,6 +63,7 @@ let renderer = null, isInitialized = false, isRenderScheduled = false
 let invalidateWorldScene=()=>{}
 let rendererStatus = "initializing", rendererError = null, recoveryPromise = null
 let navigation = null, resizeObserver = null
+let layoutInteraction = null
 let activeSnapResult = null
 window.caderactLayoutContext = window.CaderactLayoutContext.create({session:documentSession,onChange:(context,reason)=>{invalidateWorldScene();window.caderactSelection?.clear?.();switchEditorCamera(context,reason);requestRender()}})
 function resolveTypedPrecisionPoint(input, anchor = null) {
@@ -95,7 +96,17 @@ let polarGuide = null
 const viewportHost = canvas.parentElement || canvas.parent
 function canvasAlpha(hex,alpha){const value=Number.parseInt(hex.slice(1),16);return`rgba(${value>>16&255}, ${value>>8&255}, ${value&255}, ${alpha})`}
 function customCanvasPalette(colors){return Object.freeze({backgroundColor:colors.background,geometryColor:colors.geometry,previewColor:canvasAlpha(colors.geometry,.65),snapMarkerColor:colors.osnap,selectionColor:colors.selection,trackingGuideColor:canvasAlpha(colors.tracking,.66),trackingMarkerColor:colors.tracking,gripColor:colors.grip,gripHoverColor:colors.gripHover,gripActiveColor:colors.selection,selectionWindowColor:colors.selection,selectionCrossingColor:colors.tracking,draftPointColor:colors.geometry,acceptedDraftColor:colors.geometry,moveSourceGhostColor:canvasAlpha(colors.geometry,.35),moveGuideColor:canvasAlpha(colors.osnap,.72),rotateCenterMarkerColor:colors.osnap,rotateReferenceMarkerColor:colors.tracking,rotateTargetMarkerColor:colors.selection})}
-function applyCanvasTheme(value=workspacePreferences?.value){const name=["light","custom"].includes(value?.canvasTheme)?value.canvasTheme:"dark",palette=name==="custom"?customCanvasPalette(value.customCanvasColors):canvasThemePalettes[name];Object.assign(viewportSettings,palette);if(name==="custom")applyCustomGridColors(value.customCanvasColors);else applyGridAppearance(userPreferences.value);if(viewportHost?.dataset)viewportHost.dataset.canvasTheme=name;invalidateWorldScene();requestRender?.()}
+function applyCanvasTheme(value=workspacePreferences?.value){const name=["light","custom"].includes(value?.canvasTheme)?value.canvasTheme:"dark",palette=name==="custom"?customCanvasPalette(value.customCanvasColors):canvasThemePalettes[name];Object.assign(viewportSettings,palette);if(name==="custom"){applyCustomGridColors(value.customCanvasColors);Object.assign(viewportSettings,window.CaderactCanvasAppearance.preserved(value.customCanvasPresentation,value.customCanvasColors,"renderer"))}else applyGridAppearance(userPreferences.value);if(viewportHost?.dataset)viewportHost.dataset.canvasTheme=name;invalidateWorldScene();requestRender?.()}
+function captureCanvasAppearance(){
+  const authority=window.CaderactCanvasAppearance,value=workspacePreferences.value,source=value.canvasTheme==='light'?'technical-light':'classic-dark'
+  const colors={...(value.canvasTheme==='custom'?value.customCanvasColors:window.CaderactWorkspacePreferences.CANVAS_TEMPLATES[source])},renderer={},css={}
+  for(const [key,role] of Object.entries(authority.roles))renderer[key]=viewportSettings[key]
+  for(const [key,role] of Object.entries({backgroundColor:'background',geometryColor:'geometry',gridColor:'gridMinor',majorGridColor:'gridMajor',xAxisColor:'axisX',yAxisColor:'axisY',selectionColor:'selection',gripColor:'grip',gripHoverColor:'gripHover',snapMarkerColor:'osnap',trackingMarkerColor:'tracking'}))colors[role]=authority.hex(viewportSettings[key],colors[role])
+  const computed=window.getComputedStyle?.(document.documentElement)
+  for(const [token,role] of Object.entries(authority.tokens)){const color=computed?.getPropertyValue(token)?.trim();if(color)css[token]=color}
+  for(const [token,role] of Object.entries({'--cad-crosshair':'crosshair','--surface-viewport-hud':'dynamicSurface','--cad-hud-text':'dynamicText'}))colors[role]=authority.hex(css[token],colors[role])
+  return {colors,presentation:authority.normalize({colors,renderer,css})}
+}
 applyCanvasTheme()
 workspacePreferences?.subscribe(applyCanvasTheme)
 const interactionVisuals = window.CaderactInteractionVisuals.createController({ host: viewportHost })
@@ -328,7 +339,7 @@ const sceneBuilder = window.CaderactViewportScene.createSceneBuilder({
   getPolarGuide: () => polarGuide,
   getObjectTrackingState: () => objectSnapTracking.getState(),
   getPaperSpace:()=>{const context=window.caderactLayoutContext?.snapshot();return context?.kind==="layout"?window.CaderactPaperSpace.derive(modelReader.layout(context.layoutId)):null},
-  getLayoutViewports:()=>{const context=window.caderactLayoutContext?.snapshot(),layout=context?.kind==="layout"?modelReader.layout(context.layoutId):null;return layout?layout.viewportOrder.map(id=>layout.viewports[id]):[]},
+  getLayoutViewports:()=>layoutInteraction?.projectedViewports()||[],
   getModelRecords:()=>modelReader.visibleRecords(),
 })
 invalidateWorldScene=()=>sceneBuilder.invalidateWorldGeometry()
@@ -1823,6 +1834,9 @@ function cancelGripEdit() {
 
 window.caderactViewport = { createHatchCommandSession, createRegionCommandSession, createDistanceCommandSession, createObjectMeasurementCommandSession, createAngleMeasurementCommandSession, createDistanceObjectCommandSession, createDistanceSumCommandSession, createMinDistanceCommandSession, createLineCommandSession, createLinearDimensionCommandSession, createAlignedDimensionCommandSession, createAngularDimensionCommandSession, createRadialDimensionCommandSession, createTextCommandSession, createMoveCommandSession, createCopyCommandSession, createRotateCommandSession, createMirrorCommandSession, createScaleCommandSession, createDeleteCommandSession, createTrimCommandSession, createExtendCommandSession, createOffsetCommandSession, createCircleCommandSession, createArcCommandSession, createEllipseCommandSession, createPolygonCommandSession, createRectangleCommandSession, createPolylineCommandSession, startLineCommand, finishActiveCommand, cancelActiveCommand, stepUndoActiveCommand, cancelGripEdit, selectAllCommittedGeometry, beginProfessionalSelection,finishProfessionalSelection,cancelProfessionalSelection,getProfessionalSelectionState:professionalSnapshot,selectSimilar,selectByType,selectByLayer,selectPreviousSelection,selectLastCreated,invertSelection,saveSelectionSet,deleteSelectionSet,selectSelectionSet,listSelectionSets,selectByFilter,setLayerIsolation,clearLayerIsolation,getLayerIsolationState,cycleSelection,dismissSelectionCycle,getSelectionCycleState:selectionCycleSnapshot, isLayerAssignmentBusy, prepareContextSelection, getRendererState, refreshDocumentView, resetForDocumentReplacement, resizeToHost:resizeCanvas, setCommandActive, getInteractionVisualState, getDynamicInputState:()=>dynamicInput.getState(), setDynamicInputEnabled, cancelDynamicInputEdit, get dynamicInputEnabled(){return dynamicInputEnabled}, getObjectSnapTrackingState:()=>objectSnapTracking.getState(), setObjectSnapTrackingEnabled, subscribeObjectSnapTracking, setExtensionTrackingEnabled, subscribeExtensionTracking, setGridSnapEnabled, setObjectSnapMode, subscribeSnapModes, setOrthoEnabled, subscribeOrtho, subscribeEffectiveOrtho, setPolarEnabled, subscribePolar, subscribeEffectivePolar, setPolarIncrementDegrees, get orthoEnabled() { return orthoEnabled }, get objectSnapTrackingEnabled() { return objectSnapTrackingEnabled }, get extensionTrackingEnabled(){return extensionTrackingEnabled}, get polarEnabled() { return polarEnabled }, get polarIncrementDegrees() { return polarIncrementDegrees }, get effectiveOrtho() { return effectiveOrtho() }, get effectivePolar() { return effectivePolar() }, get snapModes() { return snapModes } }
 window.caderactViewport.createBlockCommandSession=createBlockCommandSession
+window.caderactViewport.captureCanvasAppearance=captureCanvasAppearance
+layoutInteraction=window.CaderactLayoutViewportInteraction.create({session:documentSession,context:window.caderactLayoutContext,screenToPaper:point=>screenToWorld(point.x,point.y),paperZoom:()=>camera.zoom,onChange:state=>{window.caderactLayouts?.refreshInteraction?.(state);requestRender()}})
+window.caderactViewport.layoutInteraction=layoutInteraction
 window.caderactViewport.createBlockEditCommandSession=createBlockEditCommandSession
 window.caderactViewport.createInsertCommandSession=createInsertCommandSession
 
@@ -1890,6 +1904,8 @@ function updateSnapAtPointer() {
 }
 
 function onViewportPointerDown(event) {
+  if(event.button===0&&!navigation.isActive()&&!getActiveCommandSession()&&layoutInteraction?.snapshot().placing){const result=layoutInteraction.pointerDown(getCanvasPoint(event));if(typeof result==='string')window.caderactLayouts?.selectViewport(result);event.preventDefault();return}
+  if(layoutInteraction?.snapshot().activeId)return
   const session = getActiveCommandSession()
   if(professionalSelection){if(event.button===2){event.preventDefault?.();professionalSelection.commandOwned&&window.caderactCommandRouter?.isActive?window.caderactCommandRouter.finishActive():finishProfessionalSelection();return}if(event.button!==0||navigation.isActive())return;const screen=getCanvasPoint(event);if(professionalSelection.points.length===0&&(event.ctrlKey||event.metaKey)&&!(event.ctrlKey&&event.metaKey))professionalSelection.modifier=true;professionalSelection.points.push(Object.freeze({...screen}));professionalSelection.current=Object.freeze({...screen});requestRender();return}
   if (event.button !== 0 || navigation.isActive() || selectionBox.isPending) return
@@ -1930,6 +1946,8 @@ function onViewportPointerDown(event) {
 
 function onCommandPointerMove(event) {
   const point = getCanvasPoint(event)
+  if(layoutInteraction?.snapshot().placing){layoutInteraction.pointerMove(point);return}
+  if(layoutInteraction?.snapshot().activeId)return
   lastKnownPointerScreen = point
   setShiftHeld(event.shiftKey)
   interactionVisuals.setMode(getActiveCommandSession() && !getActiveCommandSession()?.isSelectionPhase ? "point" : "select")
@@ -2008,7 +2026,8 @@ function onDocumentKeyDown(event) {
   const editableTarget=event.target?.matches?.("input,textarea,select,[contenteditable=true]")||event.target?.isContentEditable
   const modalOpen=Array.from(document.querySelectorAll?.('[role="dialog"][aria-modal="true"]')||[]).some(element=>!element.hidden)||["#settings-panel","#recovery-dialog","#unsaved-dialog"].map(selector=>document.querySelector(selector)).filter(Boolean).some(element=>!element.hidden)
   const transientOpen=event.key==="Escape"&&([...Array.from(document.querySelectorAll?.('[role="menu"],.rail-flyout,.application-menu,.dimension-style-backdrop')||[]),...["#file-menu-actions","#measure-menu-actions","#snap-menu","#grid-drafting-menu","#polar-drafting-menu","#track-drafting-menu","#dynamic-input-drafting-menu","#editor-context-menu"].map(selector=>document.querySelector(selector)).filter(Boolean)].some(element=>!element.hidden))
-  if(modalOpen||transientOpen)return
+  if(modalOpen||transientOpen||document.querySelector?.("dialog[open]"))return
+  if(event.key==='Escape'&&(layoutInteraction?.snapshot().activeId||layoutInteraction?.snapshot().placing)&&(!editableTarget||commandBarOwns)){layoutInteraction.clear();event.preventDefault();return}
   if(commandBarOwns){cancelDynamicInputEdit();return}
   if(editableTarget)return
   if(professionalSelection&&event.key==="Escape"){const owned=professionalSelection.commandOwned;if(owned&&window.caderactCommandRouter?.isActive)window.caderactCommandRouter.cancelActive();else cancelProfessionalSelection();event.caderactProfessionalSelectionHandled=true;event.preventDefault();return}
@@ -2045,6 +2064,9 @@ function bindCanvas(nextCanvas) {
   canvas = nextCanvas
   navigation = window.CaderactViewportNavigation.bindViewportNavigation({
     canvas, camera: viewportCamera, viewportSettings, getCanvasPoint, requestRender,
+    onNavigate:change=>layoutInteraction?.navigate(change)||false,
+    onNavigationBegin:()=>layoutInteraction?.begin(),
+    onNavigationEnd:cancel=>cancel?layoutInteraction?.cancelGesture():layoutInteraction?.commit(),
     onStateChange: state => { const active=state.navigationMode!==null||state.isSpacePressed;interactionVisuals.setNavigating(active);if(active)dynamicInput.clear() },
     isSpaceEditableTarget: target => target === document.querySelector("#command-input"),
     onSpaceTap: () => {
@@ -2054,6 +2076,7 @@ function bindCanvas(nextCanvas) {
     },
   })
   canvas.addEventListener("pointerdown", onViewportPointerDown)
+  canvas.addEventListener("dblclick",event=>{if(getActiveCommandSession())return;if(layoutInteraction?.activateAt(getCanvasPoint(event))){window.caderactLayouts?.selectViewport(layoutInteraction.snapshot().activeId);event.preventDefault()}})
   canvas.addEventListener("pointerenter", onViewportPointerEnter)
   canvas.addEventListener("pointermove", onCommandPointerMove)
   canvas.addEventListener("pointerleave", onCommandPointerLeave)

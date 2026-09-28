@@ -65,6 +65,7 @@
     <script src="./src/js/editor/DocumentSession.js" defer></script>
     <script src="./src/js/editor/LayoutContext.js" defer></script>
     <script src="./src/js/editor/UserPreferences.js" defer></script>
+    <script src="./src/js/editor/CanvasAppearance.js" defer></script>
     <script src="./src/js/editor/WorkspacePreferences.js" defer></script>
     <script src="./src/js/viewport/ViewportCamera.js" defer></script>
     <script src="./src/js/viewport/GridPolicy.js" defer></script>
@@ -110,11 +111,13 @@
     <script src="./src/js/editor/SelectionCommands.js" defer></script>
     <script src="./src/js/editor/AnnotationCommands.js" defer></script>
     <script src="./src/js/editor/LeaderCommands.js" defer></script>
+    <script src="./src/js/editor/LayoutViewportInteraction.js" defer></script>
     <script src="./src/js/viewport/Viewport.js" defer></script>
     <script src="./src/js/editor/ThemeController.js" defer></script>
     <script src="./src/js/editor/RightDock.js" defer></script>
     <script src="./src/js/editor/ColorPopover.js" defer></script>
     <script src="./src/js/editor/footer-controls.js" defer></script>
+    <script src="./src/js/editor/FloatingDialog.js" defer></script>
     <script src="./src/js/editor/settings-panel.js" defer></script>
     <script src="./src/js/editor/command-input.js" defer></script>
     <script src="./src/js/editor/layout-tabs.js" defer></script>
@@ -735,7 +738,7 @@
           </aside>
           <section class="command-history-region" aria-label="Command history"><div class="command-history" id="command-history" aria-live="polite"></div></section>
         </div>
-        <nav class="model-strip" aria-label="Model and Layout workspaces"><div id="layout-tabs" class="layout-tabs" role="tablist" aria-label="Drawing workspaces"></div><button id="layout-add" class="layout-add" type="button" aria-label="Add Layout" title="Add Layout">+</button><div id="layout-viewport-tools" class="layout-viewport-tools" hidden><button id="layout-viewport-create" type="button">Create Viewport</button><select id="layout-viewport-scale" aria-label="Viewport scale"><option value="1">1:1</option><option value="2">1:2</option><option value="5">1:5</option><option value="10">1:10</option><option value="20">1:20</option><option value="50">1:50</option><option value="100">1:100</option></select><button id="layout-viewport-lock" type="button" aria-pressed="false">Lock</button><button id="layout-plot-preview" type="button">Plot Preview</button><button id="layout-export-pdf" type="button">Export PDF</button></div></nav>
+        <nav class="model-strip" aria-label="Model and Layout workspaces"><div id="layout-tabs" class="layout-tabs" role="tablist" aria-label="Drawing workspaces"></div><button id="layout-add" class="layout-add" type="button" aria-label="Add Layout" title="Add Layout">+</button><div id="layout-viewport-tools" class="layout-viewport-tools" aria-label="Layout actions" hidden><button id="layout-viewport-create" type="button" title="Create a model view on this sheet">Create Viewport</button><select id="layout-viewport-scale" aria-label="Viewport scale" title="Set selected viewport scale"><option value="1">1:1</option><option value="2">1:2</option><option value="5">1:5</option><option value="10">1:10</option><option value="20">1:20</option><option value="50">1:50</option><option value="100">1:100</option></select><button id="layout-viewport-lock" type="button" aria-pressed="false" title="Lock selected viewport view">Lock</button><button id="layout-plot-preview" type="button" title="Preview this sheet for output">Plot Preview</button><button id="layout-export-pdf" type="button" title="Export this Layout as vector PDF">Export PDF</button></div></nav>
         <footer class="editor-footer" aria-label="Editor status bar">
           <div class="command-area">
             <span class="command-label">Command:</span>

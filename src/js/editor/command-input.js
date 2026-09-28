@@ -282,7 +282,7 @@ function clearSelection() { window.caderactSelection?.clear() }
 function modalOwnsKeyboard() {
   const known=["#settings-panel","#recovery-dialog","#unsaved-dialog"].map(selector=>document.querySelector(selector)).filter(Boolean)
   const dialogs=Array.from(document.querySelectorAll?.('[role="dialog"][aria-modal="true"]')||[])
-  return [...new Set([...known,...dialogs])].some(element=>!element.hidden)
+  return [...new Set([...known,...dialogs])].some(element=>!element.hidden)||Boolean(document.querySelector?.("dialog[open]"))
 }
 
 function transientSurfaceOwnsEscape() {

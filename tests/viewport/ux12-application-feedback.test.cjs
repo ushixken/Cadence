@@ -26,6 +26,26 @@ test('UX12 stack is bounded and dismissal timers are deterministic',async()=>{
   b.advance(1000);assert.deepEqual(b.read('window.caderactApplicationFeedback.entries'),[])
 })
 
+test('PSR2 identical active feedback reuses identity and refreshes dismissal',async()=>{
+  const b=await browser();const first=b.read(`window.caderactApplicationFeedback.notify('Export failed',{severity:'error',source:'layout-export-pdf',duration:1000})`)
+  b.advance(500);const repeated=b.read(`window.caderactApplicationFeedback.notify('Export failed',{severity:'error',source:'layout-export-pdf',duration:1000})`)
+  assert.equal(repeated,first);assert.equal(b.read('window.caderactApplicationFeedback.entries.length'),1)
+  b.advance(500);assert.equal(b.read('window.caderactApplicationFeedback.entries.length'),1)
+  b.advance(500);assert.equal(b.read('window.caderactApplicationFeedback.entries.length'),0)
+})
+
+test('PSR2 different feedback sources remain independent',async()=>{
+  const b=await browser();b.run(`window.caderactApplicationFeedback.notify('Unavailable',{severity:'error',source:'layout-export-pdf',duration:0});window.caderactApplicationFeedback.notify('Unavailable',{severity:'error',source:'layout-plot-preview',duration:0})`)
+  assert.deepEqual(b.read('window.caderactApplicationFeedback.entries.map(entry=>entry.source)'),['layout-export-pdf','layout-plot-preview'])
+})
+
+test('PSR2 anchored feedback clamps above its action group without stealing focus or mutating drawing',async()=>{
+  const b=await browser(),before=state(b);b.input.focus();b.run(`window.innerWidth=800;window.innerHeight=600;window.__group=document.createElement('div');window.__anchor=document.createElement('button');window.__group.getBoundingClientRect=()=>({left:520,top:550,right:792,bottom:575,width:272,height:25});window.__anchor.getBoundingClientRect=()=>({left:720,top:550,right:790,bottom:575,width:70,height:25});window.caderactApplicationFeedback.notify('Export failed',{severity:'error',source:'layout-export-pdf',anchor:window.__anchor,placementTarget:window.__group,duration:0})`)
+  const local=b.read(`(()=>{const root=document.children.find(node=>node.classes?.has('application-feedback-local')),item=root.children[0];return{count:root.children.length,left:Number.parseFloat(item.style.left),bottom:Number.parseFloat(item.style.bottom),width:Number.parseFloat(item.style.width),role:item.attributes.role}})()`)
+  assert.equal(local.count,1);assert.equal(local.role,'alert');assert.ok(local.left>=8&&local.left+local.width<=792);assert.equal(local.bottom,58)
+  assert.equal(b.document.activeElement,b.input);assert.deepEqual(state(b),before)
+})
+
 test('UX12 optional action is explicit and notification-only',async()=>{
   const b=await browser(),before=state(b);b.run(`window.__acted=0;window.caderactApplicationFeedback.notify('Retry available',{action:{label:'Retry',run:()=>window.__acted++},duration:0})`)
   b.emit(b.document.querySelector('#application-feedback').children[0].children[2],'click')

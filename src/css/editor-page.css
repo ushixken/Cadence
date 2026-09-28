@@ -1,7 +1,7 @@
 .editor-page {
   display: none;
   flex-direction: column;
-  width: 100%;
+  width: auto;
   height: 100vh;
   overflow: hidden;
 }
@@ -337,12 +337,12 @@ canvas.is-navigating {
   font-weight: 600;
 }
 
-.command-input {
+#command-input.command-input {
   position: relative;
   z-index: 1;
   flex: 1 1 auto;
   box-sizing: border-box;
-  width: auto;
+  width: 100%;
   min-width: 0;
   padding: 9px 11px 9px 5px;
   color: var(--mainText);

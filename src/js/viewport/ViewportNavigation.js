@@ -1,7 +1,7 @@
 (() => {
   const SPACE_HOLD_THRESHOLD_MS = 220
 
-  function bindViewportNavigation({ canvas, camera, viewportSettings, getCanvasPoint, requestRender, onStateChange = () => {}, onSpaceTap = () => {}, isSpaceEditableTarget = () => false }) {
+  function bindViewportNavigation({ canvas, camera, viewportSettings, getCanvasPoint, requestRender, onStateChange = () => {}, onSpaceTap = () => {}, isSpaceEditableTarget = () => false, onNavigate = () => false, onNavigationBegin = () => {}, onNavigationEnd = () => {} }) {
     let isSpacePressed = false
     let spaceInteraction = null
     let navigationMode = null
@@ -20,6 +20,7 @@
 
     function stopNavigation(event) {
       if (event && activePointerId !== null && event.pointerId !== activePointerId) return
+      if (navigationMode !== null) onNavigationEnd(event?.type === 'pointercancel' || event?.type === 'lostpointercapture')
       navigationMode = null
       activePointerId = null
       canvas.classList.remove("is-navigating")
@@ -33,6 +34,7 @@
       if (isSpaceDrag) consumeSpaceForNavigation()
       const point = getCanvasPoint(event)
       navigationMode = event.ctrlKey ? "zoom" : "pan"
+      onNavigationBegin()
       activePointerId = event.pointerId
       previousPointerX = point.x
       previousPointerY = point.y
@@ -47,7 +49,10 @@
     function onPointerMove(event) {
       if (event.pointerId !== activePointerId || navigationMode === null) return
       const point = getCanvasPoint(event)
-      if (navigationMode === "pan") {
+      const factor=Math.exp((point.x-previousPointerX)*viewportSettings.dragZoomSensitivity)
+      const handled=onNavigate(navigationMode==='pan'?{dx:point.x-previousPointerX,dy:point.y-previousPointerY}:{factor,screen:{x:zoomAnchorX,y:zoomAnchorY}})
+      if (handled) { /* PS3 view navigation owns this gesture. */ }
+      else if (navigationMode === "pan") {
         camera.state.panX += point.x - previousPointerX
         camera.state.panY += point.y - previousPointerY
       } else {
@@ -65,6 +70,7 @@
 
     function onWheel(event) {
       const point = getCanvasPoint(event)
+      if(onNavigate({factor:Math.exp(-event.deltaY*viewportSettings.wheelZoomSensitivity),screen:point})){requestRender();event.preventDefault();return}
       camera.zoomAtScreenPoint(
         camera.state.zoom * Math.exp(-event.deltaY * viewportSettings.wheelZoomSensitivity),
         point.x,

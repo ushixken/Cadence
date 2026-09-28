@@ -18,6 +18,7 @@ class Element {
     };
   }
   addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn); }
+  getBoundingClientRect() { return this.rect || {left:0,top:0,right:180,bottom:30,width:180,height:30}; }
   removeEventListener(type, fn) { this.listeners[type] = (this.listeners[type] ?? []).filter(listener => listener !== fn); }
   setAttribute(name, value) { this.attributes[name] = String(value); }
   getAttribute(name) { return this.attributes[name] ?? null; }
@@ -200,6 +201,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/DocumentSession.js');
   load('src/js/editor/LayoutContext.js');
   load('src/js/editor/UserPreferences.js');
+  load('src/js/editor/CanvasAppearance.js');
   load('src/js/editor/WorkspacePreferences.js');
   load('src/js/viewport/ViewportCamera.js');
   load('src/js/viewport/GridPolicy.js');
@@ -245,10 +247,12 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/SelectionCommands.js');
   load('src/js/editor/AnnotationCommands.js');
   load('src/js/editor/LeaderCommands.js');
+  load('src/js/editor/LayoutViewportInteraction.js');
   load('src/js/viewport/Viewport.js');
   load('src/js/editor/ThemeController.js');
   load('src/js/editor/RightDock.js');
   load('src/js/editor/footer-controls.js');
+  load('src/js/editor/FloatingDialog.js');
   load('src/js/editor/settings-panel.js');
   if (commands) load('src/js/editor/command-input.js');
   if (commands) load('src/js/editor/measure-menu.js');
