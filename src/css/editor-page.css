@@ -217,7 +217,7 @@ canvas.is-navigating {
 #settings-panel input[type="color"]::-webkit-color-swatch { border:0; border-radius:2px; }
 #settings-panel input[type="color"]::-moz-color-swatch { border:0; border-radius:2px; }
 #settings-panel input[type="checkbox"] { width:16px; height:16px; margin:0; accent-color:var(--activeText); }
-#settings-panel select { box-sizing:border-box; width:72px; height:26px; padding:3px 7px; color:var(--text-primary); background:var(--surface-control); border:1px solid var(--border-default); border-radius:var(--radius-sm); }
+#settings-panel select { box-sizing:border-box; width:72px; height:28px; color:var(--text-primary); background-color:var(--surface-control); border:1px solid var(--control-border); border-radius:var(--radius-sm); }
 #settings-ui-theme,#settings-canvas-theme{width:88px}
 .layer-actions-menu,.group-actions-menu,.block-actions-menu{background:var(--surface-popup)}
 .settings-template-control{display:flex;gap:6px;align-items:center;justify-content:flex-end}.settings-template-control select{width:128px!important}.settings-template-control button{min-height:26px;padding:3px 8px;color:var(--text-secondary);background:var(--surface-control);border:1px solid var(--border-default);border-radius:var(--radius-sm);font:inherit;font-size:var(--font-size-sm)}.settings-template-control button:hover{color:var(--text-primary);background:var(--surface-control-hover)}

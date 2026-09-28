@@ -32,3 +32,19 @@ restoration remain authoritative. Preferences now contains Tab navigation
 within the open modal. Shared close controls have accessible names and an
 explicit interactive/focus-visible treatment in both UI themes. This preserves
 the UX10 rule that the top modal owns keyboard input before background commands.
+
+## UX11R control and theme polish
+
+Dialog chrome now uses separate semantic header, body, and footer surfaces for
+Light and Dark UI themes. Native select chrome is replaced by one shared,
+renderer-independent CSS control treatment with a continuous border, consistent
+height, and deterministic arrow placement. Menus and flyouts continue to use
+the shared popup surface and semantic hover, disabled, border, and shadow tokens.
+
+The editor records the last pointer-or-keyboard input modality only for visual
+focus presentation. Pointer-opened native selects do not retain a misleading
+focus ring after their popup closes; the same controls retain the normal
+`:focus-visible` ring after keyboard navigation. This visual state does not
+participate in command keyboard ownership or change focus itself. The Drafting
+reset footer also has an explicit hidden presentation rule, ensuring it is not
+rendered in Preferences even when shared action-row layout styles apply.

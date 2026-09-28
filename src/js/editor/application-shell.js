@@ -2,6 +2,9 @@
 (() => {
   const root = document.querySelector(".editor-page"), registry = window.caderactCommandRegistry, router = window.caderactCommandRouter, workspacePreferences=window.caderactWorkspacePreferences
   if (!(root instanceof HTMLElement) || !registry || !router) return
+  const modalityRoot=document.documentElement
+  document.addEventListener("pointerdown",()=>{modalityRoot.dataset.inputModality="pointer"},true)
+  document.addEventListener("keydown",event=>{if(!["Alt","Control","Meta","Shift"].includes(event.key))modalityRoot.dataset.inputModality="keyboard"},true)
   const categoryTools = document.querySelector("#category-tools"), categoryName = document.querySelector("#active-category-name")
   const utility = document.querySelector(".utility-menu"), utilityTrigger = document.querySelector("#utility-menu-trigger"), utilityMenu = document.querySelector("#utility-menu-actions")
   const edit = document.querySelector(".edit-menu"), editTrigger = document.querySelector(".edit-menu-trigger"), editMenu = document.querySelector("#edit-menu-actions")

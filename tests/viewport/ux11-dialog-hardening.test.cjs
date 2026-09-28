@@ -12,7 +12,7 @@ test('UX11 Preferences uses the shared compact dialog structure',()=>{
   assert.match(html,/settings-panel-header caderact-dialog-header/)
   assert.match(html,/drafting-settings-tabs caderact-dialog-tabs/)
   assert.match(html,/settings-panel-body drafting-settings-body caderact-dialog-body/)
-  assert.match(shellCss,/\.caderact-dialog\{[^}]*background:var\(--surface-popup\)[^}]*border:1px solid var\(--border-strong\)/s)
+  assert.match(shellCss,/\.caderact-dialog\{[^}]*background:var\(--surface-dialog\)[^}]*border:1px solid var\(--border-strong\)/s)
   assert.match(shellCss,/#settings-panel \.drafting-settings-body\{min-height:0\}/)
   assert.match(shellCss,/#settings-panel \.settings-row\{[^}]*grid-template-columns:/s)
   assert.match(shellCss,/@media\(max-width:520px\)[\s\S]*#settings-panel \.settings-row\{grid-template-columns:1fr/s)

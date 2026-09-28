@@ -30,6 +30,9 @@
   --surface-control-hover: #e8edf2;
   --surface-control-pressed: #dce5ee;
   --surface-popup: #ffffff;
+  --surface-dialog: #ffffff;
+  --surface-dialog-header: #fbfcfd;
+  --surface-dialog-footer: #f7f9fb;
   --surface-selected: #dbeafe;
   --surface-disabled: #eef1f4;
   --surface-overlay: rgba(30, 41, 53, 0.38);
@@ -46,6 +49,9 @@
   --border-subtle: #d7dde3;
   --border-default: #bcc6d0;
   --border-strong: #8795a3;
+  --control-border: #aeb9c4;
+  --control-border-hover: #7f8e9d;
+  --control-arrow: #536271;
   --separator: #d9dee4;
 
   --accent: #2563a6;
@@ -111,6 +117,9 @@
   --surface-control-hover: #37414c;
   --surface-control-pressed: #414d59;
   --surface-popup: #282f37;
+  --surface-dialog: #232a32;
+  --surface-dialog-header: #28313a;
+  --surface-dialog-footer: #20272e;
   --surface-selected: #243f59;
   --surface-disabled: #252c34;
   --surface-overlay: rgba(5, 9, 13, 0.58);
@@ -121,6 +130,9 @@
   --border-subtle: #343e48;
   --border-default: #4a5662;
   --border-strong: #697683;
+  --control-border: #53606d;
+  --control-border-hover: #748392;
+  --control-arrow: #c4ced7;
   --separator: #343d46;
   --accent: #62a8df;
   --accent-hover: #79b8e7;
@@ -183,6 +195,42 @@ textarea {
   font: inherit;
 }
 
+input:not([type="checkbox"]):not([type="color"]):not([type="range"]),
+select,
+textarea {
+  box-sizing: border-box;
+  min-height: var(--control-height-md);
+  color: var(--text-primary);
+  background-color: var(--surface-control);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  line-height: var(--line-height-compact);
+  box-shadow: none;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0 1.75rem 0 var(--space-4);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23536271' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: calc(100% - 0.55rem) 50%;
+  background-size: 0.625rem 0.375rem;
+  background-repeat: no-repeat;
+}
+
+:root[data-ui-theme="dark"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23c4ced7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+select option {
+  color: var(--text-primary);
+  background: var(--surface-popup);
+}
+
+:where(input:not([type="checkbox"]):not([type="color"]):not([type="range"]), select, textarea):hover:not(:disabled) {
+  border-color: var(--control-border-hover);
+}
+
 button,
 select,
 input[type="checkbox"],
@@ -192,6 +240,14 @@ input[type="range"] { accent-color: var(--accent); }
 :where(button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+:where(button, input, select, textarea, [tabindex]):focus:not(:focus-visible) {
+  outline: none;
+}
+
+:root[data-input-modality="pointer"] .editor-page :where(button, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
 }
 
 :where(button, input, select, textarea):disabled {
