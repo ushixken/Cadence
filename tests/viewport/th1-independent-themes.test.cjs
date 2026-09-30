@@ -7,9 +7,14 @@ const {browser}=require('../helpers/browser.cjs')
 const state=b=>b.read('({revision:documentController.currentRevision,history:documentController.historyInfo,dirty:documentController.isDirty})')
 const setTheme=(b,uiTheme,canvasTheme)=>{b.run(`window.caderactWorkspacePreferences.set({uiTheme:${JSON.stringify(uiTheme)},canvasTheme:${JSON.stringify(canvasTheme)}})`);b.flush()}
 
-test('TH1 validates light UI and dark canvas defaults with corrupt fallback',async()=>{
+test('TH1 validates dark UI and dark canvas defaults with corrupt fallback',async()=>{
   const b=await browser(),result=b.read(`(()=>{const authority=window.CaderactWorkspacePreferences,values=new Map([[authority.KEY,JSON.stringify({version:authority.VERSION,preferences:{uiTheme:'sepia',canvasTheme:7}})]]),storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)};return authority.create({storage}).value})()`)
-  assert.equal(result.uiTheme,'light');assert.equal(result.canvasTheme,'dark')
+  assert.equal(result.uiTheme,'dark');assert.equal(result.canvasTheme,'dark')
+})
+
+test('TH1 preserves explicit persisted Light and Dark UI choices',async()=>{
+  const b=await browser(),result=b.read(`(()=>{const authority=window.CaderactWorkspacePreferences,restore=uiTheme=>{const values=new Map([[authority.KEY,JSON.stringify({version:authority.VERSION,preferences:{uiTheme}})]]),storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)};return authority.create({storage}).value.uiTheme};return {light:restore('light'),dark:restore('dark')}})()`)
+  assert.deepEqual(result,{light:'light',dark:'dark'})
 })
 
 test('TH1 applies all four UI and canvas combinations independently and immediately',async()=>{
