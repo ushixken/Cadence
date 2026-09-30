@@ -156,6 +156,7 @@ interface Window {
       registry: CaderactCommandRegistryInstance;
       setPrompt(message: string, presentation?: CaderactPromptPresentation | null): void;
       getPreselectionIds?(): readonly string[];
+      canActivate?(definition: CaderactCommandDefinition): boolean;
     }): CaderactCommandRouter;
   };
   CaderactCommandFeedback: {
@@ -169,6 +170,9 @@ interface Window {
   caderactGrips?: { readonly isActive: boolean };
   caderactCommandRegistry?: CaderactCommandRegistryInstance;
   caderactCommandRouter?: CaderactCommandRouter;
+  caderactPlotPreview?: {
+    openPlot(returnFocus?: HTMLElement): { status: string };
+  };
   caderactFeedback?: CaderactCommandFeedbackController;
   CaderactApplicationFeedback?: { createController(options?: object): CaderactApplicationFeedbackController; bind(root: HTMLElement): CaderactApplicationFeedbackController | null };
   caderactApplicationFeedback?: CaderactApplicationFeedbackController | null;

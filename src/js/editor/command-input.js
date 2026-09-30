@@ -74,6 +74,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   { name: "Perimeter", aliases: ["PERIM"], repeatable: true, activate: context => window.caderactViewport.createObjectMeasurementCommandSession("Perimeter", context) },
   { name: "Polyline", aliases: ["Pline", "PL"], priority: 10, repeatable: true, activate: context => window.caderactViewport.createPolylineCommandSession(context) },
   { name: "Polygon", aliases: ["PG"], repeatable: true, activate: context => window.caderactViewport.createPolygonCommandSession(context) },
+  { name: "Plot", aliases: [], repeatable: false, activate: () => { const opened=window.caderactPlotPreview?.openPlot?.(commandInput);return Object.freeze({name:"Plot",activationOutcome:opened?.status==="opened"?Object.freeze({status:"command-completed",command:"Plot"}):Object.freeze({status:"invalid-input",command:"Plot",reason:opened?.status||"plot-unavailable"}),finish(){return this.activationOutcome},cancel(){return Object.freeze({status:"command-cancelled",command:"Plot"})},get prompt(){return "Plot active Layout"}}) } },
   { name: "Rectangle", aliases: ["Rect"], repeatable: true, activate: context => window.caderactViewport.createRectangleCommandSession(context) },
   { name: "Region", aliases: ["REG"], repeatable: true, activate: context => window.caderactViewport.createRegionCommandSession(context) },
   { name: "Radius", aliases: ["RAD"], repeatable: true, activate: context => window.caderactViewport.createObjectMeasurementCommandSession("Radius", context) },
@@ -85,7 +86,7 @@ const commandRegistry = window.CaderactCommandRegistry.createRegistry([
   ...window.caderactCadCommands.definitions(),
 ])
 commandRouter = window.CaderactCommandRouter.createRouter({ registry: commandRegistry, setPrompt: setCommandHint,
-  getPreselectionIds: () => window.caderactSelection?.selectedIds?.() || [], canActivate: () => window.caderactLayoutContext?.isModel !== false })
+  getPreselectionIds: () => window.caderactSelection?.selectedIds?.() || [], canActivate: definition => definition.name === "Plot" ? window.caderactLayoutContext?.snapshot?.().kind === "layout" : window.caderactLayoutContext?.isModel !== false })
 window.caderactCommandRegistry = commandRegistry
 window.caderactCommandRouter = commandRouter
 

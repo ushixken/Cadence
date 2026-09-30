@@ -25,7 +25,7 @@ test('PSR2 selected viewport alone enables Scale and Lock while plot actions req
 })
 
 test('PSR2 Layout actions expose concise truthful tooltips',()=>{
-  for(const text of ['Create a model view on this sheet','Set selected viewport scale','Lock selected viewport view','Preview this sheet for output','Export this Layout as vector PDF'])assert.match(html,new RegExp(text))
+  for(const text of ['Add another Model view to this sheet','Set selected Model View scale','Lock selected Model View','Preview this sheet for output','Export this Layout as vector PDF'])assert.match(html,new RegExp(text))
 })
 
 test('PSR2 Plot and PDF errors use anchored application feedback with stable sources',()=>{

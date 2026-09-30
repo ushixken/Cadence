@@ -127,6 +127,67 @@
       }
     }
 
+    function activeLayoutViewportGridGroups(viewport, modelUnit) {
+      if (viewportSettings.gridVisible === false || !viewport?.active || viewport.frameOnly) return []
+      const millimetersPerModelUnit = window.CaderactUnits.conversionFactor(modelUnit, "mm")
+      const paperUnitsPerModelUnit = millimetersPerModelUnit / viewport.scale
+      const pixelsPerModelUnit = paperUnitsPerModelUnit * camera.state.zoom
+      if (!(pixelsPerModelUnit > 0)) return []
+      const required = viewportSettings.minimumGridSpacingPixels / pixelsPerModelUnit
+      const exponent = Math.floor(Math.log10(Math.max(required, Number.MIN_VALUE)))
+      const magnitude = 10 ** exponent
+      let spacing = 10 * magnitude
+      for (const step of GRID_STEPS) {
+        const candidate = step * magnitude
+        if (candidate >= required || nearlyEqual(candidate, required)) {
+          spacing = candidate
+          break
+        }
+      }
+      const halfWidth = viewport.frame.width / (2 * paperUnitsPerModelUnit)
+      const halfHeight = viewport.frame.height / (2 * paperUnitsPerModelUnit)
+      const left = viewport.viewCenter.x - halfWidth
+      const right = viewport.viewCenter.x + halfWidth
+      const bottom = viewport.viewCenter.y - halfHeight
+      const top = viewport.viewCenter.y + halfHeight
+      const minor = [], major = [], xAxis = [], yAxis = []
+      const multiple = viewportSettings.majorGridInterval || MAJOR_MULTIPLE
+      const project = point => {
+        const paper = window.CaderactPaperSpace.projectModelPoint(point, viewport, modelUnit)
+        return camera.worldToScreen(paper.x, paper.y)
+      }
+      const verticalStart = stableCeil(left / spacing)
+      const verticalEnd = stableFloor(right / spacing)
+      for (let index = verticalStart; index <= verticalEnd && index - verticalStart <= MAX_GRID_LINES_PER_AXIS; index += 1) {
+        const x = index * spacing
+        const a = project({ x, y: bottom }), b = project({ x, y: top })
+        const target = index === 0 ? yAxis : index % multiple === 0 ? major : minor
+        addSegment(target, a.x, a.y, b.x, b.y)
+      }
+      const horizontalStart = stableCeil(bottom / spacing)
+      const horizontalEnd = stableFloor(top / spacing)
+      for (let index = horizontalStart; index <= horizontalEnd && index - horizontalStart <= MAX_GRID_LINES_PER_AXIS; index += 1) {
+        const y = index * spacing
+        const a = project({ x: left, y }), b = project({ x: right, y })
+        const target = index === 0 ? xAxis : index % multiple === 0 ? major : minor
+        addSegment(target, a.x, a.y, b.x, b.y)
+      }
+      const group = (role, color, segments, lineWidth = 1) => Object.freeze({
+        lineGroup: lineGroup(color, segments, { lineWidth }),
+        circleGroup: null,
+        arcGroup: null,
+        ellipseGroup: null,
+        viewportId: viewport.id,
+        role,
+      })
+      return [
+        group("model-grid-minor", viewportSettings.gridColor, minor),
+        group("model-grid-major", viewportSettings.majorGridColor || viewportSettings.gridBoundaryColor, major),
+        group("model-x-axis", viewportSettings.xAxisColor, xAxis, 1.25),
+        group("model-y-axis", viewportSettings.yAxisColor, yAxis, 1.25),
+      ]
+    }
+
     function createScene({recordsOverride=null}={}) {
       const { width: viewportWidth, height: viewportHeight } = getViewportSize()
       const paperSpace=getPaperSpace()
@@ -1254,10 +1315,11 @@
           ),
         }),
       )
-      let paperSpaceOverlay=null,paperDrawGroup=null,paperTriangles=[]
-      if(paperSpace?.valid){const p=paperSpace,project=value=>camera.worldToScreen(value.x,value.y),a=project({x:p.sheet.left,y:p.sheet.bottom}),b=project({x:p.sheet.right,y:p.sheet.bottom}),c=project({x:p.sheet.right,y:p.sheet.top}),d=project({x:p.sheet.left,y:p.sheet.top}),pa=project({x:p.printable.left,y:p.printable.bottom}),pb=project({x:p.printable.right,y:p.printable.bottom}),pc=project({x:p.printable.right,y:p.printable.top}),pd=project({x:p.printable.left,y:p.printable.top}),segments=[a.x,a.y,b.x,b.y,b.x,b.y,c.x,c.y,c.x,c.y,d.x,d.y,d.x,d.y,a.x,a.y,pa.x,pa.y,pb.x,pb.y,pb.x,pb.y,pc.x,pc.y,pc.x,pc.y,pd.x,pd.y,pd.x,pd.y,pa.x,pa.y],fill="#f7f7f2",stroke="#58636d";paperTriangles=[Object.freeze({points:Object.freeze([a,b,c]),color:fill,colorData:colorToRgba(fill)}),Object.freeze({points:Object.freeze([a,c,d]),color:fill,colorData:colorToRgba(fill)})];const group=lineGroup(stroke,segments,{linetype:"dashed",lineWidth:1});paperDrawGroup=Object.freeze({lineGroup:group,circleGroup:null,arcGroup:null,ellipseGroup:null});paperSpaceOverlay=Object.freeze({unit:"mm",sheet:p.sheet,printable:p.printable,screenSheet:Object.freeze({left:a.x,bottom:a.y,right:c.x,top:c.y}),segments:group.segments,fillColor:fill,boundaryColor:stroke})}
+      let paperSpaceOverlay=null,paperDrawGroups=[],paperTriangles=[]
+      if(paperSpace?.valid){const p=paperSpace,project=value=>camera.worldToScreen(value.x,value.y),a=project({x:p.sheet.left,y:p.sheet.bottom}),b=project({x:p.sheet.right,y:p.sheet.bottom}),c=project({x:p.sheet.right,y:p.sheet.top}),d=project({x:p.sheet.left,y:p.sheet.top}),pa=project({x:p.printable.left,y:p.printable.bottom}),pb=project({x:p.printable.right,y:p.printable.bottom}),pc=project({x:p.printable.right,y:p.printable.top}),pd=project({x:p.printable.left,y:p.printable.top}),sheetSegments=[a.x,a.y,b.x,b.y,b.x,b.y,c.x,c.y,c.x,c.y,d.x,d.y,d.x,d.y,a.x,a.y],printableSegments=[pa.x,pa.y,pb.x,pb.y,pb.x,pb.y,pc.x,pc.y,pc.x,pc.y,pd.x,pd.y,pd.x,pd.y,pa.x,pa.y],fill="#f7f7f2",boundary="rgba(88, 99, 109, 0.48)",margin="rgba(88, 99, 109, 0.24)";paperTriangles=[Object.freeze({points:Object.freeze([a,b,c]),color:fill,colorData:colorToRgba(fill)}),Object.freeze({points:Object.freeze([a,c,d]),color:fill,colorData:colorToRgba(fill)})];const sheetGroup=lineGroup(boundary,sheetSegments,{lineWidth:.75}),marginGroup=lineGroup(margin,printableSegments,{linetype:"dashed",lineWidth:.5});paperDrawGroups=[Object.freeze({lineGroup:sheetGroup,circleGroup:null,arcGroup:null,ellipseGroup:null,role:"paper-edge"}),Object.freeze({lineGroup:marginGroup,circleGroup:null,arcGroup:null,ellipseGroup:null,role:"printable-area"})];paperSpaceOverlay=Object.freeze({unit:"mm",sheet:p.sheet,printable:p.printable,screenSheet:Object.freeze({left:a.x,bottom:a.y,right:c.x,top:c.y}),segments:sheetGroup.segments,printableSegments:marginGroup.segments,fillColor:fill,boundaryColor:boundary,printableColor:margin})}
       const layoutViewportDrawGroups=[],layoutViewportItems=[]
-      if(paperSpace?.valid){const clip=(a,b,f)=>{let t0=0,t1=1,dx=b.x-a.x,dy=b.y-a.y;for(const [p,q] of [[-dx,a.x-f.x],[dx,f.x+f.width-a.x],[-dy,a.y-f.y],[dy,f.y+f.height-a.y]]){if(p===0&&q<0)return null;if(p!==0){const r=q/p;if(p<0){if(r>t1)return null;t0=Math.max(t0,r)}else{if(r<t0)return null;t1=Math.min(t1,r)}}}return[{x:a.x+t0*dx,y:a.y+t0*dy},{x:a.x+t1*dx,y:a.y+t1*dy}]};const modelUnit=getDocumentUnit();for(const viewport of getLayoutViewports()){const buckets=new Map(),frame=viewport.frame,framePoints=[{x:frame.x,y:frame.y},{x:frame.x+frame.width,y:frame.y},{x:frame.x+frame.width,y:frame.y+frame.height},{x:frame.x,y:frame.y+frame.height}],frameSegments=[];for(let i=0;i<4;i++){const a=camera.worldToScreen(framePoints[i].x,framePoints[i].y),b=camera.worldToScreen(framePoints[(i+1)%4].x,framePoints[(i+1)%4].y);addSegment(frameSegments,a.x,a.y,b.x,b.y)}for(const record of viewport.frameOnly?[]:getModelRecords()){const layer=getLayer(record.layerId);if(layer?.visible===false)continue;const color=window.CaderactObjectProperties.effectiveColor(record,layer),key=color;if(!buckets.has(key))buckets.set(key,[]);const source=buckets.get(key),pairs=[];if(record.type==="line")pairs.push([record.start,record.end]);else if(record.type==="polyline"){const count=record.closed?record.vertices.length:record.vertices.length-1;for(let i=0;i<count;i++)pairs.push([record.vertices[i],record.vertices[(i+1)%record.vertices.length]])}else if(record.type==="circle"){for(let i=0;i<64;i++){const a=i*Math.PI*2/64,b=(i+1)*Math.PI*2/64;pairs.push([{x:record.center.x+Math.cos(a)*record.radius,y:record.center.y+Math.sin(a)*record.radius},{x:record.center.x+Math.cos(b)*record.radius,y:record.center.y+Math.sin(b)*record.radius}])}}else if(record.type==="arc"){const start=Math.atan2(record.start.y-record.center.y,record.start.x-record.center.x),count=48;for(let i=0;i<count;i++){const a=start+record.sweep*i/count,b=start+record.sweep*(i+1)/count;pairs.push([{x:record.center.x+Math.cos(a)*record.radius,y:record.center.y+Math.sin(a)*record.radius},{x:record.center.x+Math.cos(b)*record.radius,y:record.center.y+Math.sin(b)*record.radius}])}}else if(record.type==="ellipse"){const major=Math.hypot(record.majorAxis.x,record.majorAxis.y),angle=Math.atan2(record.majorAxis.y,record.majorAxis.x);for(let i=0;i<64;i++){const point=t=>({x:record.center.x+Math.cos(t)*major*Math.cos(angle)-Math.sin(t)*record.minorRadius*Math.sin(angle),y:record.center.y+Math.cos(t)*major*Math.sin(angle)+Math.sin(t)*record.minorRadius*Math.cos(angle)});pairs.push([point(i*Math.PI*2/64),point((i+1)*Math.PI*2/64)])}}for(const pair of pairs){const a=window.CaderactPaperSpace.projectModelPoint(pair[0],viewport,modelUnit),b=window.CaderactPaperSpace.projectModelPoint(pair[1],viewport,modelUnit),clipped=clip(a,b,frame);if(!clipped)continue;const sa=camera.worldToScreen(clipped[0].x,clipped[0].y),sb=camera.worldToScreen(clipped[1].x,clipped[1].y);addSegment(source,sa.x,sa.y,sb.x,sb.y)}}for(const [color,segments] of buckets){const group=lineGroup(color,segments);layoutViewportDrawGroups.push(Object.freeze({lineGroup:group,circleGroup:null,arcGroup:null,ellipseGroup:null,viewportId:viewport.id}))}const frameGroup=lineGroup(viewport.active?"#0878bb":viewport.locked?"#6c7882":"#1b75a6",frameSegments,{lineWidth:viewport.active?2.5:1.25});layoutViewportDrawGroups.push(Object.freeze({lineGroup:frameGroup,circleGroup:null,arcGroup:null,ellipseGroup:null,viewportId:viewport.id,role:"frame"}));layoutViewportItems.push(Object.freeze({id:viewport.id,frame:Object.freeze({...frame}),screenSegments:frameGroup.segments,scale:viewport.scale,locked:viewport.locked,viewCenter:Object.freeze({...viewport.viewCenter})}))}}
+      if(paperSpace?.valid){const clip=(a,b,f)=>{let t0=0,t1=1,dx=b.x-a.x,dy=b.y-a.y;for(const [p,q] of [[-dx,a.x-f.x],[dx,f.x+f.width-a.x],[-dy,a.y-f.y],[dy,f.y+f.height-a.y]]){if(p===0&&q<0)return null;if(p!==0){const r=q/p;if(p<0){if(r>t1)return null;t0=Math.max(t0,r)}else{if(r<t0)return null;t1=Math.min(t1,r)}}}return[{x:a.x+t0*dx,y:a.y+t0*dy},{x:a.x+t1*dx,y:a.y+t1*dy}]};const modelUnit=getDocumentUnit();for(const viewport of getLayoutViewports()){const buckets=new Map(),frame=viewport.frame,framePoints=[{x:frame.x,y:frame.y},{x:frame.x+frame.width,y:frame.y},{x:frame.x+frame.width,y:frame.y+frame.height},{x:frame.x,y:frame.y+frame.height}],frameSegments=[];for(let i=0;i<4;i++){const a=camera.worldToScreen(framePoints[i].x,framePoints[i].y),b=camera.worldToScreen(framePoints[(i+1)%4].x,framePoints[(i+1)%4].y);addSegment(frameSegments,a.x,a.y,b.x,b.y)}for(const record of viewport.frameOnly?[]:getModelRecords()){const layer=getLayer(record.layerId);if(layer?.visible===false)continue;const color=window.CaderactObjectProperties.effectiveColor(record,layer),key=color;if(!buckets.has(key))buckets.set(key,[]);const source=buckets.get(key),pairs=[];if(record.type==="line")pairs.push([record.start,record.end]);else if(record.type==="polyline"){const count=record.closed?record.vertices.length:record.vertices.length-1;for(let i=0;i<count;i++)pairs.push([record.vertices[i],record.vertices[(i+1)%record.vertices.length]])}else if(record.type==="circle"){for(let i=0;i<64;i++){const a=i*Math.PI*2/64,b=(i+1)*Math.PI*2/64;pairs.push([{x:record.center.x+Math.cos(a)*record.radius,y:record.center.y+Math.sin(a)*record.radius},{x:record.center.x+Math.cos(b)*record.radius,y:record.center.y+Math.sin(b)*record.radius}])}}else if(record.type==="arc"){const start=Math.atan2(record.start.y-record.center.y,record.start.x-record.center.x),count=48;for(let i=0;i<count;i++){const a=start+record.sweep*i/count,b=start+record.sweep*(i+1)/count;pairs.push([{x:record.center.x+Math.cos(a)*record.radius,y:record.center.y+Math.sin(a)*record.radius},{x:record.center.x+Math.cos(b)*record.radius,y:record.center.y+Math.sin(b)*record.radius}])}}else if(record.type==="ellipse"){const major=Math.hypot(record.majorAxis.x,record.majorAxis.y),angle=Math.atan2(record.majorAxis.y,record.majorAxis.x);for(let i=0;i<64;i++){const point=t=>({x:record.center.x+Math.cos(t)*major*Math.cos(angle)-Math.sin(t)*record.minorRadius*Math.sin(angle),y:record.center.y+Math.cos(t)*major*Math.sin(angle)+Math.sin(t)*record.minorRadius*Math.cos(angle)});pairs.push([point(i*Math.PI*2/64),point((i+1)*Math.PI*2/64)])}}for(const pair of pairs){const a=window.CaderactPaperSpace.projectModelPoint(pair[0],viewport,modelUnit),b=window.CaderactPaperSpace.projectModelPoint(pair[1],viewport,modelUnit),clipped=clip(a,b,frame);if(!clipped)continue;const sa=camera.worldToScreen(clipped[0].x,clipped[0].y),sb=camera.worldToScreen(clipped[1].x,clipped[1].y);addSegment(source,sa.x,sa.y,sb.x,sb.y)}}for(const [color,segments] of buckets){const group=lineGroup(color,segments);layoutViewportDrawGroups.push(Object.freeze({lineGroup:group,circleGroup:null,arcGroup:null,ellipseGroup:null,viewportId:viewport.id}))}const frameGroup=lineGroup("#252b31",frameSegments,{lineWidth:1});layoutViewportDrawGroups.push(Object.freeze({lineGroup:frameGroup,circleGroup:null,arcGroup:null,ellipseGroup:null,viewportId:viewport.id,role:"frame"}));layoutViewportItems.push(Object.freeze({id:viewport.id,frame:Object.freeze({...frame}),screenSegments:frameGroup.segments,scale:viewport.scale,locked:viewport.locked,viewCenter:Object.freeze({...viewport.viewCenter})}))}}
+      if(paperSpace?.valid){for(const viewport of getLayoutViewports()){layoutViewportDrawGroups.unshift(...activeLayoutViewportGridGroups(viewport,getDocumentUnit()))}}
       return {
         width: viewportWidth,
         height: viewportHeight,
@@ -1334,7 +1396,7 @@
         propertyDrawGroups:Object.freeze(propertyDrawGroups),
         propertyPreviewDrawGroups:Object.freeze(propertyPreviewDrawGroups),
         drawGroups: Object.freeze(
-          [...(paperDrawGroup?[paperDrawGroup]:[]),...layoutViewportDrawGroups,...lineGroups.slice(0,5).map((lineGroup, index) =>
+          [...paperDrawGroups,...layoutViewportDrawGroups,...lineGroups.slice(0,5).map((lineGroup, index) =>
             Object.freeze({
               lineGroup,
               circleGroup: circleGroups[index],

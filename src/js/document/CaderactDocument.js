@@ -225,6 +225,7 @@
       throw new Error("Unable to allocate a unique ID")
     }
     let state
+    const pendingDefaultViewFits=new Set()
     if (initialDocument !== undefined) {
       const candidate = migrateDocument(initialDocument), errors = validateDocument(candidate)
       if (errors.length) throw new Error(`Invalid initial document: ${errors.join("; ")}`)
@@ -246,12 +247,13 @@
       state = freeze(candidate)
     } else {
       const id = newId(), layerId = newId()
-      const dimensionStyleId=newId(),layoutId=newId();state = freeze({ id, name: "Untitled", formatVersion: 3, units: { length: "mm" },dimensionStyles:{[dimensionStyleId]:{id:dimensionStyleId,name:"Standard",...DEFAULT_DIMENSION_STYLE}},dimensionStyleOrder:[dimensionStyleId],currentDimensionStyleId:dimensionStyleId,groups:{},nextGroupNumber:1,blockDefinitions:{},layouts:{[layoutId]:{id:layoutId,name:"Layout1",paper:copyValue(window.CaderactPaperSpace.DEFAULT),viewports:{},viewportOrder:[]}},layoutOrder:[layoutId],
+      const dimensionStyleId=newId(),layoutId=newId(),paper=copyValue(window.CaderactPaperSpace.DEFAULT),draft={ id, name: "Untitled", formatVersion: 3, units: { length: "mm" },dimensionStyles:{[dimensionStyleId]:{id:dimensionStyleId,name:"Standard",...DEFAULT_DIMENSION_STYLE}},dimensionStyleOrder:[dimensionStyleId],currentDimensionStyleId:dimensionStyleId,groups:{},nextGroupNumber:1,blockDefinitions:{},layouts:{},layoutOrder:[layoutId],
         geometry: { objects: {} },
         layers: { [layerId]: { id: layerId, name: "Default", visible: true, locked: false, ...window.CaderactObjectProperties.DEFAULT_LAYER_PROPERTIES } },layerOrder:[layerId],
         defaultLayerId: layerId,
         currentLayerId: layerId,
-      })
+      },frame=window.CaderactModelExtents.defaultFrame(paper),fit=window.CaderactModelExtents.fit(draft,frame),viewport=frame&&fit.valid?{id:newId(),frame,viewCenter:fit.viewCenter,scale:fit.scale,locked:false}:null
+      draft.layouts[layoutId]={id:layoutId,name:"Layout1",paper,viewports:viewport?{[viewport.id]:viewport}:{},viewportOrder:viewport?[viewport.id]:[]};if(viewport)pendingDefaultViewFits.add(viewport.id);state=freeze(draft)
     }
     // A3: persistent document mutation is now gated by the Document Controller's
     // transaction core. This closure no longer publishes state directly; it hands
@@ -405,7 +407,8 @@
         try {
           transaction = controller.beginTransaction()
           for (const record of records) transaction.create(record.id, record)
-          return transaction.publish()
+          if(pendingDefaultViewFits.size&&records.length){const objects={...state.geometry.objects,...Object.fromEntries(records.map(record=>[record.id,record]))},projected={...state,geometry:{objects}};for(const layout of Object.values(state.layouts)){const viewportId=layout.viewportOrder.find(id=>pendingDefaultViewFits.has(id));if(!viewportId)continue;const source=layout.viewports[viewportId],fit=window.CaderactModelExtents.fit(projected,source.frame);if(fit.valid&&!fit.empty)transaction.replaceIn("layouts",layout.id,{...layout,viewports:{...layout.viewports,[viewportId]:{...source,viewCenter:fit.viewCenter,scale:fit.scale}}})}}
+          const outcome=transaction.publish();if(outcome.status==="committed")pendingDefaultViewFits.clear();return outcome
         } catch (error) {
           if (transaction?.isOpen) transaction.rollback()
           return Object.freeze({ status: "commit-failed", message: error.message })
@@ -812,8 +815,14 @@
       assign(recordIds,styleId){if(!state.dimensionStyles[styleId])return Object.freeze({status:"unknown-style"});const ids=Array.from(new Set(recordIds||[])),records=ids.map(id=>state.geometry.objects[id]);if(records.some(record=>!record?.type?.startsWith("dimension-")||!recordEditable(record.id)))return Object.freeze({status:"invalid-selection"});const changes=records.filter(record=>record.dimensionStyleId!==styleId);if(!changes.length)return Object.freeze({status:"no-op",changes:Object.freeze([])});const transaction=controller.beginTransaction();for(const record of changes)transaction.replace(record.id,{...record,dimensionStyleId:styleId});return transaction.publish()}
     })
     const normalizeLayoutName=value=>typeof value==="string"?value.trim():""
+    function defaultLayoutViewport(paper){
+      try{
+        const frame=window.CaderactModelExtents.defaultFrame(paper),fit=window.CaderactModelExtents.fit(state,frame);if(!frame||!fit.valid)return null
+        const viewport={id:newId(),frame,viewCenter:fit.viewCenter,scale:fit.scale,locked:false};return window.CaderactPaperSpace.validViewport(viewport).length?null:viewport
+      }catch{return null}
+    }
     const layoutGateway=Object.freeze({
-      create(name){const normalized=normalizeLayoutName(name||`Layout${state.layoutOrder.length+1}`);if(!normalized||normalized.length>128||/[\u0000-\u001f\u007f]/.test(normalized)||normalized.toLowerCase()==="model")return Object.freeze({status:"invalid-name"});if(Object.values(state.layouts).some(layout=>layout.name.toLowerCase()===normalized.toLowerCase()))return Object.freeze({status:"duplicate-name"});const layout=freeze({id:newId(),name:normalized,paper:copyValue(window.CaderactPaperSpace.DEFAULT),viewports:{},viewportOrder:[]}),transaction=controller.beginTransaction();transaction.createIn("layouts",layout.id,layout);transaction.replaceIn("settings","layoutOrder",[...state.layoutOrder,layout.id]);const outcome=transaction.publish();return Object.freeze({...outcome,layout})},
+      create(name,{paper:paperInput=null,initialModelViews=1}={}){const normalized=normalizeLayoutName(name||`Layout${state.layoutOrder.length+1}`);if(!normalized||normalized.length>128||/[\u0000-\u001f\u007f]/.test(normalized)||normalized.toLowerCase()==="model")return Object.freeze({status:"invalid-name"});if(Object.values(state.layouts).some(layout=>layout.name.toLowerCase()===normalized.toLowerCase()))return Object.freeze({status:"duplicate-name"});const paper=paperInput?window.CaderactPaperSpace.normalize(paperInput):copyValue(window.CaderactPaperSpace.DEFAULT);if(!paper)return Object.freeze({status:"invalid-page-setup"});const viewCount=Number(initialModelViews);if(![0,1].includes(viewCount))return Object.freeze({status:"invalid-initial-model-views"});const viewport=viewCount===1?defaultLayoutViewport(paper):null,layout=freeze({id:newId(),name:normalized,paper,viewports:viewport?{[viewport.id]:viewport}:{},viewportOrder:viewport?[viewport.id]:[]}),transaction=controller.beginTransaction();transaction.createIn("layouts",layout.id,layout);transaction.replaceIn("settings","layoutOrder",[...state.layoutOrder,layout.id]);const outcome=transaction.publish();if(outcome.status==="committed"&&viewport&&!Object.keys(state.geometry.objects).length)pendingDefaultViewFits.add(viewport.id);return Object.freeze({...outcome,layout})},
       rename(layoutId,name){const layout=state.layouts[layoutId],normalized=normalizeLayoutName(name);if(!layout)return Object.freeze({status:"unknown-layout"});if(!normalized||normalized.length>128||/[\u0000-\u001f\u007f]/.test(normalized)||normalized.toLowerCase()==="model")return Object.freeze({status:"invalid-name"});if(Object.values(state.layouts).some(candidate=>candidate.id!==layoutId&&candidate.name.toLowerCase()===normalized.toLowerCase()))return Object.freeze({status:"duplicate-name"});if(layout.name===normalized)return Object.freeze({status:"no-op",changes:Object.freeze([])});const transaction=controller.beginTransaction();transaction.replaceIn("layouts",layoutId,{...layout,name:normalized});return transaction.publish()},
       remove(layoutId){if(!state.layouts[layoutId])return Object.freeze({status:"unknown-layout"});const transaction=controller.beginTransaction();transaction.removeIn("layouts",layoutId);transaction.replaceIn("settings","layoutOrder",state.layoutOrder.filter(id=>id!==layoutId));return transaction.publish()},
       reorder(layoutId,targetIndex){const from=state.layoutOrder.indexOf(layoutId);if(from<0)return Object.freeze({status:"unknown-layout"});const index=Math.max(0,Math.min(state.layoutOrder.length-1,Math.trunc(Number(targetIndex))));if(from===index)return Object.freeze({status:"no-op",changes:Object.freeze([])});const order=state.layoutOrder.filter(id=>id!==layoutId);order.splice(index,0,layoutId);const transaction=controller.beginTransaction();transaction.replaceIn("settings","layoutOrder",order);return transaction.publish()},

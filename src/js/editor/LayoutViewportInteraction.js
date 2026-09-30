@@ -9,10 +9,11 @@
     function clear(){activeId=null;placement=null;preview=null;gesture=false;changed()}
     function reconcile(){if(activeId&&!active())clear()}
     function hit(point){const sheet=layout();return sheet?[...sheet.viewportOrder].reverse().find(id=>{const f=sheet.viewports[id].frame;return point.x>=f.x&&point.x<=f.x+f.width&&point.y>=f.y&&point.y<=f.y+f.height}):null}
+    function containsActiveAt(screen){const viewport=active();if(!viewport)return false;const point=screenToPaper(screen),f=viewport.frame;return point.x>=f.x&&point.x<=f.x+f.width&&point.y>=f.y&&point.y<=f.y+f.height}
     function activateAt(screen){if(!layout())return false;placement=null;preview=null;activeId=hit(screenToPaper(screen));changed();return true}
     function beginPlacement(){if(!layout())return false;activeId=null;preview=null;placement={start:null,current:null};changed();return true}
     function frame(){if(!placement?.start||!placement.current)return null;const a=placement.start,b=placement.current;return{x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),width:Math.abs(b.x-a.x),height:Math.abs(b.y-a.y)}}
-    function pointerDown(screen){if(!placement)return Boolean(active());const point=screenToPaper(screen);if(!placement.start){placement.start=point;placement.current=point;changed();return true}placement.current=point;const f=frame();if(f.width*paperZoom()<3||f.height*paperZoom()<3)return true;const result=session.layoutGateway.createViewport(layout().id,{frame:f,viewCenter:{x:0,y:0},scale:1,locked:false});if(result.viewport){placement=null;changed();return result.viewport.id}return true}
+    function pointerDown(screen){if(!placement)return Boolean(active());const point=screenToPaper(screen);if(!placement.start){placement.start=point;placement.current=point;changed();return true}placement.current=point;const f=frame();if(f.width*paperZoom()<3||f.height*paperZoom()<3)return true;const fitted=window.CaderactModelExtents.fit(session.reader.snapshot(),f),result=fitted.valid?session.layoutGateway.createViewport(layout().id,{frame:f,viewCenter:fitted.viewCenter,scale:fitted.scale,locked:false}):null;if(result?.viewport){placement=null;changed();return result.viewport.id}return true}
     function pointerMove(screen){if(!placement?.start)return false;placement.current=screenToPaper(screen);changed();return true}
     function projectedViewports(){const sheet=layout();if(!sheet)return[];const result=sheet.viewportOrder.map(id=>({...((preview?.id===id&&activeId===id)?preview:sheet.viewports[id]),active:id===activeId}));const f=frame();if(f?.width>0&&f.height>0)result.push({id:'layout-frame-preview',frame:f,viewCenter:{x:0,y:0},scale:1,locked:false,frameOnly:true,active:true});return result}
     function begin(){gesture=true}
@@ -27,7 +28,7 @@
     }
     context.subscribe(clear);session.subscribe(clear)
     let unsubscribe=null;function bind(){unsubscribe?.();unsubscribe=session.controller.subscribeHistory(()=>{reconcile();changed()})}session.subscribe(bind);bind()
-    return Object.freeze({snapshot,clear,reconcile,activateAt,beginPlacement,pointerDown,pointerMove,projectedViewports,begin,commit,navigate,cancelGesture(){preview=null;gesture=false;changed()}})
+    return Object.freeze({snapshot,clear,reconcile,activateAt,containsActiveAt,beginPlacement,pointerDown,pointerMove,projectedViewports,begin,commit,navigate,cancelGesture(){preview=null;gesture=false;changed()}})
   }
   window.CaderactLayoutViewportInteraction=Object.freeze({create})
 })()

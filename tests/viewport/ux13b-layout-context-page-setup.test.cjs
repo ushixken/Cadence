@@ -21,9 +21,9 @@ test('UX13-B Layout right-click suppresses native UI and opens the shared floati
 })
 
 test('UX13-B exposes only supported Layout actions with intentional separators',()=>{
-  for(const label of ['Rename Layout','Delete Layout','Page Setup…','Create Viewport','Plot Preview','Export PDF'])assert.match(source,new RegExp(`label:"${label.replace('…','…')}"`))
+  for(const label of ['Rename Layout','Delete Layout','Page Setup…','Add View','Plot Preview','Export PDF'])assert.match(source,new RegExp(`label:"${label.replace('…','…')}"`))
   assert.match(source,/id:"page-setup",label:"Page Setup…",separatorBefore:true/)
-  assert.match(source,/id:"create-viewport",label:"Create Viewport",separatorBefore:true/)
+  assert.match(source,/id:"create-viewport",label:"Add View",separatorBefore:true/)
   assert.match(source,/id:"delete",label:"Delete Layout",enabled:session\.reader\.layouts\(\)\.length>1/)
 })
 

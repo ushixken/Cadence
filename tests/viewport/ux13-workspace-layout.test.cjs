@@ -16,10 +16,10 @@ test('UX13 viewport zoom preserves the point under the pointer and PlotScene rec
  const b=await setup(),before=view(b)
  b.run('layoutInteraction.navigate({factor:2,screen:window.__screen})');const after=view(b)
  assert.equal(after.scale,5);assert.deepEqual(after.viewCenter,before.viewCenter);assert.deepEqual(after.frame,before.frame)
- b.flush();assert.equal(b.renders.at(-1).layoutViewportOverlay.items[0].scale,5)
+ b.flush();assert.equal(b.renders.at(-1).layoutViewportOverlay.items.find(value=>value.id===b.read('window.__vp.id')).scale,5)
  assert.equal(b.read('window.CaderactPaperSpace.projectModelPoint({x:10,y:0},modelReader.layout(window.__layout).viewports[window.__vp.id],"mm").x'),82)
  b.run('window.__line=recordGateway.createLine({x:-10,y:0},{x:10,y:0});recordGateway.createAll([window.__line]);window.__plot=window.CaderactPlotScene.create({layout:modelReader.layout(window.__layout),records:modelReader.visibleRecords(),layers:modelReader.layers(),documentUnit:modelReader.units().length})')
- const plotted=b.read('window.__plot.segments.find(segment=>segment.recordId===window.__line.id)');assert.equal(plotted.viewportId,b.read('window.__vp.id'));assert.deepEqual(plotted.start,{x:78,y:60});assert.deepEqual(plotted.end,{x:82,y:60})
+ const plotted=b.read('window.__plot.segments.find(segment=>segment.recordId===window.__line.id&&segment.viewportId===window.__vp.id)');assert.equal(plotted.viewportId,b.read('window.__vp.id'));assert.deepEqual(plotted.start,{x:78,y:60});assert.deepEqual(plotted.end,{x:82,y:60})
  b.run('window.__pdf=window.CaderactPdfSerializer.serialize(window.__plot)');assert.ok(b.read('window.__pdf.bytes.length')>100)
 })
 test('UX13 locked active viewport consumes navigation without mutation',async()=>{
@@ -29,7 +29,7 @@ test('UX13 locked active viewport consumes navigation without mutation',async()=
  assert.deepEqual(b.read('window.caderactApplicationFeedback.entries.map(({message,severity,source})=>({message,severity,source}))'),[{message:'Viewport is locked. Unlock it to pan, zoom, or change scale.',severity:'warning',source:'layout-viewport-locked'}])
 })
 test('UX13-D canvas double-click enters and exits Model-through-Viewport without mutation',async()=>{
- const b=await setup();b.run('layoutInteraction.clear()');const before=b.read('({revision:documentController.currentRevision,history:documentController.historyInfo,dirty:documentController.isDirty,camera:{...camera}})'),inside=b.read('window.__screen'),outside=b.read('worldToScreen(200,150)')
+ const b=await setup();b.run('layoutInteraction.clear()');const before=b.read('({revision:documentController.currentRevision,history:documentController.historyInfo,dirty:documentController.isDirty,camera:{...camera}})'),inside=b.read('window.__screen'),outside=b.read('worldToScreen(5,5)')
  b.point(inside.x,inside.y,'dblclick');assert.equal(b.read('layoutInteraction.snapshot().activeId'),b.read('window.__vp.id'))
  b.point(outside.x,outside.y,'dblclick');assert.equal(b.read('layoutInteraction.snapshot().activeId'),null)
  assert.deepEqual(b.read('({revision:documentController.currentRevision,history:documentController.historyInfo,dirty:documentController.isDirty,camera:{...camera}})'),before)
@@ -47,7 +47,7 @@ test('UX13 frame placement is transient until second corner and Escape exits vie
  const b=await setup();b.run('layoutInteraction.clear();layoutInteraction.beginPlacement()');const revision=b.read('documentController.currentRevision')
  b.run('layoutInteraction.pointerDown(worldToScreen(50,50));layoutInteraction.pointerMove(worldToScreen(100,100))');assert.equal(b.read('documentController.currentRevision'),revision)
  assert.equal(b.read('layoutInteraction.projectedViewports().at(-1).frameOnly'),true)
- b.run('layoutInteraction.pointerDown(worldToScreen(100,100))');assert.equal(b.read('modelReader.layout(window.__layout).viewportOrder.length'),2)
+ const count=b.read('modelReader.layout(window.__layout).viewportOrder.length');b.run('layoutInteraction.pointerDown(worldToScreen(100,100))');assert.equal(b.read('modelReader.layout(window.__layout).viewportOrder.length'),count+1)
  b.run('layoutInteraction.activateAt(worldToScreen(75,75))');b.emit(b.document,'keydown',{key:'Escape'});assert.equal(b.read('layoutInteraction.snapshot().activeId'),null)
 })
 test('UX13 Light and Dark handoff preserves every renderer color and source palettes',async()=>{
@@ -82,6 +82,6 @@ test('UX13 production structure uses a stable bounded Preferences frame and each
 })
 test('UX13-D production UI communicates active scale and reconciles locked scale edits',()=>{
  const source=fs.readFileSync('src/js/editor/layout-tabs.js','utf8'),scene=fs.readFileSync('src/js/viewport/ViewportScene.js','utf8')
- assert.match(source,/Active Viewport · 1:/);assert.match(source,/outcome\.status==="viewport-locked"/);assert.match(source,/syncScale\(viewport\)/)
- assert.match(scene,/viewport\.active\?2\.5:1\.25/)
+ assert.match(source,/Active Model View · 1:/);assert.match(source,/outcome\.status==="viewport-locked"/);assert.match(source,/syncScale\(viewport\)/)
+ assert.match(scene,/lineGroup\("#252b31",frameSegments,\{lineWidth:1\}\)/);assert.doesNotMatch(scene,/viewport\.active\?2\.5:1\.25/)
 })

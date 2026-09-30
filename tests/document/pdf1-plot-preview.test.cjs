@@ -13,7 +13,7 @@ test('PDF1 preview entry and compact technical controls are present',()=>{const 
 
 test('PDF1 consumes CaderactPlotScene as its sole plotted-content authority',()=>{const js=source();assert.match(js,/CaderactPlotScene\.create/);assert.doesNotMatch(js,/ViewportScene|toDataURL|getImageData|drawImage/)});
 
-test('PDF1 plot scene preserves physical page aspect margins scale and annotation',async()=>{const b=await browser(),scene=plotted(b);assert.equal(scene.page.width/scene.page.height,297/210);assert.deepEqual(scene.printable,{x:10,y:10,width:277,height:190});assert.ok(scene.segments.length);assert.equal(scene.texts[0].value,'NOTE');assert.equal(scene.texts[0].height,.2)});
+test('PDF1 plot scene preserves physical page aspect margins scale and annotation',async()=>{const b=await browser(),scene=plotted(b);assert.equal(scene.page.width/scene.page.height,297/210);assert.deepEqual(scene.printable,{x:10,y:10,width:277,height:190});assert.ok(scene.segments.length);assert.ok(scene.texts.some(text=>text.value==='NOTE'&&text.height===.2))});
 
 test('PDF1 renders all output color modes from the same plot scene',async()=>{for(const [mode,expected] of [['color','#e8edf4'],['grayscale','#ececec'],['monochrome','#000000']]){const b=await browser(),scene=plotted(b,{mode});assert.equal(scene.plot.colorMode,mode);assert.equal(scene.segments[0].color,expected)}});
 

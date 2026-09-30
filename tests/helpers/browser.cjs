@@ -188,6 +188,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/document/ObjectProperties.js');
   load('src/js/geometry/SimilarityTransform.js');
   load('src/js/document/BlockTraversal.js');
+  load('src/js/document/ModelExtents.js');
   load('src/js/document/CaderactDocument.js');
   load('src/js/document/CaderactReferences.js');
   load('src/js/document/CaderactPersistence.js');

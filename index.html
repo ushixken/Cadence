@@ -52,6 +52,7 @@
     <script src="./src/js/document/ObjectProperties.js" defer></script>
     <script src="./src/js/geometry/SimilarityTransform.js" defer></script>
     <script src="./src/js/document/BlockTraversal.js" defer></script>
+    <script src="./src/js/document/ModelExtents.js" defer></script>
     <script src="./src/js/document/CaderactDocument.js" defer></script>
     <script src="./src/js/document/CaderactReferences.js" defer></script>
     <script src="./src/js/document/CaderactPersistence.js" defer></script>
@@ -452,6 +453,7 @@
                   Save <span>Ctrl+S</span>
                 </button>
                 <button id="file-save-as" type="button">Save As…</button>
+                <button id="file-plot" type="button">Plot…</button>
                 <button id="file-export-dxf" type="button">Export DXF…</button>
               </div>
             </li>
@@ -770,7 +772,7 @@
           </aside>
           <section class="command-history-region" aria-label="Command history"><div class="command-history" id="command-history" aria-live="polite"></div></section>
         </div>
-        <nav class="model-strip" aria-label="Model and Layout workspaces"><div id="layout-tabs" class="layout-tabs" role="tablist" aria-label="Drawing workspaces"></div><button id="layout-add" class="layout-add" type="button" aria-label="Add Layout" title="Add Layout">+</button><div id="layout-viewport-tools" class="layout-viewport-tools" aria-label="Layout actions" hidden><button id="layout-viewport-create" type="button" title="Create a model view on this sheet">Create Viewport</button><select id="layout-viewport-scale" aria-label="Viewport scale" title="Set selected viewport scale"><option value="1">1:1</option><option value="2">1:2</option><option value="5">1:5</option><option value="10">1:10</option><option value="20">1:20</option><option value="50">1:50</option><option value="100">1:100</option></select><button id="layout-viewport-lock" type="button" aria-pressed="false" title="Lock selected viewport view">Lock</button><button id="layout-plot-preview" type="button" title="Preview this sheet for output">Plot Preview</button><button id="layout-export-pdf" type="button" title="Export this Layout as vector PDF">Export PDF</button></div></nav>
+        <nav class="model-strip" aria-label="Model and Layout workspaces"><div id="layout-tabs" class="layout-tabs" role="tablist" aria-label="Drawing workspaces"></div><button id="layout-add" class="layout-add" type="button" aria-label="Add Layout" title="Add Layout">+</button><div id="layout-viewport-tools" class="layout-viewport-tools" aria-label="Layout actions" hidden><button id="layout-viewport-create" type="button" title="Add another Model view to this sheet">Add View</button><select id="layout-viewport-scale" aria-label="View scale" title="Set selected Model View scale"><option value="1">1:1</option><option value="2">1:2</option><option value="5">1:5</option><option value="10">1:10</option><option value="20">1:20</option><option value="50">1:50</option><option value="100">1:100</option></select><button id="layout-viewport-lock" type="button" aria-pressed="false" title="Lock selected Model View">Lock View</button><button id="layout-plot-preview" type="button" title="Preview this sheet for output">Plot Preview</button><button id="layout-export-pdf" type="button" title="Export this Layout as vector PDF">Export PDF</button></div></nav>
         <footer class="editor-footer" aria-label="Editor status bar">
           <div class="command-area">
             <span class="command-label">Command:</span>

@@ -1904,7 +1904,7 @@ function updateSnapAtPointer() {
 }
 
 function onViewportPointerDown(event) {
-  if(event.button===0&&!navigation.isActive()&&!getActiveCommandSession()&&layoutInteraction?.snapshot().placing){const result=layoutInteraction.pointerDown(getCanvasPoint(event));if(typeof result==='string')window.caderactLayouts?.selectViewport(result);event.preventDefault();return}
+  if(event.button===0&&!navigation.isActive()&&!getActiveCommandSession()&&layoutInteraction?.snapshot().placing){const point=getCanvasPoint(event);lastKnownPointerScreen=point;interactionVisuals.move(getViewportPoint(event));const result=layoutInteraction.pointerDown(point);if(typeof result==='string')window.caderactLayouts?.selectViewport(result);event.preventDefault();return}
   if(layoutInteraction?.snapshot().activeId)return
   const session = getActiveCommandSession()
   if(professionalSelection){if(event.button===2){event.preventDefault?.();professionalSelection.commandOwned&&window.caderactCommandRouter?.isActive?window.caderactCommandRouter.finishActive():finishProfessionalSelection();return}if(event.button!==0||navigation.isActive())return;const screen=getCanvasPoint(event);if(professionalSelection.points.length===0&&(event.ctrlKey||event.metaKey)&&!(event.ctrlKey&&event.metaKey))professionalSelection.modifier=true;professionalSelection.points.push(Object.freeze({...screen}));professionalSelection.current=Object.freeze({...screen});requestRender();return}
@@ -1946,8 +1946,8 @@ function onViewportPointerDown(event) {
 
 function onCommandPointerMove(event) {
   const point = getCanvasPoint(event)
-  if(layoutInteraction?.snapshot().placing){layoutInteraction.pointerMove(point);return}
-  if(layoutInteraction?.snapshot().activeId)return
+  if(layoutInteraction?.snapshot().placing){lastKnownPointerScreen=point;setShiftHeld(event.shiftKey);interactionVisuals.setMode("select");interactionVisuals.move(getViewportPoint(event));layoutInteraction.pointerMove(point);return}
+  if(layoutInteraction?.snapshot().activeId){lastKnownPointerScreen=point;setShiftHeld(event.shiftKey);interactionVisuals.setMode("select");if(layoutInteraction.containsActiveAt(point))interactionVisuals.move(getViewportPoint(event));else interactionVisuals.leave();requestRender();return}
   lastKnownPointerScreen = point
   setShiftHeld(event.shiftKey)
   interactionVisuals.setMode(getActiveCommandSession() && !getActiveCommandSession()?.isSelectionPhase ? "point" : "select")
