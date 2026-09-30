@@ -37,11 +37,15 @@ test('UX13-B Page Setup uses shared draggable header body and action contracts',
 })
 
 test('UX13-B Page Setup is compact theme-token UI with deliberate disabled controls',()=>{
-  assert.match(shellCss,/\.page-setup-dialog\{[^}]*height:min\(590px,calc\(100vh - 24px\)\)[^}]*overflow:hidden[^}]*background:var\(--surface-dialog\)/s)
-  assert.match(shellCss,/\.page-setup-body\{[^}]*overflow:auto/s)
+  assert.match(shellCss,/\.page-setup-dialog\{[^}]*width:min\(1040px[^}]*height:min\(720px,calc\(100vh - 24px\)\)[^}]*overflow:hidden[^}]*background:var\(--surface-dialog\)/s)
+  assert.doesNotMatch(shellCss,/\.page-setup-dialog\{[^}]*height:min\(590px/)
+  assert.match(shellCss,/\.page-setup-body\{[^}]*grid-template-columns:[^}]*overflow:hidden/s)
+  assert.match(shellCss,/\.page-setup-settings\{[^}]*overflow-y:auto/s)
+  assert.match(shellCss,/\.page-setup-preview\{[^}]*align-items:center[^}]*justify-content:center/s)
   assert.match(shellCss,/\.page-setup-row\{[^}]*grid-template-columns:/s)
   assert.match(shellCss,/\.page-setup-row input:disabled,\.page-setup-row select:disabled\{[^}]*background:var\(--surface-control-disabled\)[^}]*opacity:1/s)
   assert.match(shellCss,/\.layout-context-menu\{width:188px;min-width:188px\}/)
+  assert.match(shellCss,/\.plot-preview-dialog\{[^}]*height:min\(760px,calc\(100vh - 40px\)\)/s)
 })
 
 test('UX13-B Page Setup still publishes only through the existing layout gateway',()=>{

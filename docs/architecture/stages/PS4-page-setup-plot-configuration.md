@@ -1,4 +1,6 @@
-# PS4 — Page Setup and Plot Configuration
+# PS4 — Page Setup and Plot Configuration (superseded by PLOT1)
+
+PLOT1 separates this stage's former persistent `paper.plot` metadata from the physical Layout sheet. See `PLOT1-page-setup-plot-foundation.md` for the current ownership boundary. Legacy metadata remains load-compatible but is no longer saved or edited by Page Setup.
 
 PS4 extends the document-owned PS2 `Layout.paper` authority. It does not create a printer, preview, PDF, or workspace-preference model.
 

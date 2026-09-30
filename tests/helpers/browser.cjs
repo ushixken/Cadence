@@ -183,6 +183,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/document/DocumentController.js');
   load('src/js/document/CaderactUnits.js');
   load('src/js/document/PaperSpace.js');
+  load('src/js/document/PlotJob.js');
   load('src/js/document/PlotScene.js');
   load('src/js/io/pdf/PdfSerializer.js');
   load('src/js/document/ObjectProperties.js');
@@ -250,6 +251,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/editor/LeaderCommands.js');
   load('src/js/editor/LayoutViewportInteraction.js');
   load('src/js/viewport/Viewport.js');
+  load('src/js/editor/plot-output.js');
   load('src/js/editor/ThemeController.js');
   load('src/js/editor/RightDock.js');
   load('src/js/editor/footer-controls.js');

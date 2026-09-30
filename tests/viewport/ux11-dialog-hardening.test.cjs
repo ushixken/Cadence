@@ -25,7 +25,9 @@ test('UX11 shared dialog contract covers existing settings and output surfaces',
   for(const source of [layout,pdf,properties])assert.match(source,/caderact-dialog/)
   assert.match(html,/file-safety-dialog caderact-dialog/g)
   assert.match(shellCss,/dialog\.caderact-dialog\{[^}]*max-height:calc\(100vh - 24px\)/s)
-  assert.match(shellCss,/\.page-setup-dialog \.caderact-dialog-actions\{[^}]*position:sticky[^}]*bottom:0/s)
+  assert.match(shellCss,/\.page-setup-dialog\.caderact-dialog\{[^}]*display:grid[^}]*grid-template-rows:auto minmax\(0,1fr\) auto/s)
+  assert.match(shellCss,/\.page-setup-dialog \.caderact-dialog-actions\{[^}]*padding:8px 14px 10px/s)
+  assert.doesNotMatch(shellCss,/\.page-setup-dialog \.caderact-dialog-actions\{[^}]*position:sticky/s)
 })
 
 test('UX11 Preferences never exposes or invokes the Drafting reset authority',async()=>{
