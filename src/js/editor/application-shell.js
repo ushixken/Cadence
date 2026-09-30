@@ -5,6 +5,9 @@
   const modalityRoot=document.documentElement
   document.addEventListener("pointerdown",()=>{modalityRoot.dataset.inputModality="pointer"},true)
   document.addEventListener("keydown",event=>{if(!["Alt","Control","Meta","Shift"].includes(event.key))modalityRoot.dataset.inputModality="keyboard"},true)
+  const ownedContextMenuSurfaces=".viewport, .model-strip, .cad-tool-tabs, .category-tool-area, .quick-tools-rail, .editor-sidebar, .editor-footer"
+  const editableContextTarget=target=>target instanceof Element&&Boolean(target.closest("input, textarea, select, [contenteditable=true]"))
+  document.addEventListener("contextmenu",event=>{const target=event.target;if(editableContextTarget(target))return;if(target instanceof Element&&target.closest(ownedContextMenuSurfaces))event.preventDefault()})
   const categoryTools = document.querySelector("#category-tools"), categoryName = document.querySelector("#active-category-name")
   const utility = document.querySelector(".utility-menu"), utilityTrigger = document.querySelector("#utility-menu-trigger"), utilityMenu = document.querySelector("#utility-menu-actions")
   const edit = document.querySelector(".edit-menu"), editTrigger = document.querySelector(".edit-menu-trigger"), editMenu = document.querySelector("#edit-menu-actions")
