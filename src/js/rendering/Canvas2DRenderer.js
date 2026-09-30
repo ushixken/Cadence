@@ -28,7 +28,7 @@ class Canvas2DRenderer extends window.CaderactRenderer {
       if (lineGroup.segments.length > 0) {
         context.beginPath()
         context.strokeStyle = lineGroup.color
-        context.lineWidth = lineGroup.lineWidth / scene.deviceScale / scale
+        context.lineWidth = lineGroup.lineWidth / scale
         for (let index = 0; index < lineGroup.segments.length; index += 4) {
           context.moveTo(lineGroup.segments[index], lineGroup.segments[index + 1])
           context.lineTo(lineGroup.segments[index + 2], lineGroup.segments[index + 3])
@@ -38,7 +38,7 @@ class Canvas2DRenderer extends window.CaderactRenderer {
       if (circleGroup?.circles.length > 0) {
         context.beginPath()
         context.strokeStyle = circleGroup.color
-        context.lineWidth = circleGroup.lineWidth / scene.deviceScale / scale
+        context.lineWidth = circleGroup.lineWidth / scale
         for (const circle of circleGroup.circles) {
           context.moveTo(circle.center.x + circle.radius, circle.center.y)
           context.arc(circle.center.x, circle.center.y, circle.radius, 0, Math.PI * 2)
@@ -46,7 +46,7 @@ class Canvas2DRenderer extends window.CaderactRenderer {
         context.stroke()
       }
       if(arcGroup?.arcs.length>0){
-        context.beginPath();context.strokeStyle=arcGroup.color;context.lineWidth=arcGroup.lineWidth/scene.deviceScale/scale
+        context.beginPath();context.strokeStyle=arcGroup.color;context.lineWidth=arcGroup.lineWidth/scale
         for(const arc of arcGroup.arcs){
           const end=arc.startAngle+arc.sweep
           context.moveTo(arc.center.x+Math.cos(arc.startAngle)*arc.radius,arc.center.y+Math.sin(arc.startAngle)*arc.radius)
@@ -55,7 +55,7 @@ class Canvas2DRenderer extends window.CaderactRenderer {
         context.stroke()
       }
       if(ellipseGroup?.ellipses.length>0){
-        context.beginPath();context.strokeStyle=ellipseGroup.color;context.lineWidth=ellipseGroup.lineWidth/scene.deviceScale/scale
+        context.beginPath();context.strokeStyle=ellipseGroup.color;context.lineWidth=ellipseGroup.lineWidth/scale
         for(const ellipse of ellipseGroup.ellipses){
           context.moveTo(ellipse.center.x+Math.cos(ellipse.rotation)*ellipse.radiusX,ellipse.center.y+Math.sin(ellipse.rotation)*ellipse.radiusX)
           context.ellipse(ellipse.center.x,ellipse.center.y,ellipse.radiusX,ellipse.radiusY,ellipse.rotation,0,Math.PI*2)
@@ -64,10 +64,10 @@ class Canvas2DRenderer extends window.CaderactRenderer {
       }
     }}
     if(scene.worldGeometry){const transform=scene.cameraTransform,scale=scene.deviceScale*transform.zoom;context.setTransform(scale,0,0,scale,scene.deviceScale*transform.panX,scene.deviceScale*transform.panY);drawTriangles(scene.worldGeometry.triangleGroups||[]);drawGroups(scene.worldGeometry.drawGroups||[],{world:true});screenTransform()}
-    drawTriangles((scene.triangleGroups||[]).filter(group=>group.role==="solid-hatch"||group.role==="paper"))
+    drawTriangles((scene.triangleGroups||[]).filter(group=>group.role==="solid-hatch"||group.role==="paper"||group.role==="model-view-background"))
     const screenGroups = scene.drawGroups || scene.lineGroups.map(lineGroup => ({ lineGroup, circleGroup: null }))
     drawGroups(screenGroups)
-    drawTriangles((scene.triangleGroups||[]).filter(group=>group.role!=="solid-hatch"&&group.role!=="paper"))
+    drawTriangles((scene.triangleGroups||[]).filter(group=>group.role!=="solid-hatch"&&group.role!=="paper"&&group.role!=="model-view-background"))
     context.setLineDash?.([])
     context.lineDashOffset = 0
     context.lineWidth = 1

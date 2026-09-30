@@ -23,6 +23,6 @@ test('Canvas2D uses native arcs and WebGPU uses bounded adaptive shared tessella
   const pass={setPipeline(){},setBindGroup(){},setVertexBuffer(){},draw(count){drawn=count},end(){}};
   const device={lost:new Promise(()=>{}),createBuffer:()=>({destroy(){}}),createShaderModule:()=>({}),createRenderPipeline:()=>({getBindGroupLayout:()=>({})}),createBindGroup:()=>({}),createCommandEncoder:()=>({beginRenderPass:()=>pass,finish:()=>({})}),queue:{writeBuffer(){},submit(){}}};
   const context={configure(){},getCurrentTexture:()=>({createView:()=>({})})};new b.window.CaderactWebGPURenderer({}, {}, device, context, 'test', ()=>{}).render(scene);
-  const count=b.window.CaderactCircleTessellation.segmentCount(10);assert.equal(drawn,count*2);assert.ok(count>=24&&count<=1024);
+  const count=b.window.CaderactCircleTessellation.segmentCount(10);assert.equal(drawn,count*6);assert.ok(count>=24&&count<=1024);
   assert.ok(b.window.CaderactCircleTessellation.segmentCount(1000)>count);assert.equal(b.window.CaderactCircleTessellation.segmentCount(1e12),1024);
 });

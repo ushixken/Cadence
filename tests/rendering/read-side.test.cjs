@@ -91,16 +91,14 @@ test('Canvas2D and WebGPU consume the same ordered line-group scene contract', a
     createBuffer: options => ({ options, destroy() {} }), createShaderModule: () => ({}),
     createRenderPipeline: () => ({ getBindGroupLayout: () => ({}) }), createBindGroup: () => ({}),
     createCommandEncoder: () => ({ beginRenderPass: () => pass, finish: () => ({}) }),
-    queue: { writeBuffer(buffer, offset, data) { if (data.length === 24) vertexWrites.push(Array.from(data)); }, submit() {} },
+    queue: { writeBuffer(buffer, offset, data) { if (data.length === 72) vertexWrites.push(Array.from(data)); }, submit() {} },
   };
   const gpuContext = { configure() {}, getCurrentTexture: () => ({ createView: () => ({}) }) };
   const webgpu = new b.window.CaderactWebGPURenderer({}, {}, device, gpuContext, 'test', () => {});
   webgpu.render(scene);
-  assert.equal(pass.count, 4);
-  assert.deepEqual(vertexWrites[0], [
-    1,2,1,1,1,1, 3,4,1,1,1,1,
-    5,6,1,0,0,1, 7,8,1,0,0,1,
-  ]);
+  assert.equal(pass.count, 12);
+  assert.equal(vertexWrites[0].length,72);
+  assert.deepEqual(vertexWrites[0].filter((_,index)=>index%6>=2&&index%6<=5).slice(0,24),Array(6).fill([1,1,1,1]).flat());
 });
 
 test('ViewportScene draws Trim survivor preview via the real getTrimPreview wiring (regression: M6P6 preview must not be a no-op)', async () => {

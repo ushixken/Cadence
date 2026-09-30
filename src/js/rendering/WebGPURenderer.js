@@ -15,12 +15,7 @@ class WebGPURenderer extends window.CaderactRenderer {
       size: 16,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
-    this.pipeline = this.createPipeline("line-list")
     this.trianglePipeline=this.createPipeline("triangle-list")
-    this.bindGroup = device.createBindGroup({
-      layout: this.pipeline.getBindGroupLayout(0),
-      entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }],
-    })
     this.triangleBindGroup=device.createBindGroup({layout:this.trianglePipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:this.uniformBuffer}}]})
     device.lost.then(onDeviceLost, onDeviceLost).catch(error => {
       console.warn("Caderact renderer recovery callback failed", error)
@@ -72,24 +67,21 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
   render(scene) {
     const drawGroups = scene.drawGroups || scene.lineGroups.map(lineGroup => ({ lineGroup, circleGroup: null }))
     const batches = []
-    let vertexCount = 0
     for (const { lineGroup, circleGroup, arcGroup, ellipseGroup } of drawGroups) {
-      const prepare=segments=>window.CaderactStrokeStyle.expandSegments(window.CaderactStrokeStyle.dashSegments(segments,lineGroup.dashPattern),lineGroup.lineWidth||1)
-      const lineSegments=prepare(lineGroup.segments)
-      batches.push({ segments: lineSegments, color: lineGroup.colorData })
-      vertexCount += (lineSegments.length / 4) * 2
+      const prepare=segments=>window.CaderactStrokeStyle.strokeTriangles(window.CaderactStrokeStyle.dashSegments(segments,lineGroup.dashPattern),lineGroup.lineWidth||1)
+      const lineTriangles=prepare(lineGroup.segments)
+      batches.push({ triangles: lineTriangles, color: lineGroup.colorData })
       for (const circle of circleGroup?.circles || []) {
         const segments = prepare(window.CaderactCircleTessellation.createSegments(circle))
-        batches.push({ segments, color: circleGroup.colorData })
-        vertexCount += (segments.length / 4) * 2
+        batches.push({ triangles:segments, color: circleGroup.colorData })
       }
       for(const arc of arcGroup?.arcs||[]){
         const segments=prepare(window.CaderactCircleTessellation.createArcSegments(arc))
-        batches.push({segments,color:arcGroup.colorData});vertexCount+=(segments.length/4)*2
+        batches.push({triangles:segments,color:arcGroup.colorData})
       }
       for(const ellipse of ellipseGroup?.ellipses||[]){
         const segments=prepare(window.CaderactEllipseTessellation.createSegments(ellipse))
-        batches.push({segments,color:ellipseGroup.colorData});vertexCount+=(segments.length/4)*2
+        batches.push({triangles:segments,color:ellipseGroup.colorData})
       }
     }
     let worldBatches=[],worldTriangles=[]
@@ -114,35 +106,27 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
         return values
       }
       for(const {lineGroup,circleGroup,arcGroup,ellipseGroup} of this.worldGeometryCache.drawGroups){
-        const prepare=segments=>window.CaderactStrokeStyle.expandSegments(window.CaderactStrokeStyle.dashSegments(segments,lineGroup.dashPattern),lineGroup.lineWidth||1)
-        worldBatches.push({segments:prepare(projectSegments(lineGroup.segments)),color:lineGroup.colorData})
+        const prepare=segments=>window.CaderactStrokeStyle.strokeTriangles(window.CaderactStrokeStyle.dashSegments(segments,lineGroup.dashPattern),lineGroup.lineWidth||1)
+        worldBatches.push({triangles:prepare(projectSegments(lineGroup.segments)),color:lineGroup.colorData})
         for(const circle of circleGroup?.circles||[]){
-          worldBatches.push({segments:prepare(window.CaderactCircleTessellation.createSegments({...circle,center:projectPoint(circle.center),radius:circle.radius*transform.zoom})),color:circleGroup.colorData})
+          worldBatches.push({triangles:prepare(window.CaderactCircleTessellation.createSegments({...circle,center:projectPoint(circle.center),radius:circle.radius*transform.zoom})),color:circleGroup.colorData})
         }
         for(const arc of arcGroup?.arcs||[]){
-          worldBatches.push({segments:prepare(window.CaderactCircleTessellation.createArcSegments({...arc,center:projectPoint(arc.center),radius:arc.radius*transform.zoom})),color:arcGroup.colorData})
+          worldBatches.push({triangles:prepare(window.CaderactCircleTessellation.createArcSegments({...arc,center:projectPoint(arc.center),radius:arc.radius*transform.zoom})),color:arcGroup.colorData})
         }
         for(const ellipse of ellipseGroup?.ellipses||[]){
-          worldBatches.push({segments:prepare(window.CaderactEllipseTessellation.createSegments({...ellipse,center:projectPoint(ellipse.center),radiusX:ellipse.radiusX*transform.zoom,radiusY:ellipse.radiusY*transform.zoom})),color:ellipseGroup.colorData})
+          worldBatches.push({triangles:prepare(window.CaderactEllipseTessellation.createSegments({...ellipse,center:projectPoint(ellipse.center),radiusX:ellipse.radiusX*transform.zoom,radiusY:ellipse.radiusY*transform.zoom})),color:ellipseGroup.colorData})
         }
       }
       worldTriangles=this.worldGeometryCache.triangles
     }
-    const worldVertexCount=worldBatches.reduce((sum,batch)=>sum+(batch.segments.length/4)*2,0),hatchTriangles=(scene.triangleGroups||[]).filter(group=>group.role==="solid-hatch"||group.role==="paper").flatMap(group=>group.triangles||[]),overlayTriangles=(scene.triangleGroups||[]).filter(group=>group.role!=="solid-hatch"&&group.role!=="paper").flatMap(group=>group.triangles||[]),hatchVertexCount=(worldTriangles.length+hatchTriangles.length)*3,overlayTriangleVertexCount=overlayTriangles.length*3,triangleVertexCount=hatchVertexCount+overlayTriangleVertexCount
-    vertexCount+=worldVertexCount
-    const data = new Float32Array((vertexCount+triangleVertexCount) * 6)
+    const strokeVertexCount=[...worldBatches,...batches].reduce((sum,batch)=>sum+batch.triangles.length/2,0),hatchTriangles=(scene.triangleGroups||[]).filter(group=>group.role==="solid-hatch"||group.role==="paper"||group.role==="model-view-background").flatMap(group=>group.triangles||[]),overlayTriangles=(scene.triangleGroups||[]).filter(group=>group.role!=="solid-hatch"&&group.role!=="paper"&&group.role!=="model-view-background").flatMap(group=>group.triangles||[]),hatchVertexCount=(worldTriangles.length+hatchTriangles.length)*3,overlayTriangleVertexCount=overlayTriangles.length*3,triangleVertexCount=hatchVertexCount+strokeVertexCount+overlayTriangleVertexCount
+    const data = new Float32Array(triangleVertexCount * 6)
     let offset = 0
     const worldPoint=point=>({x:scene.cameraTransform.panX+point.x*scene.cameraTransform.zoom,y:scene.cameraTransform.panY+point.y*scene.cameraTransform.zoom})
     for(const triangle of worldTriangles)for(const source of triangle.points){const point=worldPoint(source);data.set([point.x,point.y,...triangle.colorData],offset);offset+=6}
     for(const triangle of hatchTriangles)for(const point of triangle.points){data.set([point.x,point.y,...triangle.colorData],offset);offset+=6}
-    for(const batch of worldBatches)for(let index=0;index<batch.segments.length;index+=4){data.set([batch.segments[index],batch.segments[index+1],...batch.color,batch.segments[index+2],batch.segments[index+3],...batch.color],offset);offset+=12}
-    for (const batch of batches) {
-      for (let index = 0; index < batch.segments.length; index += 4) {
-        data.set([batch.segments[index], batch.segments[index + 1], ...batch.color,
-          batch.segments[index + 2], batch.segments[index + 3], ...batch.color], offset)
-        offset += 12
-      }
-    }
+    for(const batch of [...worldBatches,...batches])for(let index=0;index<batch.triangles.length;index+=2){data.set([batch.triangles[index],batch.triangles[index+1],...batch.color],offset);offset+=6}
     for(const triangle of overlayTriangles)for(const point of triangle.points){data.set([point.x,point.y,...triangle.colorData],offset);offset+=6}
     const bytes = Math.max(24, data.byteLength)
     if (bytes > this.vertexCapacity) {
@@ -154,12 +138,7 @@ struct VertexOutput { @builtin(position) position: vec4f, @location(0) color: ve
     this.device.queue.writeBuffer(this.uniformBuffer, 0, new Float32Array([scene.width, scene.height, 0, 0]))
     const encoder = this.device.createCommandEncoder()
     const pass = encoder.beginRenderPass({ colorAttachments: [{ view: this.context.getCurrentTexture().createView(), clearValue: scene.backgroundColorData, loadOp: "clear", storeOp: "store" }] })
-    if(hatchVertexCount){pass.setPipeline(this.trianglePipeline);pass.setBindGroup(0,this.triangleBindGroup);pass.setVertexBuffer(0,this.vertexBuffer);pass.draw(hatchVertexCount)}
-    pass.setPipeline(this.pipeline);pass.setBindGroup(0, this.bindGroup)
-    if (vertexCount) {
-      pass.setVertexBuffer(0, this.vertexBuffer);pass.draw(vertexCount,1,hatchVertexCount)
-    }
-    if(overlayTriangleVertexCount){pass.setPipeline(this.trianglePipeline);pass.setBindGroup(0,this.triangleBindGroup);pass.setVertexBuffer(0,this.vertexBuffer);pass.draw(overlayTriangleVertexCount,1,hatchVertexCount+vertexCount)}
+    if(triangleVertexCount){pass.setPipeline(this.trianglePipeline);pass.setBindGroup(0,this.triangleBindGroup);pass.setVertexBuffer(0,this.vertexBuffer);pass.draw(triangleVertexCount)}
     pass.end()
     this.device.queue.submit([encoder.finish()])
   }
