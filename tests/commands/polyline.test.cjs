@@ -135,11 +135,12 @@ test('failed Close preserves vertices and retry does not duplicate the first ver
   b.run('window.__blocker.rollback()');typed(b,'Close');assert.equal(b.read('modelReader.records().length'),1);assert.equal(b.read('modelReader.records()[0].vertices.length'),3);
 });
 
-test('pointer leave hides only preview and command replacement remains blocked',async()=>{
+test('pointer leave hides only preview and command replacement cancels the draft',async()=>{
   const b=await browser();b.launch('Polyline');for(const value of ['1,2','4,5'])typed(b,value);b.point(450,250,'pointermove');b.flush();
   const accepted=segments(b);b.point(900,700,'pointerleave');b.flush();
   assert.deepEqual(segments(b),accepted);assert.equal(b.renders.at(-1).nextSegmentPreviewOverlay.segments.length,0);
-  const outcome=b.window.caderactCommandRouter.execute('Rectangle');assert.equal(outcome.status,'command-active');assert.equal(outcome.command,'Polyline');
+  const outcome=b.window.caderactCommandRouter.execute('Rectangle');assert.equal(outcome.status,'command-started');assert.equal(outcome.command,'Rectangle');
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Rectangle');assert.equal(b.read('modelReader.records().length'),0);
 });
 
 test('Escape clears the whole draft and renderer recovery reconstructs only current transient state',async()=>{

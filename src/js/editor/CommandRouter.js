@@ -50,14 +50,20 @@
       if (session.activationOutcome) return acceptSessionOutcome(session, session.activationOutcome)
       return publish(result("command-started", { command: definition.name }))
     }
+    function launch(definition) {
+      if (activeSession) {
+        if (!canActivate(definition)) return publish(result("command-unavailable", { command: definition.name, reason: "workspace-context" }))
+        cancelActive()
+      }
+      return activate(definition)
+    }
     function execute(input) {
-      if (activeSession) return publish(result("command-active", { command: activeSession.name }))
       const entered = typeof input === "string" ? input.trim() : ""
       if (!entered) return publish(result("invalid-input", { reason: "empty-command" }))
       const exact = registry.resolve(entered)
-      if (exact) return activate(exact)
+      if (exact) return launch(exact)
       const matches = registry.matches(entered)
-      if (matches.length === 1) return activate(matches[0])
+      if (matches.length === 1) return launch(matches[0])
       if (matches.length > 1) return publish(result("invalid-input", { reason: "ambiguous-command", input: entered }))
       return publish(result("unknown-command", { input: entered }))
     }

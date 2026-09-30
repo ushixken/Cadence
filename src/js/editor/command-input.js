@@ -288,7 +288,7 @@ function modalOwnsKeyboard() {
 function transientSurfaceOwnsEscape() {
   const known=["#file-menu-actions","#measure-menu-actions","#snap-menu","#grid-drafting-menu","#polar-drafting-menu","#track-drafting-menu","#dynamic-input-drafting-menu","#editor-context-menu"]
     .map(selector=>document.querySelector(selector)).filter(Boolean)
-  const overlays=Array.from(document.querySelectorAll?.('[role="menu"],.rail-flyout,.application-menu,.dimension-style-backdrop')||[])
+  const overlays=Array.from(document.querySelectorAll?.('[role="menu"],.rail-flyout,.application-menu.is-open,.dimension-style-backdrop')||[])
   return [...new Set([...known,...overlays])].some(element=>!element.hidden)
 }
 

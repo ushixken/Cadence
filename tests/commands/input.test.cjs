@@ -57,13 +57,30 @@ test('registry is the single deterministic autocomplete and routing source', asy
   for (const token of ['p','po','pol','poly','polyl','polyline']) assert.equal(b.run(`window.caderactCommandRegistry.search(${JSON.stringify(token)})[0].command.name`), 'Polyline');
   for (const token of ['polyg','polygon']) assert.equal(b.run(`window.caderactCommandRegistry.search(${JSON.stringify(token)})[0].command.name`), 'Polygon');
 });
-test('an active Line cannot be relaunched through command routing', async () => {
+test('an explicit command launch normally cancels the active command before starting the replacement', async () => {
   const b = await browser(); b.launch(); b.point(100, 100); b.point(150, 150);
-  const draftId = b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()[0].id');
-  const outcome = b.window.caderactCommandRouter.execute('Line');
-  assert.equal(outcome.status, 'command-active'); assert.equal(outcome.command, 'Line');
-  assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()[0].id'), draftId);
-  assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.segmentCount'), 1);
+  const before=b.read('({revision:documentController.currentRevision,history:documentController.historyInfo.entryCount,records:modelReader.records().length})');
+  const events=[];b.window.caderactCommandRouter.subscribe(outcome=>events.push({status:outcome.status,command:outcome.command}));
+  const outcome = b.window.caderactCommandRouter.execute('Circle');
+  assert.equal(outcome.status, 'command-started'); assert.equal(outcome.command, 'Circle');
+  assert.deepEqual(events.slice(-2),[{status:'command-cancelled',command:'Line'},{status:'command-started',command:'Circle'}]);
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Circle');
+  assert.deepEqual(b.read('({revision:documentController.currentRevision,history:documentController.historyInfo.entryCount,records:modelReader.records().length})'),before);
+});
+test('workspace Escape cancels an active command while closed application menus do not claim the key',async()=>{
+  const b=await browser();b.run(`window.__querySelectorAll=document.querySelectorAll;document.querySelectorAll=selector=>selector.includes('.application-menu.is-open')?[]:selector.includes('.application-menu')?[{hidden:false}]:window.__querySelectorAll(selector)`);
+  const before=b.read('({revision:documentController.currentRevision,history:documentController.historyInfo.entryCount,records:modelReader.records().length})');
+  b.launch('Line');b.point(100,100);b.point(150,150,'pointermove');const event=b.key('Escape',b.canvas);b.flush();
+  assert.equal(event.defaultPrevented,true);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null);
+  assert.deepEqual(b.read('({revision:documentController.currentRevision,history:documentController.historyInfo.entryCount,records:modelReader.records().length})'),before);
+  assert.equal(b.renders.at(-1).acceptedDraftOverlay.segments.length,0);
+});
+for(const [from,to] of [['Line','Circle'],['Circle','Arc'],['Polyline','Line']])test(`${from} switches to ${to} in one explicit launch`,async()=>{
+  const b=await browser(),before=b.read('({revision:documentController.currentRevision,history:documentController.historyInfo.entryCount,records:modelReader.records().length})');
+  b.launch(from);b.window.caderactCommandRouter.submitActivePointer({x:1,y:2});
+  const outcome=b.window.caderactCommandRouter.execute(to);
+  assert.equal(outcome.status,'command-started');assert.equal(outcome.command,to);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),to);
+  assert.deepEqual(b.read('({revision:documentController.currentRevision,history:documentController.historyInfo.entryCount,records:modelReader.records().length})'),before);
 });
 test('global printable typing focuses command input; Escape clears search', async () => {
   const b = await browser(); b.key('l');

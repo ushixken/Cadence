@@ -195,14 +195,14 @@ test('Step Undo back to the first point then Enter publishes nothing', async () 
   assert.equal(b.read('window.caderactCommandRouter.activeCommand'), null);
 });
 
-test('starting Line while Line is active preserves the current session', async () => {
+test('starting Line while Line is active normally cancels and restarts the command', async () => {
   const b = await browser(); b.launch(); b.point(100, 100); b.point(150, 150);
-  const existingId = b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()[0].id');
+  const before=persistentState(b);
   const relaunch = b.window.caderactViewport.startLineCommand();
-  assert.equal(relaunch.status, 'command-active'); assert.equal(relaunch.command, 'Line');
-  assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.segmentCount'), 1);
-  assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.draftSegments()[0].id'), existingId);
+  assert.equal(relaunch.status, 'command-started'); assert.equal(relaunch.command, 'Line');
+  assert.equal(b.read('window.caderactCommandRouter.activeSession.draft.segmentCount'), 0);
   assert.equal(b.read('modelReader.lines().length'), 0);
+  assert.deepEqual(persistentState(b),before);
 });
 
 for (const key of ['Enter', 'Escape']) for (const firstPoint of [false, true]) {

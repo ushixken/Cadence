@@ -63,13 +63,14 @@ test('valid Circle publishes one current-layer record in one history entry and U
   b.run('window.caderactHistory.undo()');assert.equal(b.read('modelReader.records().length'),0);b.run('window.caderactHistory.redo()');assert.deepEqual(b.read('modelReader.records()[0]'),record);
 });
 
-test('Escape/Enter clear incomplete Circle, pointer leave hides preview, and replacement stays blocked',async()=>{
+test('Escape/Enter clear incomplete Circle, pointer leave hides preview, and replacement cancels the draft',async()=>{
   for(const key of ['Escape','Enter'])for(const centered of [false,true]){
     const b=await browser(),before=state(b);b.launch('Circle');if(centered)typed(b,'1,2');b.key(key);b.flush();assert.deepEqual(state(b),before);assert.equal(b.read('window.caderactCommandRouter.activeCommand'),null);
   }
   const b=await browser();b.launch('Circle');typed(b,'1,2');b.point(450,250,'pointermove');b.flush();b.point(900,700,'pointerleave');b.flush();
   assert.deepEqual(b.read('window.caderactCommandRouter.activeSession.draft.center'),{x:1,y:2});assert.equal(b.renders.at(-1).circleOverlay.preview.length,0);
-  assert.equal(b.window.caderactCommandRouter.execute('Line').status,'command-active');
+  const outcome=b.window.caderactCommandRouter.execute('Line');assert.equal(outcome.status,'command-started');assert.equal(outcome.command,'Line');
+  assert.equal(b.read('window.caderactCommandRouter.activeCommand'),'Line');assert.equal(b.read('modelReader.records().length'),0);
 });
 
 test('failed publication is atomic, preserves Circle draft, and retries successfully',async()=>{
