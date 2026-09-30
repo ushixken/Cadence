@@ -56,8 +56,7 @@
   function defaultFrame(paper){
     const page=window.CaderactPaperSpace.derive({paper})
     if(!page.valid)return null
-    const inset=Math.min(5,page.printable.width*.04,page.printable.height*.04)
-    const frame={x:page.printable.left+inset,y:page.printable.bottom+inset,width:page.printable.width-inset*2,height:page.printable.height-inset*2}
+    const frame={x:page.printable.left,y:page.printable.bottom,width:page.printable.width,height:page.printable.height}
     return frame.width>0&&frame.height>0?Object.freeze(frame):null
   }
 
