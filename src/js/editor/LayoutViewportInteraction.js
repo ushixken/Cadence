@@ -1,6 +1,6 @@
 // UX13: editor interaction over the existing PS3 gateway. Model data/cameras are never edited here.
 (() => {
-  function create({session,context,screenToPaper,paperZoom,onChange=()=>{}}) {
+  function create({session,context,screenToPaper,paperZoom,onChange=()=>{},onLocked=()=>{}}) {
     let activeId=null,placement=null,preview=null,gesture=false
     const layout=()=>{const current=context.snapshot();return current.kind==='layout'?session.reader.layout(current.layoutId):null}
     const active=()=>layout()?.viewports[activeId]||null
@@ -19,7 +19,7 @@
     function commit(){const viewport=active(),sheet=layout(),pending=preview;preview=null;gesture=false;if(viewport&&pending){session.layoutGateway.updateViewport(sheet.id,viewport.id,{viewCenter:pending.viewCenter,scale:pending.scale},{viewChange:true})}changed()}
     function navigate({dx=0,dy=0,factor=1,screen=null}){
       const original=active();if(!original)return false
-      if(original.locked)return true
+      if(original.locked){onLocked(original);return true}
       const current=preview||original,mm=window.CaderactUnits.conversionFactor(session.reader.units().length,'mm'),ratio=current.scale/(mm*paperZoom())
       let center={x:current.viewCenter.x-dx*ratio,y:current.viewCenter.y+dy*ratio},scale=current.scale
       if(factor!==1){scale=Math.max(.001,Math.min(1e9,scale/factor));const point=screenToPaper(screen),f=current.frame,px=point.x-f.x-f.width/2,py=point.y-f.y-f.height/2;center={x:center.x+px*(current.scale-scale)/mm,y:center.y+py*(current.scale-scale)/mm}}

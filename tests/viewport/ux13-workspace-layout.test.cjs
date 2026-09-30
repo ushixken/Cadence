@@ -18,11 +18,23 @@ test('UX13 viewport zoom preserves the point under the pointer and PlotScene rec
  assert.equal(after.scale,5);assert.deepEqual(after.viewCenter,before.viewCenter);assert.deepEqual(after.frame,before.frame)
  b.flush();assert.equal(b.renders.at(-1).layoutViewportOverlay.items[0].scale,5)
  assert.equal(b.read('window.CaderactPaperSpace.projectModelPoint({x:10,y:0},modelReader.layout(window.__layout).viewports[window.__vp.id],"mm").x'),82)
+ b.run('window.__line=recordGateway.createLine({x:-10,y:0},{x:10,y:0});recordGateway.createAll([window.__line]);window.__plot=window.CaderactPlotScene.create({layout:modelReader.layout(window.__layout),records:modelReader.visibleRecords(),layers:modelReader.layers(),documentUnit:modelReader.units().length})')
+ const plotted=b.read('window.__plot.segments.find(segment=>segment.recordId===window.__line.id)');assert.equal(plotted.viewportId,b.read('window.__vp.id'));assert.deepEqual(plotted.start,{x:78,y:60});assert.deepEqual(plotted.end,{x:82,y:60})
+ b.run('window.__pdf=window.CaderactPdfSerializer.serialize(window.__plot)');assert.ok(b.read('window.__pdf.bytes.length')>100)
 })
 test('UX13 locked active viewport consumes navigation without mutation',async()=>{
  const b=await setup();b.run('documentSession.layoutGateway.updateViewport(window.__layout,window.__vp.id,{locked:true})');const before=view(b),revision=b.read('documentController.currentRevision')
  assert.equal(b.read('layoutInteraction.navigate({dx:30,dy:20,factor:2,screen:window.__screen})'),true)
  assert.deepEqual(view(b),before);assert.equal(b.read('documentController.currentRevision'),revision)
+ assert.deepEqual(b.read('window.caderactApplicationFeedback.entries.map(({message,severity,source})=>({message,severity,source}))'),[{message:'Viewport is locked. Unlock it to pan, zoom, or change scale.',severity:'warning',source:'layout-viewport-locked'}])
+})
+test('UX13-D canvas double-click enters and exits Model-through-Viewport without mutation',async()=>{
+ const b=await setup();b.run('layoutInteraction.clear()');const before=b.read('({revision:documentController.currentRevision,history:documentController.historyInfo,dirty:documentController.isDirty,camera:{...camera}})'),inside=b.read('window.__screen'),outside=b.read('worldToScreen(200,150)')
+ b.point(inside.x,inside.y,'dblclick');assert.equal(b.read('layoutInteraction.snapshot().activeId'),b.read('window.__vp.id'))
+ b.point(outside.x,outside.y,'dblclick');assert.equal(b.read('layoutInteraction.snapshot().activeId'),null)
+ assert.deepEqual(b.read('({revision:documentController.currentRevision,history:documentController.historyInfo,dirty:documentController.isDirty,camera:{...camera}})'),before)
+ b.run('documentSession.layoutGateway.updateViewport(window.__layout,window.__vp.id,{locked:true});layoutInteraction.clear()');b.point(inside.x,inside.y,'dblclick');assert.equal(b.read('layoutInteraction.snapshot().activeId'),b.read('window.__vp.id'))
+ b.key('Escape');assert.equal(b.read('layoutInteraction.snapshot().activeId'),null)
 })
 test('UX13 multiple viewports are independent and active deletion or context replacement exits safely',async()=>{
  const b=await setup();b.run('window.__other=documentSession.layoutGateway.createViewport(window.__layout,{frame:{x:150,y:20,width:80,height:60},viewCenter:{x:100,y:100},scale:50,locked:false}).viewport;layoutInteraction.navigate({dx:20})')
@@ -67,4 +79,9 @@ test('UX13 production structure uses a stable bounded Preferences frame and each
  for(const key of ['background','gridMinor','gridMajor','axisX','axisY','geometry','selection','grip','gripHover','osnap','tracking','crosshair','dynamicSurface','dynamicText'])assert.equal(html.split(`data-canvas-color="${key}"`).length-1,1)
  assert.match(css,/height:min\(540px,calc\(100vh - 24px\)\)/);assert.match(css,/#settings-panel \.settings-panel-body\{flex:1;min-height:0\}/)
  assert.match(source,/CaderactFloatingDialog\.bind\(setupDialog,header\)/)
+})
+test('UX13-D production UI communicates active scale and reconciles locked scale edits',()=>{
+ const source=fs.readFileSync('src/js/editor/layout-tabs.js','utf8'),scene=fs.readFileSync('src/js/viewport/ViewportScene.js','utf8')
+ assert.match(source,/Active Viewport · 1:/);assert.match(source,/outcome\.status==="viewport-locked"/);assert.match(source,/syncScale\(viewport\)/)
+ assert.match(scene,/viewport\.active\?2\.5:1\.25/)
 })
