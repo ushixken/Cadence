@@ -50,6 +50,9 @@ dialog.caderact-dialog{max-width:calc(100vw - 24px);max-height:calc(100vh - 24px
 #settings-panel .drafting-settings-body{min-height:0}
 #settings-panel .settings-section{padding-top:9px}
 #settings-panel .settings-section+.settings-section{margin-top:4px}
+#settings-panel .settings-subsection{padding-top:6px}
+#settings-panel .settings-subsection+.settings-subsection{margin-top:2px}
+#settings-panel .settings-subsection h4{margin:0 0 2px;font-size:.62rem}
 #settings-panel .settings-row{grid-template-columns:minmax(145px,1fr) minmax(190px,1.15fr);min-height:31px;column-gap:18px}
 #settings-panel .settings-scoped-actions{padding:8px 0 1px}
 #settings-panel .settings-panel-footer{padding:8px 14px 10px}

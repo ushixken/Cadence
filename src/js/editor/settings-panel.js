@@ -24,18 +24,35 @@
   close.addEventListener("click",dismiss)
   for(const tab of tabs){tab.addEventListener("click",()=>selectSection(tab.dataset.settingsTab));tab.addEventListener("keydown",event=>{if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;event.preventDefault();const available=modeTabs(),index=available.indexOf(tab),next=event.key==="Home"?0:event.key==="End"?available.length-1:event.key==="ArrowLeft"?(index+available.length-1)%available.length:(index+1)%available.length;selectSection(available[next].dataset.settingsTab,{focus:true})})}
   document.addEventListener("keydown",event=>{if(panel.hidden)return;if(event.key==="Escape"){event.preventDefault();dismiss();return}if(event.key!=="Tab")return;const available=focusable();if(!available.length)return;const first=available[0],last=available.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}})
+  let customEstablished=false
+  function isCustomEstablished(){
+    const current=workspacePreferences.value,defaults=window.CaderactWorkspacePreferences.defaults
+    if(current.canvasTheme==='custom')return true
+    if(current.customCanvasPresentation!==null)return true
+    if(current.customCanvasTemplate!==defaults.customCanvasTemplate)return true
+    const defaultColors=defaults.customCanvasColors
+    for(const key of Object.keys(defaultColors)){
+      if(current.customCanvasColors?.[key]!==defaultColors[key])return true
+    }
+    return false
+  }
   controls.uiTheme.addEventListener("change",()=>workspacePreferences.set({uiTheme:controls.uiTheme.value}))
   controls.canvasTheme.addEventListener("change",()=>{
     const next=controls.canvasTheme.value,current=workspacePreferences.value
     if(next==='custom'&&current.canvasTheme!=='custom'){
-      const handoff=viewport.captureCanvasAppearance()
-      workspacePreferences.set({canvasTheme:'custom',customCanvasTemplate:current.canvasTheme==='light'?'technical-light':'classic-dark',customCanvasColors:handoff.colors,customCanvasPresentation:handoff.presentation})
+      if(!customEstablished&&!isCustomEstablished()){
+        const handoff=viewport.captureCanvasAppearance()
+        customEstablished=true
+        workspacePreferences.set({canvasTheme:'custom',customCanvasTemplate:current.canvasTheme==='light'?'technical-light':'classic-dark',customCanvasColors:handoff.colors,customCanvasPresentation:handoff.presentation})
+      }else{
+        workspacePreferences.set({canvasTheme:next})
+      }
     }else workspacePreferences.set({canvasTheme:next})
   })
-  function applyTemplate(){const name=template.value,colors=window.CaderactWorkspacePreferences.CANVAS_TEMPLATES[name];if(colors)workspacePreferences.set({canvasTheme:"custom",customCanvasTemplate:name,customCanvasColors:colors,customCanvasPresentation:null})}
+  function applyTemplate(){const name=template.value,colors=window.CaderactWorkspacePreferences.CANVAS_TEMPLATES[name];if(colors){customEstablished=true;workspacePreferences.set({canvasTheme:"custom",customCanvasTemplate:name,customCanvasColors:colors,customCanvasPresentation:null})}}
   template.addEventListener("change",applyTemplate);templateReset.addEventListener("click",applyTemplate)
-  for(const input of canvasColors)input.addEventListener("input",()=>workspacePreferences.set({customCanvasColors:{...workspacePreferences.value.customCanvasColors,[input.dataset.canvasColor]:input.value}}))
-  appearanceReset.addEventListener("click",()=>{const defaults=window.CaderactWorkspacePreferences.defaults;workspacePreferences.set({uiTheme:defaults.uiTheme,canvasTheme:defaults.canvasTheme,customCanvasTemplate:defaults.customCanvasTemplate,customCanvasColors:defaults.customCanvasColors,customCanvasPresentation:null})})
+  for(const input of canvasColors)input.addEventListener("input",()=>{customEstablished=true;workspacePreferences.set({customCanvasColors:{...workspacePreferences.value.customCanvasColors,[input.dataset.canvasColor]:input.value}})})
+  appearanceReset.addEventListener("click",()=>{customEstablished=false;const defaults=window.CaderactWorkspacePreferences.defaults;workspacePreferences.set({uiTheme:defaults.uiTheme,canvasTheme:defaults.canvasTheme,customCanvasTemplate:defaults.customCanvasTemplate,customCanvasColors:defaults.customCanvasColors,customCanvasPresentation:null})})
   for(const input of workspacePanels)input.addEventListener("change",()=>window.caderactPropertiesPanel?.setPanelVisible(input.dataset.workspacePanel,input.checked))
   activeCollection.addEventListener("change",()=>window.caderactApplicationShell?.showCategory?.(activeCollection.value)||workspacePreferences.set({activeToolCollection:activeCollection.value}))
   workspaceReset.addEventListener("click",()=>{const defaults=window.CaderactWorkspacePreferences.defaults;workspacePreferences.set({rightDockWidth:defaults.rightDockWidth,rightDockLayersVisible:defaults.rightDockLayersVisible,rightDockGroupsVisible:defaults.rightDockGroupsVisible,rightDockBlocksVisible:defaults.rightDockBlocksVisible,rightDockPropertiesVisible:defaults.rightDockPropertiesVisible,activeDockPanel:defaults.activeDockPanel,activeToolCollection:defaults.activeToolCollection});window.caderactRightDock?.apply(defaults.rightDockWidth,{persist:false});window.caderactPropertiesPanel?.showLayers?.({focus:false});window.caderactApplicationShell?.showCategory?.(defaults.activeToolCollection)})

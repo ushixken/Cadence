@@ -493,24 +493,56 @@
               <section id="settings-appearance" class="drafting-settings-page" role="tabpanel" data-settings-group="preferences" data-settings-page="appearance"><div class="settings-section"><h3>Appearance</h3><div class="settings-form">
                 <div class="settings-row"><label for="settings-ui-theme">UI Theme</label><div class="settings-control settings-control-compact"><select id="settings-ui-theme"><option value="light">Light</option><option value="dark">Dark</option></select></div></div>
                 <div class="settings-row"><label for="settings-canvas-theme">Canvas</label><div class="settings-control settings-control-compact"><select id="settings-canvas-theme"><option value="light">Light</option><option value="dark">Dark</option><option value="custom">Custom</option></select></div></div>
-              </div></div><div id="settings-custom-canvas" class="settings-section"><h3>Custom Canvas</h3><div class="settings-form">
-                <div class="settings-row"><label for="settings-canvas-template">Template</label><div class="settings-control settings-template-control"><select id="settings-canvas-template"><option value="classic-dark">Classic Dark</option><option value="technical-light">Technical Light</option><option value="blueprint">Blueprint</option><option value="high-contrast">High Contrast</option></select><button id="settings-canvas-reset" type="button">Reset to Template</button></div></div>
-                <div class="settings-row"><label for="settings-canvas-background">Background</label><div class="settings-control settings-control-compact"><input id="settings-canvas-background" data-canvas-color="background" type="color"></div></div>
-                <div class="settings-row"><label for="settings-canvas-grid-minor">Minor Grid</label><div class="settings-control settings-control-compact"><input id="settings-canvas-grid-minor" data-canvas-color="gridMinor" type="color"></div></div>
-                <div class="settings-row"><label for="settings-canvas-grid-major">Major Grid</label><div class="settings-control settings-control-compact"><input id="settings-canvas-grid-major" data-canvas-color="gridMajor" type="color"></div></div>
-                <div class="settings-row"><label for="settings-canvas-axis-x">X Axis</label><div class="settings-control settings-control-compact"><input id="settings-canvas-axis-x" data-canvas-color="axisX" type="color"></div></div>
-                <div class="settings-row"><label for="settings-canvas-axis-y">Y Axis</label><div class="settings-control settings-control-compact"><input id="settings-canvas-axis-y" data-canvas-color="axisY" type="color"></div></div>
-                <div class="settings-row"><label for="settings-canvas-geometry">Default Geometry</label><div class="settings-control settings-control-compact"><input id="settings-canvas-geometry" data-canvas-color="geometry" type="color"></div></div>
-                <div class="settings-row"><label for="settings-canvas-selection">Selection</label><div class="settings-control settings-control-compact"><input id="settings-canvas-selection" data-canvas-color="selection" type="color"></div></div>
-                <div class="settings-row"><label for="settings-canvas-grip">Grips</label><div class="settings-control settings-control-compact"><input id="settings-canvas-grip" data-canvas-color="grip" type="color"></div></div>
-                <div class="settings-row"><label for="settings-canvas-grip-hover">Grip Hover</label><div class="settings-control settings-control-compact"><input id="settings-canvas-grip-hover" data-canvas-color="gripHover" type="color"></div></div>
-                <div class="settings-row"><label for="settings-canvas-osnap">Osnap Markers</label><div class="settings-control settings-control-compact"><input id="settings-canvas-osnap" data-canvas-color="osnap" type="color"></div></div>
-                <div class="settings-row"><label for="settings-canvas-tracking">Tracking / Extension</label><div class="settings-control settings-control-compact"><input id="settings-canvas-tracking" data-canvas-color="tracking" type="color"></div></div>
-                <div class="settings-row"><label for="settings-canvas-crosshair">Crosshair</label><div class="settings-control settings-control-compact"><input id="settings-canvas-crosshair" data-canvas-color="crosshair" type="color"></div></div>
-                <div class="settings-row"><label for="settings-canvas-dynamic-surface">Dynamic Input Surface</label><div class="settings-control settings-control-compact"><input id="settings-canvas-dynamic-surface" data-canvas-color="dynamicSurface" type="color"></div></div>
-                <div class="settings-row"><label for="settings-canvas-dynamic-text">Dynamic Input Text</label><div class="settings-control settings-control-compact"><input id="settings-canvas-dynamic-text" data-canvas-color="dynamicText" type="color"></div></div>
+              </div></div><div id="settings-custom-canvas" class="settings-section"><h3>Custom Canvas</h3>
+                <div class="settings-form">
+                  <div class="settings-row"><label for="settings-canvas-template">Template</label><div class="settings-control settings-template-control"><select id="settings-canvas-template"><option value="classic-dark">Classic Dark</option><option value="technical-light">Technical Light</option><option value="blueprint">Blueprint</option><option value="high-contrast">High Contrast</option></select><button id="settings-canvas-reset" type="button" aria-label="Reset Custom Canvas">Reset to Template</button></div></div>
+                </div>
+                <div class="settings-subsection" data-canvas-category="canvas">
+                  <h4>CANVAS</h4>
+                  <div class="settings-form">
+                    <div class="settings-row"><label for="settings-canvas-background">Background</label><div class="settings-control settings-control-compact"><input id="settings-canvas-background" data-canvas-color="background" type="color" aria-label="Background"></div></div>
+                  </div>
+                </div>
+                <div class="settings-subsection" data-canvas-category="grid-axes">
+                  <h4>GRID &amp; AXES</h4>
+                  <div class="settings-form">
+                    <div class="settings-row"><label for="settings-canvas-grid-minor">Minor Grid</label><div class="settings-control settings-control-compact"><input id="settings-canvas-grid-minor" data-canvas-color="gridMinor" type="color" aria-label="Minor Grid"></div></div>
+                    <div class="settings-row"><label for="settings-canvas-grid-major">Major Grid</label><div class="settings-control settings-control-compact"><input id="settings-canvas-grid-major" data-canvas-color="gridMajor" type="color" aria-label="Major Grid"></div></div>
+                    <div class="settings-row"><label for="settings-canvas-axis-x">X Axis</label><div class="settings-control settings-control-compact"><input id="settings-canvas-axis-x" data-canvas-color="axisX" type="color" aria-label="X Axis"></div></div>
+                    <div class="settings-row"><label for="settings-canvas-axis-y">Y Axis</label><div class="settings-control settings-control-compact"><input id="settings-canvas-axis-y" data-canvas-color="axisY" type="color" aria-label="Y Axis"></div></div>
+                  </div>
+                </div>
+                <div class="settings-subsection" data-canvas-category="geometry">
+                  <h4>GEOMETRY</h4>
+                  <div class="settings-form">
+                    <div class="settings-row"><label for="settings-canvas-geometry">Default Geometry</label><div class="settings-control settings-control-compact"><input id="settings-canvas-geometry" data-canvas-color="geometry" type="color" aria-label="Default Geometry"></div></div>
+                    <div class="settings-row"><label for="settings-canvas-selection">Selection</label><div class="settings-control settings-control-compact"><input id="settings-canvas-selection" data-canvas-color="selection" type="color" aria-label="Selection"></div></div>
+                  </div>
+                </div>
+                <div class="settings-subsection" data-canvas-category="grips-snaps">
+                  <h4>GRIPS &amp; SNAPS</h4>
+                  <div class="settings-form">
+                    <div class="settings-row"><label for="settings-canvas-grip">Grips</label><div class="settings-control settings-control-compact"><input id="settings-canvas-grip" data-canvas-color="grip" type="color" aria-label="Grips"></div></div>
+                    <div class="settings-row"><label for="settings-canvas-grip-hover">Grip Hover</label><div class="settings-control settings-control-compact"><input id="settings-canvas-grip-hover" data-canvas-color="gripHover" type="color" aria-label="Grip Hover"></div></div>
+                    <div class="settings-row"><label for="settings-canvas-osnap">Osnap Markers</label><div class="settings-control settings-control-compact"><input id="settings-canvas-osnap" data-canvas-color="osnap" type="color" aria-label="Osnap Markers"></div></div>
+                  </div>
+                </div>
+                <div class="settings-subsection" data-canvas-category="tracking-cursor">
+                  <h4>TRACKING &amp; CURSOR</h4>
+                  <div class="settings-form">
+                    <div class="settings-row"><label for="settings-canvas-tracking">Tracking / Extension</label><div class="settings-control settings-control-compact"><input id="settings-canvas-tracking" data-canvas-color="tracking" type="color" aria-label="Tracking / Extension"></div></div>
+                    <div class="settings-row"><label for="settings-canvas-crosshair">Crosshair</label><div class="settings-control settings-control-compact"><input id="settings-canvas-crosshair" data-canvas-color="crosshair" type="color" aria-label="Crosshair"></div></div>
+                  </div>
+                </div>
+                <div class="settings-subsection" data-canvas-category="dynamic-input">
+                  <h4>DYNAMIC INPUT</h4>
+                  <div class="settings-form">
+                    <div class="settings-row"><label for="settings-canvas-dynamic-surface">Surface</label><div class="settings-control settings-control-compact"><input id="settings-canvas-dynamic-surface" data-canvas-color="dynamicSurface" type="color" aria-label="Dynamic Input Surface"></div></div>
+                    <div class="settings-row"><label for="settings-canvas-dynamic-text">Text</label><div class="settings-control settings-control-compact"><input id="settings-canvas-dynamic-text" data-canvas-color="dynamicText" type="color" aria-label="Dynamic Input Text"></div></div>
+                  </div>
+                </div>
                 <p id="settings-canvas-contrast" class="settings-contrast-warning" role="status" aria-live="polite"></p>
-              </div></div><div class="settings-scoped-actions"><button id="settings-appearance-reset" type="button">Reset Appearance</button></div></section>
+              </div><div class="settings-scoped-actions"><button id="settings-appearance-reset" type="button">Reset Appearance</button></div></section>
               <section id="settings-workspace" class="drafting-settings-page" role="tabpanel" data-settings-group="preferences" data-settings-page="workspace" hidden><div class="settings-section"><h3>Right Dock Panels</h3><div class="settings-form">
                 <div class="settings-row"><label for="settings-panel-layers">Layers</label><div class="settings-control settings-control-compact"><input id="settings-panel-layers" data-workspace-panel="layers" type="checkbox"></div></div>
                 <div class="settings-row"><label for="settings-panel-groups">Groups</label><div class="settings-control settings-control-compact"><input id="settings-panel-groups" data-workspace-panel="groups" type="checkbox"></div></div>
