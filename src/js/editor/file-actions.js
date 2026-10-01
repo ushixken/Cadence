@@ -32,6 +32,16 @@
           input.click()
         })
       },
+      async pickDrawingFile() {
+        return new Promise(resolve => {
+          const input = document.createElement("input")
+          input.type = "file"
+          input.accept = ".caderact,.dxf,application/json,application/dxf,application/x-dxf"
+          input.addEventListener("change", () => resolve(input.files?.[0] || null), { once: true })
+          input.addEventListener("cancel", () => resolve(null), { once: true })
+          input.click()
+        })
+      },
       async pickDxfFile() {
         return new Promise(resolve => {
           const input = document.createElement("input")
@@ -74,7 +84,7 @@
     dxfImporter = window.CaderactDxfImport, dxfExporter = window.CaderactDxfExport, adapters = browserAdapters(),
     fileState = window.CaderactDocumentFileState.create({ defaultFilename: DEFAULT_FILENAME }), recovery = null }) {
     let lastResult = result("file-idle")
-    const publish = outcome => { lastResult = outcome; if(outcome?.status?.startsWith("dxf-"))window.caderactApplicationFeedback?.presentResult(outcome);else window.caderactFeedback?.presentResult(outcome); window.caderactFileSafetyUx?.presentOutcome(outcome); return outcome }
+    const publish = outcome => { lastResult = outcome; if(outcome?.status?.startsWith("dxf-"))window.caderactApplicationFeedback?.presentResult(outcome);else window.caderactFeedback?.presentResult(outcome); window.caderactFileSafetyUx?.presentOutcome(outcome);try{window.dispatchEvent?.(new CustomEvent("caderact:file-result",{detail:outcome}))}catch{}return outcome }
     const activeBlocked = operation => commandRouter.isActive
       ? publish(result(`${operation}-blocked-active-command`, { command: commandRouter.activeCommand })) : null
     async function confirmReplacement(operation) {
@@ -130,11 +140,10 @@
         fileHandle: selection.status === "selected" ? selection.handle : null, operation })
     }
     function replaceDocument(store, details) { const replacement = session.replaceStore(store, details); if (replacement.status !== "document-replaced") return replacement; viewport.resetForDocumentReplacement(); return replacement }
-    async function open() {
-      const blocked = activeBlocked("open"); if (blocked) return blocked
-      const guard = await confirmReplacement("open"); if (guard) return guard
-      let file
-      try { file = await adapters.pickOpenFile() }
+    async function open(options={}) {
+      if(!options.skipGuard){const blocked = activeBlocked("open"); if (blocked) return blocked;const guard = await confirmReplacement("open"); if (guard) return guard}
+      let file=options.file||null
+      try { file = file||await adapters.pickOpenFile() }
       catch (error) { return publish(result(error?.name === "AbortError" ? "open-cancelled" : "open-failed", { reason: error?.name === "AbortError" ? "picker-cancelled" : permissionFailure(error) ? "permission-denied" : "picker-failed", ...(error?.name === "AbortError" ? {} : { message: error.message }) })) }
       if (!file) return publish(result("open-cancelled", { reason: "picker-cancelled" }))
       let serialized, store
@@ -150,13 +159,12 @@
       const filename = normalizeFilename(file.name), payloadFingerprint = await fingerprint(persistence.serializeDocument(store.reader.snapshot()))
       const replacement=replaceDocument(store,{reason:"open"});if(replacement.status!=="document-replaced")return publish(result("open-failed",{reason:"replacement-failed"}))
       fileState.opened({filename,fileHandle:file.handle||null,fingerprint:payloadFingerprint.value})
-      return publish(result("open-completed", { filename, documentId: store.reader.snapshot().id, fingerprint: payloadFingerprint.value, fingerprintStatus: payloadFingerprint.status }))
+      return publish(result("open-completed", { filename, documentId: store.reader.snapshot().id, sourceModifiedAt:Number.isFinite(file.lastModified)?file.lastModified:null, fingerprint: payloadFingerprint.value, fingerprintStatus: payloadFingerprint.status }))
     }
-    async function openDxf() {
-      const blocked = activeBlocked("dxf-open"); if (blocked) return blocked
-      const guard = await confirmReplacement("dxf-open"); if (guard) return guard
-      let file
-      try { file = await (adapters.pickDxfFile || adapters.pickOpenFile)() }
+    async function openDxf(options={}) {
+      if(!options.skipGuard){const blocked = activeBlocked("dxf-open"); if (blocked) return blocked;const guard = await confirmReplacement("dxf-open"); if (guard) return guard}
+      let file=options.file||null
+      try { file = file||await (adapters.pickDxfFile || adapters.pickOpenFile)() }
       catch (error) { return publish(result(error?.name === "AbortError" ? "dxf-open-cancelled" : "dxf-open-failed", { reason: error?.name === "AbortError" ? "picker-cancelled" : permissionFailure(error) ? "permission-denied" : "picker-failed", ...(error?.name === "AbortError" ? {} : { message: error.message }) })) }
       if (!file) return publish(result("dxf-open-cancelled", { reason: "picker-cancelled" }))
       let imported, text
@@ -174,9 +182,20 @@
       const sourceName = typeof file.name === "string" ? file.name.replace(/\.dxf$/i, "") : "Untitled"
       const filename = normalizeFilename(sourceName),replacement=replaceDocument(imported.store,{reason:"dxf-open"});if(replacement.status!=="document-replaced")return publish(result("dxf-open-failed",{reason:"replacement-failed"}))
       fileState.imported({filename})
-      const outcome = publish(result("dxf-open-completed", { filename, documentId: imported.store.reader.snapshot().id,
+      const outcome = publish(result("dxf-open-completed", { filename, sourceFilename:typeof file.name==="string"?file.name:filename,sourceModifiedAt:Number.isFinite(file.lastModified)?file.lastModified:null, documentId: imported.store.reader.snapshot().id,
         importedCount: imported.importedCount, diagnostics: imported.diagnostics, unit: imported.unit }))
       return outcome
+    }
+    async function openDrawing(){
+      const blocked=activeBlocked("open");if(blocked)return blocked
+      const guard=await confirmReplacement("open");if(guard)return guard
+      let file
+      try{file=await (adapters.pickDrawingFile||adapters.pickOpenFile)()}catch(error){return publish(result(error?.name==="AbortError"?"open-cancelled":"open-failed",{reason:error?.name==="AbortError"?"picker-cancelled":permissionFailure(error)?"permission-denied":"picker-failed",...(error?.name==="AbortError"?{}:{message:error.message})}))}
+      if(!file)return publish(result("open-cancelled",{reason:"picker-cancelled"}))
+      const name=typeof file.name==="string"?file.name.toLowerCase():""
+      if(name.endsWith(".caderact"))return open({file,skipGuard:true})
+      if(name.endsWith(".dxf"))return openDxf({file,skipGuard:true})
+      return publish(result("open-failed",{reason:"unsupported-file-type",message:"Choose a Caderact drawing or DXF file."}))
     }
     async function exportDxf() {
       let exported
@@ -189,17 +208,19 @@
       if(output.status==="failed")return publish(result("dxf-export-failed",{reason:output.reason||"write-failed",message:output.message||"DXF output failed",diagnostics:exported.diagnostics}))
       return publish(result(output.status==="initiated"?"dxf-export-initiated":"dxf-export-completed",{filename:targetName,serialized:exported.text,exportedCount:exported.exportedCount,diagnostics:exported.diagnostics,unit:exported.unit,version:exported.version,durability:output.status}))
     }
-    async function newProject() {
+    function templateStore(template){const base=window.CaderactDocument.createStore({initiallySaved:true});if(template!=="imperial")return base;const document={...base.reader.snapshot(),units:{length:"in"}};return window.CaderactDocument.createStore({document,initiallySaved:true})}
+    async function newProject(options={}) {
       const blocked = activeBlocked("new"); if (blocked) return blocked
       const guard = await confirmReplacement("new"); if (guard) return guard
       let store
-      try { store = window.CaderactDocument.createStore({ initiallySaved: true }) }
+      const template=options.template==="imperial"?"imperial":"metric"
+      try { store = templateStore(template) }
       catch (error) { return publish(result("new-failed", { message: error.message })) }
       const replacement=replaceDocument(store,{reason:"new"});if(replacement.status!=="document-replaced")return publish(result("new-failed",{reason:"replacement-failed"}))
       fileState.reset()
-      return publish(result("new-completed", { filename: fileState.value.filename, documentId: store.reader.snapshot().id }))
+      return publish(result("new-completed", { filename: fileState.value.filename, documentId: store.reader.snapshot().id,template }))
     }
-    return Object.freeze({ save, saveAs:()=>saveAs("save-as"), open, openDxf, exportDxf, newProject, fileState, recovery, get filename() { return fileState.value.filename }, get lastResult() { return lastResult } })
+    return Object.freeze({ save, saveAs:()=>saveAs("save-as"), open, openDxf,openDrawing, exportDxf, newProject, fileState, recovery, get filename() { return fileState.value.filename }, get lastResult() { return lastResult } })
   }
 
   window.CaderactFileActions = Object.freeze({ createActions, DEFAULT_FILENAME, MAX_NATIVE_INPUT_BYTES, MAX_DXF_INPUT_BYTES, normalizeFilename })
