@@ -184,6 +184,7 @@ async function browser({ commands = true, realRenderer = false, gpu } = {}) {
   load('src/js/document/CaderactUnits.js');
   load('src/js/document/PaperSpace.js');
   load('src/js/document/PlotJob.js');
+  load('src/js/document/PlotBatch.js');
   load('src/js/document/PlotScene.js');
   load('src/js/io/pdf/PdfSerializer.js');
   load('src/js/document/ObjectProperties.js');

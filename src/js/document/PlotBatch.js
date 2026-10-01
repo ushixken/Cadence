@@ -1,0 +1,9 @@
+// PLOT3: validated ephemeral layout selection for one output operation.
+(() => {
+  const MODES=Object.freeze(["current","selected","all"]),OUTPUTS=Object.freeze(["multi-page","separate"])
+  const defaults=()=>Object.freeze({scope:"current",layoutIds:Object.freeze([]),outputMode:"multi-page"})
+  const safePart=value=>String(value||"").trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g,"-").replace(/[. ]+$/g,"").slice(0,96)||"Untitled"
+  function filenames(documentName,layouts){const used=new Map(),base=safePart(String(documentName||"Untitled").replace(/\.caderact$/i,""));return Object.freeze(layouts.map(layout=>{const stem=`${base}-${safePart(layout.name)}`,key=stem.toLowerCase(),count=(used.get(key)||0)+1;used.set(key,count);return`${stem}${count>1?`-${count}`:""}.pdf`}))}
+  function normalize(value={},layouts=[],currentLayoutId=null){const source={...defaults(),...value},scope=String(source.scope),outputMode=String(source.outputMode),known=new Set(layouts.map(layout=>layout.id)),requested=Array.isArray(source.layoutIds)?new Set(source.layoutIds.filter(id=>typeof id==="string"&&known.has(id))):new Set(),layoutIds=scope==="current"?(known.has(currentLayoutId)?[currentLayoutId]:[]):scope==="all"?layouts.map(layout=>layout.id):layouts.filter(layout=>requested.has(layout.id)).map(layout=>layout.id),errors=[];if(!MODES.includes(scope))errors.push("Invalid plot scope");if(!OUTPUTS.includes(outputMode))errors.push("Invalid PDF output mode");if(!layoutIds.length)errors.push("At least one Layout is required");return errors.length?Object.freeze({status:"invalid-plot-batch",errors:Object.freeze(errors)}):Object.freeze({status:"ready",batch:Object.freeze({scope,layoutIds:Object.freeze(layoutIds),outputMode})})}
+  window.CaderactPlotBatch=Object.freeze({MODES,OUTPUTS,defaults,normalize,safePart,filenames})
+})()
