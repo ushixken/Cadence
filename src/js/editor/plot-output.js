@@ -11,7 +11,7 @@
     if(normalized.status!=="ready")return normalized
     try{
       const dimensionStyles=Object.fromEntries(session.reader.dimensionStyles().map(style=>[style.id,style]))
-      const scene=window.CaderactPlotScene.create({layout,job:normalized.job,records:session.reader.visibleRecords(),layers:session.reader.layers(),documentUnit:session.reader.units().length,dimensionStyles})
+      const scene=window.CaderactPlotScene.create({layout,job:normalized.job,records:session.reader.visibleRecords(),layers:session.reader.layers(),document:session.reader.snapshot(),documentUnit:session.reader.units().length,dimensionStyles})
       return Object.freeze({status:"ready",layout,job:normalized.job,scene})
     }catch(error){return Object.freeze({status:"plot-scene-unavailable",error})}
   }
